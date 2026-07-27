@@ -1,0 +1,677 @@
+/*
+ * RhymeLab's own look, layered over Baritone's reset + component CSS. The
+ * workbench (mode bar, section cards, word highlights, line-end badges, the
+ * inspector panel) is bespoke enough to live as real CSS with state selectors,
+ * rather than being forced through design-system components. Baritone still owns
+ * the form controls, buttons, selects and notices.
+ */
+
+:root {
+  --rl-canvas: #f3eee4; /* warm cream page */
+  --rl-surface: #ffffff; /* white cards + sidebar */
+  --rl-surface-2: #faf7f1; /* faint inset */
+  --rl-ink: #1c1917;
+  --rl-ink-soft: #6b6459;
+  --rl-ink-faint: #9a9186;
+  --rl-hairline: rgba(28, 25, 23, 0.1);
+  --rl-hairline-strong: rgba(28, 25, 23, 0.16);
+  --rl-topbar: #17140f;
+  --rl-topbar-ink: #f5f1e8;
+  --rl-topbar-ink-soft: #b3ab9d;
+  --rl-brand: #f0522e; /* the red-orange brand dot */
+  --rl-focus: #f0703c; /* selected-word outline */
+  --rl-serif:
+    "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman",
+    serif;
+  --rl-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --rl-radius: 14px;
+  --rl-radius-sm: 9px;
+  --rl-navbar-h: 60px;
+}
+
+.rl-body {
+  background: var(--rl-canvas);
+  color: var(--rl-ink);
+  font-family: var(--rl-sans);
+}
+
+/* ---------------------------------------------------------------- */
+/* Shared type helpers                                               */
+/* ---------------------------------------------------------------- */
+
+.rl-eyebrow {
+  font-family: var(--rl-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rl-ink-faint);
+}
+
+.rl-title {
+  font-family: var(--rl-serif);
+  font-weight: 600;
+  color: var(--rl-ink);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+}
+
+.rl-byline {
+  font-family: var(--rl-serif);
+  font-style: italic;
+  color: var(--rl-ink-soft);
+}
+
+/* ---------------------------------------------------------------- */
+/* Top bar                                                          */
+/* ---------------------------------------------------------------- */
+
+.rl-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--rl-navbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px 0 18px;
+  background: var(--rl-topbar);
+  color: var(--rl-topbar-ink);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+.rl-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--rl-topbar-ink);
+}
+
+.rl-brand-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--rl-brand);
+  flex: none;
+}
+
+.rl-brand-name {
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+}
+
+.rl-chip-beta {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rl-topbar-ink-soft);
+  border: 1px solid rgba(245, 241, 232, 0.25);
+  border-radius: 6px;
+  padding: 3px 7px;
+}
+
+.rl-topbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.rl-topbar-context {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rl-topbar-context .label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rl-topbar-ink-soft);
+}
+
+.rl-topbar-context .value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--rl-topbar-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rl-topnav {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rl-topnav a,
+.rl-topnav button {
+  font-family: var(--rl-sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--rl-topbar-ink-soft);
+  background: transparent;
+  transition: color 120ms ease;
+}
+
+.rl-topnav a:hover,
+.rl-topnav button:hover {
+  color: var(--rl-topbar-ink);
+}
+
+/* ---------------------------------------------------------------- */
+/* Generic page container (library, forms)                          */
+/* ---------------------------------------------------------------- */
+
+.rl-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 24px 96px;
+}
+
+.rl-page--narrow {
+  max-width: 640px;
+}
+
+/* ---------------------------------------------------------------- */
+/* Library                                                          */
+/* ---------------------------------------------------------------- */
+
+.rl-lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.rl-entry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-hairline);
+  border-radius: var(--rl-radius);
+  padding: 18px 18px 16px;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.rl-entry-card:hover {
+  border-color: var(--rl-hairline-strong);
+  box-shadow: 0 6px 20px rgba(28, 25, 23, 0.07);
+  transform: translateY(-1px);
+}
+
+.rl-entry-card .title {
+  font-family: var(--rl-serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--rl-ink);
+}
+
+.rl-entry-card .meta {
+  font-family: var(--rl-serif);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--rl-ink-soft);
+}
+
+.rl-card-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--rl-ink-faint);
+}
+
+/* ---------------------------------------------------------------- */
+/* Workbench layout                                                 */
+/* ---------------------------------------------------------------- */
+
+.rl-workbench {
+  display: flex;
+  align-items: flex-start;
+  min-height: calc(100vh - var(--rl-navbar-h));
+}
+
+.rl-work-main {
+  flex: 1;
+  min-width: 0;
+  padding: 36px 40px 120px;
+}
+
+.rl-work-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.rl-work-aside {
+  width: 372px;
+  flex: none;
+  align-self: stretch;
+  background: var(--rl-surface);
+  border-left: 1px solid var(--rl-hairline);
+  padding: 26px 24px 40px;
+  position: sticky;
+  top: var(--rl-navbar-h);
+  height: calc(100vh - var(--rl-navbar-h));
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .rl-workbench {
+    flex-direction: column;
+  }
+  .rl-work-aside {
+    width: 100%;
+    position: static;
+    height: auto;
+    border-left: none;
+    border-top: 1px solid var(--rl-hairline);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Mode bar                                                         */
+/* ---------------------------------------------------------------- */
+
+.rl-modebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 22px 0 8px;
+}
+
+/* ---------------------------------------------------------------- */
+/* Section cards                                                    */
+/* ---------------------------------------------------------------- */
+
+.rl-section-card {
+  background: var(--rl-surface);
+  border: 1.5px solid var(--rl-hairline);
+  border-radius: var(--rl-radius);
+  padding: 22px 26px 26px;
+  margin-bottom: 18px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.rl-section-card[data-editing="true"] {
+  border-color: var(--rl-brand);
+  box-shadow: 0 0 0 3px rgba(240, 82, 46, 0.1);
+}
+
+.rl-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.rl-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rl-ink-soft);
+}
+
+.rl-editing-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--rl-brand);
+  border-radius: 5px;
+  padding: 3px 6px;
+}
+
+.rl-section-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rl-section-type .label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rl-ink-faint);
+}
+
+/* ---------------------------------------------------------------- */
+/* Lyrics + words                                                   */
+/* ---------------------------------------------------------------- */
+
+.rl-lyrics {
+  font-family: var(--rl-serif);
+  font-size: 1.32rem;
+  line-height: 1.85;
+  color: var(--rl-ink);
+}
+
+.rl-line {
+  position: relative;
+  padding-right: 40px;
+}
+
+.rl-line--blank {
+  height: 0.9em;
+}
+
+.rl-word {
+  border-radius: 5px;
+  padding: 0.05em 0.12em;
+  transition: background 90ms ease;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.rl-annotate .rl-word {
+  cursor: pointer;
+}
+
+.rl-annotate .rl-word:hover {
+  background: rgba(28, 25, 23, 0.06);
+}
+
+.rl-word[data-annot="true"] {
+  /* Background colour is applied inline (per group/theme). */
+  padding: 0.05em 0.2em;
+}
+
+.rl-word[data-selected="true"] {
+  outline: 2px solid var(--rl-focus);
+  outline-offset: 1px;
+  border-radius: 5px;
+}
+
+.rl-line-badge {
+  position: absolute;
+  right: 0;
+  top: 0.35em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 7px;
+  font-family: var(--rl-sans);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  border: none;
+}
+
+.rl-line-badge--add {
+  background: #ebe6dc;
+  color: var(--rl-ink-faint);
+  font-weight: 600;
+}
+
+.rl-line-badge--add:hover {
+  background: #e0dacd;
+  color: var(--rl-ink-soft);
+}
+
+/* ---------------------------------------------------------------- */
+/* Right inspector panel                                            */
+/* ---------------------------------------------------------------- */
+
+.rl-panel-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rl-ink-faint);
+}
+
+.rl-panel-divider {
+  height: 1px;
+  background: var(--rl-hairline);
+  margin: 18px 0;
+}
+
+.rl-panel-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--rl-ink);
+}
+
+.rl-mode-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rl-ink);
+}
+
+.rl-mode-heading .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.rl-helper {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--rl-ink-soft);
+}
+
+.rl-selected-word {
+  font-family: var(--rl-serif);
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: var(--rl-ink);
+  word-break: break-word;
+}
+
+.rl-selected-empty {
+  font-size: 0.9rem;
+  color: var(--rl-ink-faint);
+  font-style: italic;
+}
+
+.rl-assign-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--rl-surface-2);
+  border: 1px solid var(--rl-hairline);
+  border-radius: var(--rl-radius-sm);
+  padding: 9px 11px;
+}
+
+.rl-assign-card .body {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.rl-assign-card .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex: none;
+}
+
+.rl-assign-card .text .label {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rl-ink-faint);
+}
+
+.rl-assign-card .text .value {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--rl-ink);
+}
+
+/* Rhyme group grid */
+.rl-group-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.rl-group-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--rl-surface);
+  border: 1.5px solid var(--rl-hairline);
+  border-radius: var(--rl-radius-sm);
+  padding: 7px 8px;
+  cursor: pointer;
+  font-family: var(--rl-sans);
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.rl-group-btn:hover {
+  border-color: var(--rl-hairline-strong);
+}
+
+.rl-group-btn[data-active="true"] {
+  border-color: var(--rl-ink);
+  background: var(--rl-surface-2);
+}
+
+.rl-group-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.rl-group-letter {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--rl-ink);
+}
+
+.rl-group-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--rl-ink-faint);
+}
+
+/* Legend */
+.rl-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--rl-ink-soft);
+}
+
+.rl-legend-swatch {
+  width: 20px;
+  height: 16px;
+  border-radius: 4px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+/* ---------------------------------------------------------------- */
+/* Misc                                                             */
+/* ---------------------------------------------------------------- */
+
+.rl-empty {
+  border: 1.5px dashed var(--rl-hairline-strong);
+  border-radius: var(--rl-radius);
+  padding: 40px 28px;
+  text-align: center;
+  color: var(--rl-ink-soft);
+  background: var(--rl-surface);
+}
+
+.rl-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 560px) {
+  .rl-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Forms                                                            */
+/* ---------------------------------------------------------------- */
+
+.rl-taginput {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid var(--rl-hairline-strong);
+  border-radius: var(--rl-radius-sm);
+  padding: 7px 8px;
+  background: var(--rl-surface);
+}
+
+.rl-taginput:focus-within {
+  outline: 2px solid var(--rl-focus);
+  outline-offset: 1px;
+}
+
+.rl-taginput input {
+  flex: 1;
+  min-width: 120px;
+  font-family: var(--rl-sans);
+  font-size: 0.9rem;
+  color: var(--rl-ink);
+  background: transparent;
+  padding: 3px 2px;
+}
+

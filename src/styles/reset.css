@@ -1,0 +1,258 @@
+/*
+ * Reset — strips the browser's default styling so nothing renders with
+ * user-agent opinions baked in. `__root.tsx` links the bundled output of this
+ * file *before* `styles.css`, so Baritone and the app's own rules always win.
+ *
+ * Deliberately not reset: `:focus-visible` outlines and `prefers-reduced-motion`
+ * behaviour, both of which are accessibility defaults worth keeping.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Zero out every UA margin/padding and inherited-by-default type styling. */
+* {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  font-size: 100%;
+  vertical-align: baseline;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* Prevent iOS Safari from inflating text on landscape rotation. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  tab-size: 4;
+}
+
+body {
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* HTML5 elements older engines still treat as inline. */
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+main,
+menu,
+nav,
+section,
+summary {
+  display: block;
+}
+
+/* Headings inherit weight/size from their container instead of shrinking by depth. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* Lists carry no markers or indentation; add them back per component. */
+ol,
+ul,
+menu {
+  list-style: none;
+}
+
+/* Replaced elements behave like blocks and never overflow their container. */
+img,
+svg,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block;
+  max-width: 100%;
+}
+
+img,
+video {
+  height: auto;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  background-color: transparent;
+}
+
+/* Form controls opt out of the platform look entirely. */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+button,
+[type="button"],
+[type="reset"],
+[type="submit"] {
+  cursor: pointer;
+  text-align: inherit;
+  background-color: transparent;
+  background-image: none;
+}
+
+:disabled,
+button:disabled {
+  cursor: default;
+}
+
+/* Keep date/search/number inputs from re-introducing UA chrome. */
+::-webkit-search-decoration,
+::-webkit-search-cancel-button,
+::-webkit-inner-spin-button,
+::-webkit-outer-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+::-webkit-file-upload-button {
+  font: inherit;
+  appearance: button;
+  -webkit-appearance: button;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Placeholders inherit colour and fade instead of using the UA grey. */
+::placeholder {
+  color: inherit;
+  opacity: 0.5;
+}
+
+fieldset,
+legend {
+  padding: 0;
+}
+
+/* `border-collapse: collapse` also removes the UA's 2px cell spacing. */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  text-indent: 0;
+  border-color: inherit;
+}
+
+th {
+  font-weight: inherit;
+  text-align: inherit;
+}
+
+caption {
+  text-align: inherit;
+}
+
+/* Monospace elements keep their family but drop the UA's 13px-ish sizing. */
+code,
+kbd,
+samp,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1em;
+}
+
+pre {
+  white-space: pre-wrap;
+}
+
+b,
+strong {
+  font-weight: bolder;
+}
+
+small {
+  font-size: 80%;
+}
+
+sub,
+sup {
+  position: relative;
+  font-size: 75%;
+  line-height: 0;
+  vertical-align: baseline;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+sup {
+  top: -0.5em;
+}
+
+abbr:where([title]) {
+  text-decoration: underline dotted;
+}
+
+/* `border-style` is needed explicitly — the `border: 0` above zeroed it out. */
+hr {
+  height: 0;
+  color: inherit;
+  border-top: 1px solid currentcolor;
+}
+
+blockquote,
+q {
+  quotes: none;
+}
+
+blockquote::before,
+blockquote::after,
+q::before,
+q::after {
+  content: "";
+  content: none;
+}
+
+/* `hidden` must beat the `display: block` rules above. */
+[hidden]:where(:not([hidden="until-found"])) {
+  display: none !important;
+}
+
+/* Long words break rather than blowing out a layout. */
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
+}
+
+/* Give the app root its own stacking context so z-index inside it stays local. */
+#root,
+#app {
+  isolation: isolate;
+}

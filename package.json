@@ -1,0 +1,62 @@
+{
+  "name": "rhymelab",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite dev --config .config/vite.config.ts --port 3000",
+    "build": "vite build --config .config/vite.config.ts",
+    "preview": "pnpm run build && vite preview --config .config/vite.config.ts",
+    "deploy": "pnpm run build && wrangler deploy",
+    "generate-routes": "tsr generate",
+    "cf-typegen": "wrangler types --config .config/wrangler.jsonc",
+    "db:generate": "drizzle-kit generate --config .config/drizzle.config.ts",
+    "db:migrate:local": "wrangler d1 migrations apply rhymelab-db --local --persist-to .wrangler/state --config .config/wrangler.jsonc",
+    "db:migrate:remote": "wrangler d1 migrations apply rhymelab-db --remote --config .config/wrangler.jsonc",
+    "db:backup": "mkdir -p backups && wrangler d1 export rhymelab-db --remote --config .config/wrangler.jsonc --output=backups/prod-$(date +%Y-%m-%d-%H%M%S).sql",
+    "typecheck": "tsc --noEmit",
+    "fmt": "oxfmt --config .config/.oxfmtrc.json . '!src/routeTree.gen.ts'",
+    "fmt:check": "oxfmt --config .config/.oxfmtrc.json --check . '!src/routeTree.gen.ts'",
+    "lint": "oxlint --config .config/.oxlintrc.json --fix",
+    "lint:check": "oxlint --config .config/.oxlintrc.json",
+    "changeset": "changeset",
+    "changeset:version": "changeset version"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@cloudflare/vite-plugin": "1.44.0",
+    "@saintly-software/baritone": "1.0.0-alpha.1",
+    "@tanstack/react-query": "5.101.2",
+    "@tanstack/react-router": "1.170.18",
+    "@tanstack/react-router-ssr-query": "1.167.1",
+    "@tanstack/react-start": "1.168.30",
+    "@tanstack/react-table": "9.0.0-beta.53",
+    "@tanstack/router-plugin": "1.168.19",
+    "@vanilla-extract/css": "1.21.1",
+    "@vanilla-extract/css-utils": "0.1.6",
+    "drizzle-orm": "0.44.2",
+    "lucide-react": "1.25.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@changesets/cli": "2.31.1",
+    "@tanstack/router-cli": "1.167.18",
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vanilla-extract/vite-plugin": "5.2.5",
+    "@vitejs/plugin-react": "6.0.3",
+    "drizzle-kit": "0.31.1",
+    "oxfmt": "0.50.0",
+    "oxlint": "1.64.0",
+    "typescript": "6.0.3",
+    "vite": "8.1.4",
+    "wrangler": "4.110.0"
+  },
+  "packageManager": "pnpm@11.1.2"
+}

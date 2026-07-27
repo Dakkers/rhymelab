@@ -1,0 +1,40 @@
+name: quality check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: quality-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm fmt:check
+
+      - name: Lint check
+        run: pnpm lint:check
+
+      # `worker-configuration.d.ts` is generated (gitignored) but referenced by
+      # tsconfig, so regenerate it from the bindings before typechecking.
+      - name: Generate Cloudflare types
+        run: pnpm cf-typegen
+
+      - name: Typecheck
+        run: pnpm typecheck

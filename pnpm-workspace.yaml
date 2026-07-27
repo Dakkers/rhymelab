@@ -1,0 +1,54 @@
+# This isn't a workspace (single-package project) — this file exists because pnpm
+# reads its install settings from here. The supply-chain hardening below is the
+# reason it's kept.
+
+# ─── Supply-chain hardening ──────────────────────────────────────────────────
+# These settings make `pnpm install` resolve dependencies defensively. Keep them
+# on; loosen an individual knob only with a deliberate reason.
+
+# Ignore any package version published less than 24h (1440 min) ago. Most
+# malicious releases are caught and unpublished within hours, so this closes the
+# window in which a freshly hijacked version could be pulled into an install.
+minimumReleaseAge: 1440
+
+# Packages exempt from `minimumReleaseAge` — first-party or otherwise trusted
+# deps you knowingly want at a fresh version. Baritone is the in-house design
+# system, so we opt it out rather than wait out the window on every bump.
+minimumReleaseAgeExclude:
+  - "@saintly-software/baritone"
+
+# Refuse transitive dependencies that resolve to anything other than a registry
+# tarball — git URLs, http(s) tarballs, `file:` links, etc. A direct dep may
+# still use them (see `catalog`/workspace links), but a *sub*-dependency pulling
+# in code from off-registry is treated as an error.
+blockExoticSubdeps: true
+
+# Never let resolution move a package *below* a version already trusted in the
+# lockfile. Blocks downgrade-style attacks that reintroduce a known-bad version.
+# "Trust" is judged by publish-time evidence (e.g. provenance attestation), so a
+# newer release that simply stopped publishing provenance trips this too.
+trustPolicy: "no-downgrade"
+
+# Specific versions exempt from `trustPolicy`. These are benign provenance gaps in
+# widely-used transitive deps (e.g. `@types/*` packages, which often ship without
+# provenance) — vetted and pinned by exact version so the exemption can't widen.
+trustPolicyExclude:
+  - "undici-types@6.21.0"
+  - "semver@6.3.1"
+
+# Pin exact versions on `pnpm add` (no `^`/`~`), so an install can't silently
+# float onto a newer, unreviewed release.
+savePrefix: ""
+
+# Only the packages listed here may run install/build lifecycle scripts
+# (postinstall, etc.). Everything else is blocked by default — an unlisted
+# dependency cannot execute arbitrary code at install time. Add a package here
+# (with a quick look at *why* it needs a build step) only when its build is
+# genuinely required.
+allowBuilds:
+  esbuild: true
+  lightningcss: true
+  # Pulled in transitively (via Wrangler); we don't process images, so deny its
+  # native build. Flip to `true` if you start using sharp.
+  sharp: false
+  workerd: true

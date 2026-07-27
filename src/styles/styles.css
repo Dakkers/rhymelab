@@ -1,0 +1,10 @@
+/*
+ * Baritone ships its compiled stylesheet as a single import — pull it in here so
+ * the design system's CSS enters the app in exactly one place. `__root.tsx` links
+ * the *bundled* output of this file.
+ *
+ * App-level tokens deliberately do *not* live here: they're declared in
+ * `theme.css.ts` via vanilla-extract, so the `*.css.ts` files that consume them
+ * get typed references instead of hand-written `var(--…)` strings.
+ */
+@import "@saintly-software/baritone/styles.css";
