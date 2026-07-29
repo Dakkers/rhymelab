@@ -10,20 +10,15 @@ import {
   type EntryFormState,
 } from "#/components/EntryForm";
 import { q, invalidateEntry, invalidateEntries } from "#/lib/queries";
+import { entryIdParams } from "#/lib/url";
 import { deleteEntry, saveLyrics, updateEntry, type EntryDetail } from "#/server/entries";
 
-/** A positive integer id, or null for a malformed `/entries/:id/edit` path. */
-function parseEntryId(raw: string): number | null {
-  const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
 export const Route = createFileRoute("/_authenticated/entries/$entryId/edit/")({
-  loader: ({ context, params }) => {
-    const id = parseEntryId(params.entryId);
-    if (id == null) return;
-    return context.queryClient.ensureQueryData(q.entries.detail(id));
-  },
+  // A malformed id never reaches the loader: `params.parse` rejects it during
+  // matching and the router falls through to the 404.
+  params: entryIdParams,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(q.entries.detail(params.entryId)),
   component: EditEntryPage,
 });
 
@@ -39,13 +34,7 @@ function MissingEntry() {
 }
 
 function EditEntryPage() {
-  const { entryId } = Route.useParams();
-  const id = parseEntryId(entryId);
-  if (id == null) return <MissingEntry />;
-  return <EditEntryView id={id} />;
-}
-
-function EditEntryView({ id }: { id: number }) {
+  const { entryId: id } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: entry } = useSuspenseQuery(q.entries.detail(id));
@@ -134,12 +123,7 @@ function EditForm({
               {entry.title}
             </h1>
           </div>
-          <Link
-            appearance="button"
-            intent="neutral"
-            saliency="low"
-            href={`/entries/${id}`}
-          >
+          <Link appearance="button" intent="neutral" saliency="low" href={`/entries/${id}`}>
             Open workbench
           </Link>
         </Flex>

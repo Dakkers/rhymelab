@@ -8,21 +8,30 @@ import {
   VIEW_MODES,
   entryKindLabel,
   type AnnotationMode,
+  type RhymeView,
   type SectionType,
   type ViewMode,
 } from "#/lib/constants";
 import { defaultSectionLabel, linesInRange, parseLines, type WordToken } from "#/lib/lyrics";
 import { invalidateEntry } from "#/lib/queries";
 import { setAnnotation, updateSection, type EntryDetail, type SectionDTO } from "#/server/entries";
-import { Inspector, type RhymeView } from "./Inspector";
+import { Inspector } from "./Inspector";
 import { SectionCard } from "./SectionCard";
 import { makeWordFinder, type Selection } from "./logic";
 
-export function Workbench({ entry }: { entry: EntryDetail }) {
+interface WorkbenchProps {
+  entry: EntryDetail;
+  /** Which annotation layer is active. Lives in the URL (`?mode=`). */
+  mode: ViewMode;
+  /** How rhyme groups are drawn. Lives in the URL (`?view=`). */
+  view: RhymeView;
+  onModeChange: (mode: ViewMode) => void;
+  onViewChange: (view: RhymeView) => void;
+}
+
+export function Workbench({ entry, mode, view, onModeChange, onViewChange }: WorkbenchProps) {
   const id = entry.id;
   const queryClient = useQueryClient();
-  const [mode, setMode] = useState<ViewMode>("rhyme-structure");
-  const [view, setView] = useState<RhymeView>("colours");
   const [selection, setSelection] = useState<Selection | null>(null);
   // The fixed end of a shift-click range: a plain click sets it, shift-clicks
   // extend from it (so a phrase can be grown/shrunk by repeated shift-clicks).
@@ -191,12 +200,7 @@ export function Workbench({ entry }: { entry: EntryDetail }) {
             )}
 
             <div className="rl-modebar">
-              <ToggleGroup
-                label="Mode"
-                labelPosition="start"
-                value={mode}
-                onChange={(m) => setMode(m)}
-              >
+              <ToggleGroup label="Mode" labelPosition="start" value={mode} onChange={onModeChange}>
                 {({ ToggleGroupItem }) => (
                   <>
                     {VIEW_MODES.map((m) => (
@@ -214,9 +218,8 @@ export function Workbench({ entry }: { entry: EntryDetail }) {
 
             {entry.lyrics.trim().length === 0 ? (
               <div className="rl-empty" style={{ marginTop: 24 }}>
-                No lyrics yet.{" "}
-                <Link href={`/entries/${id}/edit`}>Add lyrics</Link>{" "}
-                to start annotating.
+                No lyrics yet. <Link href={`/entries/${id}/edit`}>Add lyrics</Link> to start
+                annotating.
               </div>
             ) : (
               <div style={{ marginTop: 18 }}>
@@ -251,7 +254,7 @@ export function Workbench({ entry }: { entry: EntryDetail }) {
           annotations={entry.annotations}
           activeSection={activeSection}
           view={view}
-          onViewChange={setView}
+          onViewChange={onViewChange}
           onWrite={write}
           onClearMode={clearMode}
           busy={busy}

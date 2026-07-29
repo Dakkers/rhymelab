@@ -191,53 +191,6 @@
   gap: 16px;
 }
 
-.rl-entry-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--rl-surface);
-  border: 1px solid var(--rl-hairline);
-  border-radius: var(--rl-radius);
-  padding: 18px 18px 16px;
-  text-decoration: none;
-  color: inherit;
-  transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease,
-    transform 120ms ease;
-}
-
-.rl-entry-card:hover {
-  border-color: var(--rl-hairline-strong);
-  box-shadow: 0 6px 20px rgba(28, 25, 23, 0.07);
-  transform: translateY(-1px);
-}
-
-.rl-entry-card .title {
-  font-family: var(--rl-serif);
-  font-size: 1.4rem;
-  font-weight: 600;
-  line-height: 1.15;
-  color: var(--rl-ink);
-}
-
-.rl-entry-card .meta {
-  font-family: var(--rl-serif);
-  font-style: italic;
-  font-size: 0.95rem;
-  color: var(--rl-ink-soft);
-}
-
-.rl-card-footer {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 0.75rem;
-  color: var(--rl-ink-faint);
-}
-
 /* ---------------------------------------------------------------- */
 /* Workbench layout                                                 */
 /* ---------------------------------------------------------------- */
@@ -674,4 +627,3 @@
   background: transparent;
   padding: 3px 2px;
 }
-

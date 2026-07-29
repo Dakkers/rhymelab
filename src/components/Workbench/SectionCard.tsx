@@ -4,6 +4,7 @@ import {
   RHYME_GROUP_COLORS,
   SECTION_TYPE_OPTIONS,
   type RhymeGroup,
+  type RhymeView,
   type SectionType,
   type ViewMode,
 } from "#/lib/constants";
@@ -15,7 +16,7 @@ interface SectionCardProps {
   section: SectionDTO;
   lines: LineToken[];
   mode: ViewMode;
-  view: "colours" | "letters";
+  view: RhymeView;
   selection: Selection | null;
   editing: boolean;
   busy: boolean;
@@ -136,7 +137,7 @@ function LineBadge({
   onClick,
 }: {
   word: WordToken;
-  view: "colours" | "letters";
+  view: RhymeView;
   findRhyme: (start: number, end: number) => AnnotationDTO | null;
   onClick: () => void;
 }) {

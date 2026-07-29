@@ -35,7 +35,7 @@ function NewEntryPage() {
     try {
       const { id } = await createEntry({ data: { ...toEntryPayload(form), lyrics } });
       await invalidateEntries(queryClient);
-      await navigate({ to: "/entries/$entryId", params: { entryId: String(id) } });
+      await navigate({ to: "/entries/$entryId", params: { entryId: id } });
     } catch {
       setBusy(false);
     }

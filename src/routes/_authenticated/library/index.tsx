@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link as RouterLink, createFileRoute } from "@tanstack/react-router";
-import { Chip, Flex, Link, Text } from "@saintly-software/baritone";
+import { Card, Chip, ChipList, Flex, Link, Text } from "@saintly-software/baritone";
 import { Plus as PlusIcon } from "lucide-react";
 import { TopBar } from "#/components/TopBar";
 import { q } from "#/lib/queries";
@@ -66,31 +66,37 @@ function LibraryPage() {
 function EntryCard({ entry, showTime }: { entry: EntrySummary; showTime: boolean }) {
   const bylineBits = [entry.artist, entry.year != null ? String(entry.year) : null].filter(Boolean);
   return (
-    <RouterLink
-      to="/entries/$entryId"
-      params={{ entryId: String(entry.id) }}
-      className="rl-entry-card"
+    <Card
+      as="article"
+      saliency="low"
+      href={`/entries/${entry.id}`}
+      render={<RouterLink to="/entries/$entryId" params={{ entryId: entry.id }} />}
+      header={
+        <Card.Header
+          title={entry.title}
+          subtitle={bylineBits.length > 0 ? bylineBits.join(" · ") : undefined}
+          chip={<Chip size="sm">{entryKindLabel(entry.kind)}</Chip>}
+        />
+      }
+      footer={
+        <Card.Footer style={{ marginTop: "auto", justifyContent: "space-between" }}>
+          <Text size="sm" saliency="low">
+            {entry.hasLyrics ? pluralize(entry.annotationCount, "annotation") : "No lyrics yet"}
+          </Text>
+          {showTime && (
+            <Text size="sm" saliency="low">
+              {since(entry.updatedAt)}
+            </Text>
+          )}
+        </Card.Footer>
+      }
     >
-      <div className="rl-eyebrow">{entryKindLabel(entry.kind)}</div>
-      <div className="title">{entry.title}</div>
-      {bylineBits.length > 0 && <div className="meta">{bylineBits.join(" · ")}</div>}
-
       {entry.tags.length > 0 && (
-        <Flex gap="1" wrap style={{ marginTop: 2 }}>
-          {entry.tags.slice(0, 4).map((t) => (
-            <Chip key={t} size="sm">
-              {t}
-            </Chip>
-          ))}
-        </Flex>
+        <ChipList
+          size="sm"
+          items={entry.tags.slice(0, 4).map((t) => ({ id: t, children: t }))}
+        />
       )}
-
-      <div className="rl-card-footer">
-        <span>
-          {entry.hasLyrics ? pluralize(entry.annotationCount, "annotation") : "No lyrics yet"}
-        </span>
-        {showTime && <span>{since(entry.updatedAt)}</span>}
-      </div>
-    </RouterLink>
+    </Card>
   );
 }

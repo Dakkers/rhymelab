@@ -10,6 +10,7 @@ import {
   sectionTypeLabel,
   type AnnotationMode,
   type RhymeGroup,
+  type RhymeView,
   type ViewMode,
 } from "#/lib/constants";
 import type { AnnotationDTO, SectionDTO } from "#/server/entries";
@@ -20,8 +21,6 @@ import {
   groupCountsForSection,
   type Selection,
 } from "./logic";
-
-export type RhymeView = "colours" | "letters";
 
 interface InspectorProps {
   mode: ViewMode;

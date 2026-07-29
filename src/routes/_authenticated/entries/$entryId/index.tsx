@@ -1,21 +1,18 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { TopBar } from "#/components/TopBar";
 import { Workbench } from "#/components/Workbench";
 import { q } from "#/lib/queries";
-
-/** A positive integer id, or null for a malformed `/entries/:id` path. */
-function parseEntryId(raw: string): number | null {
-  const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
+import { WORKBENCH_SEARCH_DEFAULTS, entryIdParams, workbenchSearch } from "#/lib/url";
 
 export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
-  loader: ({ context, params }) => {
-    const id = parseEntryId(params.entryId);
-    if (id == null) return;
-    return context.queryClient.ensureQueryData(q.entries.detail(id));
-  },
+  // A malformed id never reaches the loader: `params.parse` rejects it during
+  // matching and the router falls through to the 404.
+  params: entryIdParams,
+  validateSearch: workbenchSearch,
+  search: { middlewares: [stripSearchParams(WORKBENCH_SEARCH_DEFAULTS)] },
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(q.entries.detail(params.entryId)),
   component: EntryPage,
 });
 
@@ -32,15 +29,21 @@ function MissingEntry() {
 
 function EntryPage() {
   const { entryId } = Route.useParams();
-  const id = parseEntryId(entryId);
-  // Guard the malformed-id case before the suspense hook so a bad URL renders the
-  // empty state instead of throwing (the server validator rejects id <= 0 / NaN).
-  if (id == null) return <MissingEntry />;
-  return <EntryView id={id} />;
-}
+  const { mode, view } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const { data: entry } = useSuspenseQuery(q.entries.detail(entryId));
 
-function EntryView({ id }: { id: number }) {
-  const { data: entry } = useSuspenseQuery(q.entries.detail(id));
   if (!entry) return <MissingEntry />;
-  return <Workbench entry={entry} />;
+
+  return (
+    <Workbench
+      entry={entry}
+      mode={mode}
+      view={view}
+      // `replace` so toggling layers doesn't stack up history entries — the URL
+      // is here to be shared and reloaded, not to be walked back through.
+      onModeChange={(next) => navigate({ search: (s) => ({ ...s, mode: next }), replace: true })}
+      onViewChange={(next) => navigate({ search: (s) => ({ ...s, view: next }), replace: true })}
+    />
+  );
 }

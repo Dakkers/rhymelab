@@ -91,6 +91,10 @@ export type AnnotationMode = (typeof ANNOTATION_MODES)[number];
 export const VIEW_MODES = ["read", ...ANNOTATION_MODES] as const;
 export type ViewMode = (typeof VIEW_MODES)[number];
 
+/** How rhyme groups are drawn over the lyrics: tinted words, or A/B/C letters. */
+export const RHYME_VIEWS = ["colours", "letters"] as const;
+export type RhymeView = (typeof RHYME_VIEWS)[number];
+
 export interface ModeMeta {
   mode: ViewMode;
   label: string;
