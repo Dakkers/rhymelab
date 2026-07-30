@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Button, Card, Flex, Heading, Text, TextInput } from "@saintly-software/baritone";
-import { BrandName } from "#/components/TopBar";
+import { BrandName } from "#/components/NavBar";
 import { getAuth, login } from "#/server/auth";
 
 export const Route = createFileRoute("/auth/login/")({

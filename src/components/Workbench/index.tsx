@@ -4,7 +4,6 @@ import { Link as RouterLink } from "@tanstack/react-router";
 import { Badge, Box, Flex, Heading, Notice, Text, ToggleGroup } from "@saintly-software/baritone";
 import { Info as InfoIcon } from "lucide-react";
 import { Eyebrow } from "#/components/Eyebrow";
-import { TopBar, TopBarContext } from "#/components/TopBar";
 import {
   MODE_META,
   VIEW_MODES,
@@ -163,114 +162,105 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
   const byline = [entry.artist, entry.year != null ? String(entry.year) : null]
     .filter(Boolean)
     .join(" · ");
-  const context = (
-    <TopBarContext
-      label="Analyzing"
-      value={`${entry.title}${entry.artist ? ` · ${entry.artist}` : ""}`}
-    />
-  );
 
   return (
-    <>
-      <TopBar context={context} />
-      <div className="rl-workbench">
-        <div className="rl-work-main">
-          <div className="rl-work-inner">
-            <Eyebrow>{eyebrow}</Eyebrow>
-            <Heading level={1} size="8xl" font="serif" mt="2" style={{ lineHeight: 1.04 }}>
-              {entry.title}
-            </Heading>
+    <div className="rl-workbench">
+      <div className="rl-work-main">
+        <div className="rl-work-inner">
+          <Eyebrow>{eyebrow}</Eyebrow>
+          <Heading level={1} size="8xl" font="serif" mt="2" style={{ lineHeight: 1.04 }}>
+            {entry.title}
+          </Heading>
 
-            {byline && (
-              <Text size="lg" font="serif" italic saliency="low" mt="2">
-                {byline}
-              </Text>
-            )}
+          {byline && (
+            <Text size="lg" font="serif" italic saliency="low" mt="2">
+              {byline}
+            </Text>
+          )}
 
-            {showBanner && sectionsWithLines.length > 0 && (
-              <Notice
-                intent="positive"
-                icon={<InfoIcon size={18} aria-hidden />}
-                close={() => setShowBanner(false)}
-                mt="6"
-              >
-                Structure auto-detected — <strong>{sectionsWithLines.length} sections</strong>.
-                Change a section's type from its header.
-              </Notice>
-            )}
+          {showBanner && sectionsWithLines.length > 0 && (
+            <Notice
+              intent="positive"
+              icon={<InfoIcon size={18} aria-hidden />}
+              close={() => setShowBanner(false)}
+              mt="6"
+            >
+              Structure auto-detected — <strong>{sectionsWithLines.length} sections</strong>. Change
+              a section's type from its header.
+            </Notice>
+          )}
 
-            <div className="rl-modebar">
-              <ToggleGroup label="Mode" labelPosition="start" value={mode} onChange={onModeChange}>
-                {({ ToggleGroupItem }) => (
-                  <>
-                    {VIEW_MODES.map((m) => (
-                      <ToggleGroupItem key={m} value={m}>
-                        <Flex inline align="center" gap="2" render={<span />}>
-                          <Badge shape="round" size="sm" color={MODE_META[m].color} />
-                          {MODE_META[m].label}
-                        </Flex>
-                      </ToggleGroupItem>
-                    ))}
-                  </>
-                )}
-              </ToggleGroup>
-            </div>
-
-            {entry.lyrics.trim().length === 0 ? (
-              <Notice
-                mt="6"
-                description="Paste the lyrics in and the workbench will split them into sections you can annotate."
-                actions={[
-                  <Notice.Action
-                    key="add"
-                    href={`/entries/${id}/edit`}
-                    render={<RouterLink to="/entries/$entryId/edit" params={{ entryId: id }} />}
-                  >
-                    Add lyrics
-                  </Notice.Action>,
-                ]}
-              >
-                No lyrics yet
-              </Notice>
-            ) : (
-              <Box mt="4">
-                {sectionsWithLines.map(({ section, lines: sectionLines }) => (
-                  <SectionCard
-                    key={section.id}
-                    section={section}
-                    lines={sectionLines}
-                    mode={mode}
-                    view={view}
-                    selection={selection}
-                    editing={activeSection?.id === section.id}
-                    busy={busy}
-                    findCurrent={findCurrent}
-                    findRhyme={findRhyme}
-                    onSelectWord={selectWord}
-                    onSelectFinalWord={(line) => {
-                      const last = line.words[line.words.length - 1];
-                      if (last) selectWord(last, false);
-                    }}
-                    onChangeType={(type) => changeSectionType(section, type)}
-                  />
-                ))}
-              </Box>
-            )}
+          <div className="rl-modebar">
+            <ToggleGroup label="Mode" labelPosition="start" value={mode} onChange={onModeChange}>
+              {({ ToggleGroupItem }) => (
+                <>
+                  {VIEW_MODES.map((m) => (
+                    <ToggleGroupItem key={m} value={m}>
+                      <Flex inline align="center" gap="2" render={<span />}>
+                        <Badge shape="round" size="sm" color={MODE_META[m].color} />
+                        {MODE_META[m].label}
+                      </Flex>
+                    </ToggleGroupItem>
+                  ))}
+                </>
+              )}
+            </ToggleGroup>
           </div>
-        </div>
 
-        <Inspector
-          mode={mode}
-          selection={selection}
-          annotations={entry.annotations}
-          activeSection={activeSection}
-          view={view}
-          onViewChange={onViewChange}
-          onWrite={write}
-          onClearMode={clearMode}
-          busy={busy}
-        />
+          {entry.lyrics.trim().length === 0 ? (
+            <Notice
+              mt="6"
+              description="Paste the lyrics in and the workbench will split them into sections you can annotate."
+              actions={[
+                <Notice.Action
+                  key="add"
+                  href={`/entries/${id}/edit`}
+                  render={<RouterLink to="/entries/$entryId/edit" params={{ entryId: id }} />}
+                >
+                  Add lyrics
+                </Notice.Action>,
+              ]}
+            >
+              No lyrics yet
+            </Notice>
+          ) : (
+            <Box mt="4">
+              {sectionsWithLines.map(({ section, lines: sectionLines }) => (
+                <SectionCard
+                  key={section.id}
+                  section={section}
+                  lines={sectionLines}
+                  mode={mode}
+                  view={view}
+                  selection={selection}
+                  editing={activeSection?.id === section.id}
+                  busy={busy}
+                  findCurrent={findCurrent}
+                  findRhyme={findRhyme}
+                  onSelectWord={selectWord}
+                  onSelectFinalWord={(line) => {
+                    const last = line.words[line.words.length - 1];
+                    if (last) selectWord(last, false);
+                  }}
+                  onChangeType={(type) => changeSectionType(section, type)}
+                />
+              ))}
+            </Box>
+          )}
+        </div>
       </div>
-    </>
+
+      <Inspector
+        mode={mode}
+        selection={selection}
+        annotations={entry.annotations}
+        activeSection={activeSection}
+        view={view}
+        onViewChange={onViewChange}
+        onWrite={write}
+        onClearMode={clearMode}
+        busy={busy}
+      />
+    </div>
   );
 }

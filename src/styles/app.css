@@ -21,11 +21,14 @@
   --rl-ink-faint: #9a9186;
   --rl-hairline: rgba(28, 25, 23, 0.1);
   --rl-hairline-strong: rgba(28, 25, 23, 0.16);
-  --rl-topbar: #17140f;
-  --rl-topbar-ink: #f5f1e8;
-  --rl-topbar-ink-soft: #b3ab9d;
-  --rl-brand: #f0522e; /* the red-orange brand dot */
-  --rl-focus: #f0703c; /* selected-word outline */
+  --rl-navbar: #17140f;
+  --rl-navbar-ink: #f5f1e8;
+  --rl-navbar-ink-soft: #b3ab9d;
+  /* The literal brand red-orange, kept for the logo mark only — a mark is a fixed
+     asset, not a semantic intent. Everything else brand-coloured goes through
+     Baritone's `primary` tokens, which `__root.tsx` seeds from this same colour
+     and republishes as `--rl-primary*` for the state selectors below. */
+  --rl-brand: #f0522e;
   --rl-serif:
     "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman",
     serif;
@@ -42,10 +45,10 @@
 }
 
 /* ---------------------------------------------------------------- */
-/* Top bar                                                          */
+/* Nav bar                                                          */
 /* ---------------------------------------------------------------- */
 
-.rl-topbar {
+.rl-navbar {
   position: sticky;
   top: 0;
   z-index: 40;
@@ -55,8 +58,8 @@
   justify-content: space-between;
   gap: 16px;
   padding: 0 20px 0 18px;
-  background: var(--rl-topbar);
-  color: var(--rl-topbar-ink);
+  background: var(--rl-navbar);
+  color: var(--rl-navbar-ink);
   border-bottom: 1px solid rgba(0, 0, 0, 0.4);
 }
 
@@ -64,7 +67,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: var(--rl-topbar-ink);
+  color: var(--rl-navbar-ink);
 }
 
 .rl-brand-dot {
@@ -83,40 +86,25 @@
   padding: 3px 7px;
 }
 
-.rl-topbar-right {
-  display: inline-flex;
-  align-items: center;
-  gap: 18px;
-  min-width: 0;
-}
-
-.rl-topbar-context {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.rl-topnav {
+.rl-nav {
   display: inline-flex;
   align-items: center;
   gap: 16px;
 }
 
-.rl-topnav a,
-.rl-topnav button {
+.rl-nav a,
+.rl-nav button {
   font-family: var(--rl-sans);
   font-size: 0.82rem;
   font-weight: 500;
-  color: var(--rl-topbar-ink-soft);
+  color: var(--rl-navbar-ink-soft);
   background: transparent;
   transition: color 120ms ease;
 }
 
-.rl-topnav a:hover,
-.rl-topnav button:hover {
-  color: var(--rl-topbar-ink);
+.rl-nav a:hover,
+.rl-nav button:hover {
+  color: var(--rl-navbar-ink);
 }
 
 /* ---------------------------------------------------------------- */
@@ -219,8 +207,8 @@
 }
 
 .rl-section-card[data-editing="true"] {
-  border-color: var(--rl-brand);
-  box-shadow: 0 0 0 3px rgba(240, 82, 46, 0.1);
+  border-color: var(--rl-primary);
+  box-shadow: 0 0 0 3px var(--rl-primary-tint);
 }
 
 .rl-section-head {
@@ -235,15 +223,6 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-}
-
-/* The "Editing" flag. Its `color` has to win over the one `Text` resolves from
-   the theme, which it does because this sheet is loaded after Baritone's. */
-.rl-editing-badge {
-  color: #fff;
-  background: var(--rl-brand);
-  border-radius: 5px;
-  padding: 3px 6px;
 }
 
 .rl-section-type {
@@ -287,7 +266,7 @@
 }
 
 .rl-word[data-selected="true"] {
-  outline: 2px solid var(--rl-focus);
+  outline: 2px solid var(--rl-primary-focus);
   outline-offset: 1px;
   border-radius: 5px;
 }
@@ -323,20 +302,6 @@
 /* Right inspector panel                                            */
 /* ---------------------------------------------------------------- */
 
-.rl-panel-divider {
-  height: 1px;
-  background: var(--rl-hairline);
-  margin: 18px 0;
-}
-
-/* The colour dot beside the active mode's name. */
-.rl-mode-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex: none;
-}
-
 .rl-assign-card {
   display: flex;
   align-items: center;
@@ -353,13 +318,6 @@
   align-items: center;
   gap: 9px;
   min-width: 0;
-}
-
-.rl-assign-card .swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  flex: none;
 }
 
 /* Rhyme group grid */

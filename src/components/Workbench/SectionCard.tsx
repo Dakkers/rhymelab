@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from "react";
-import { Select, Text } from "@saintly-software/baritone";
+import { Badge, Select, Text } from "@saintly-software/baritone";
 import { Eyebrow } from "#/components/Eyebrow";
 import {
   RHYME_GROUP_COLORS,
@@ -40,9 +40,7 @@ export function SectionCard(props: SectionCardProps) {
             {section.label}
           </Eyebrow>
           {editing && (
-            <Eyebrow as="span" className="rl-editing-badge">
-              Editing
-            </Eyebrow>
+            <Badge shape="square" size="sm" intent="primary" saliency="high" text="Editing" />
           )}
         </span>
         <span className="rl-section-type">

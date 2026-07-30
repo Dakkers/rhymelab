@@ -2,7 +2,6 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { Notice } from "@saintly-software/baritone";
 import { FileQuestionMark as FileQuestionIcon } from "lucide-react";
-import { TopBar } from "#/components/TopBar";
 import { Workbench } from "#/components/Workbench";
 import { q } from "#/lib/queries";
 import { WORKBENCH_SEARCH_DEFAULTS, entryIdParams, workbenchSearch } from "#/lib/url";
@@ -20,17 +19,14 @@ export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
 
 function MissingEntry() {
   return (
-    <>
-      <TopBar />
-      <main className="rl-page">
-        <Notice
-          icon={<FileQuestionIcon size={18} aria-hidden />}
-          description="It may have been deleted, or the link is wrong."
-        >
-          That entry doesn't exist
-        </Notice>
-      </main>
-    </>
+    <main className="rl-page">
+      <Notice
+        icon={<FileQuestionIcon size={18} aria-hidden />}
+        description="It may have been deleted, or the link is wrong."
+      >
+        That entry doesn't exist
+      </Notice>
+    </main>
   );
 }
 

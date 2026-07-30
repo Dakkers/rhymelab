@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Flex, Heading, Link, Text } from "@saintly-software/baritone";
-import { AlphaChip, BrandName } from "#/components/TopBar";
+import { AlphaChip, BrandName } from "#/components/NavBar";
 import { getAuth } from "#/server/auth";
 
 export const Route = createFileRoute("/")({

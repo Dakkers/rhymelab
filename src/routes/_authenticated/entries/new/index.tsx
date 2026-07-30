@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Box, Button, Card, Flex, Heading, Link, TextInput } from "@saintly-software/baritone";
 import { Eyebrow } from "#/components/Eyebrow";
-import { TopBar } from "#/components/TopBar";
 import {
   EntryFields,
   emptyEntryForm,
@@ -43,45 +42,42 @@ function NewEntryPage() {
   }
 
   return (
-    <>
-      <TopBar />
-      <main className="rl-page rl-page--narrow">
-        <Box mb="6">
-          <Eyebrow>New entry</Eyebrow>
-          <Heading level={1} size="4xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
-            Add a song or poem
-          </Heading>
-        </Box>
+    <main className="rl-page rl-page--narrow">
+      <Box mb="6">
+        <Eyebrow>New entry</Eyebrow>
+        <Heading level={1} size="4xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
+          Add a song or poem
+        </Heading>
+      </Box>
 
-        <Flex direction="column" gap="6">
-          <Card saliency="low">
-            <EntryFields value={form} onChange={patch} disabled={busy} showTitleError={showErr} />
-          </Card>
+      <Flex direction="column" gap="6">
+        <Card saliency="low">
+          <EntryFields value={form} onChange={patch} disabled={busy} showTitleError={showErr} />
+        </Card>
 
-          <Card saliency="low">
-            <TextInput
-              multiline
-              rows={14}
-              label="Lyrics"
-              helpText="Paste the full text. Leave a blank line between sections — they'll be detected automatically. You can edit this later."
-              value={lyrics}
-              onChange={(value) => setLyrics(value)}
-              disabled={busy}
-              placeholder={"Once upon a midnight dreary, while I pondered, weak and weary,\n…"}
-              spellCheck={false}
-            />
-          </Card>
+        <Card saliency="low">
+          <TextInput
+            multiline
+            rows={14}
+            label="Lyrics"
+            helpText="Paste the full text. Leave a blank line between sections — they'll be detected automatically. You can edit this later."
+            value={lyrics}
+            onChange={(value) => setLyrics(value)}
+            disabled={busy}
+            placeholder={"Once upon a midnight dreary, while I pondered, weak and weary,\n…"}
+            spellCheck={false}
+          />
+        </Card>
 
-          <Flex align="center" justify="between" gap="3">
-            <Link appearance="button" intent="neutral" saliency="low" href="/library">
-              Cancel
-            </Link>
-            <Button onClick={submit} loading={busy} disabled={busy}>
-              Create entry
-            </Button>
-          </Flex>
+        <Flex align="center" justify="between" gap="3">
+          <Link appearance="button" intent="neutral" saliency="low" href="/library">
+            Cancel
+          </Link>
+          <Button onClick={submit} loading={busy} disabled={busy}>
+            Create entry
+          </Button>
         </Flex>
-      </main>
-    </>
+      </Flex>
+    </main>
   );
 }

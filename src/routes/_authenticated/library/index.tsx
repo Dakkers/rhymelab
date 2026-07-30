@@ -12,7 +12,6 @@ import {
 } from "@saintly-software/baritone";
 import { Music4 as MusicIcon, Plus as PlusIcon } from "lucide-react";
 import { Eyebrow } from "#/components/Eyebrow";
-import { TopBar } from "#/components/TopBar";
 import { q } from "#/lib/queries";
 import { entryKindLabel } from "#/lib/constants";
 import { pluralize, since } from "#/lib/format";
@@ -29,59 +28,55 @@ function LibraryPage() {
   const mounted = useMounted();
 
   return (
-    <>
-      <TopBar />
+    <main className="rl-page">
+      <Flex align="center" justify="between" gap="4" mb="8">
+        <div>
+          <Eyebrow>Library</Eyebrow>
+          <Heading level={1} size="5xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
+            Your songs & poems
+          </Heading>
+        </div>
+        <Link
+          appearance="button"
+          startIcon={<PlusIcon size={16} aria-hidden />}
+          href="/entries/new"
+        >
+          New entry
+        </Link>
+      </Flex>
 
-      <main className="rl-page">
-        <Flex align="center" justify="between" gap="4" mb="8">
-          <div>
-            <Eyebrow>Library</Eyebrow>
-            <Heading level={1} size="5xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
-              Your songs & poems
-            </Heading>
-          </div>
-          <Link
-            appearance="button"
-            startIcon={<PlusIcon size={16} aria-hidden />}
-            href="/entries/new"
-          >
-            New entry
-          </Link>
-        </Flex>
-
-        {entries.length === 0 ? (
-          <Card
-            saliency="low"
-            footer={
-              <Card.Footer
-                actions={
-                  <Card.Actions
-                    side="start"
-                    actions={[
-                      <Link key="create" appearance="button" href="/entries/new">
-                        Create your first entry
-                      </Link>,
-                    ]}
-                  />
-                }
-              />
-            }
-          >
-            <Lockup
-              icon={<MusicIcon aria-hidden />}
-              title="Nothing here yet"
-              subtitle="Add a song or poem, paste its lyrics, and start marking the music."
+      {entries.length === 0 ? (
+        <Card
+          saliency="low"
+          footer={
+            <Card.Footer
+              actions={
+                <Card.Actions
+                  side="start"
+                  actions={[
+                    <Link key="create" appearance="button" href="/entries/new">
+                      Create your first entry
+                    </Link>,
+                  ]}
+                />
+              }
             />
-          </Card>
-        ) : (
-          <div className="rl-lib-grid">
-            {entries.map((e) => (
-              <EntryCard key={e.id} entry={e} showTime={mounted} />
-            ))}
-          </div>
-        )}
-      </main>
-    </>
+          }
+        >
+          <Lockup
+            icon={<MusicIcon aria-hidden />}
+            title="Nothing here yet"
+            subtitle="Add a song or poem, paste its lyrics, and start marking the music."
+          />
+        </Card>
+      ) : (
+        <div className="rl-lib-grid">
+          {entries.map((e) => (
+            <EntryCard key={e.id} entry={e} showTime={mounted} />
+          ))}
+        </div>
+      )}
+    </main>
   );
 }
 

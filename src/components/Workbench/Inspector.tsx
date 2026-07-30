@@ -1,8 +1,10 @@
 import { useState } from "react";
 import {
+  Badge,
   Button,
   Chip,
   Combobox,
+  Divider,
   Flex,
   Text,
   TextInput,
@@ -68,16 +70,16 @@ export function Inspector(props: InspectorProps) {
         </Text>
 
         {activeSection && (
-          <Eyebrow as="span" letterSpacing="wider" style={{ color: "var(--rl-brand)" }}>
+          <Eyebrow as="span" letterSpacing="wider" intent="primary" saliency="mid">
             {sectionTypeLabel(activeSection.type)}
           </Eyebrow>
         )}
       </Flex>
 
-      <div className="rl-panel-divider" />
+      <Divider my="4" />
 
       <Flex align="center" gap="2">
-        <span className="rl-mode-dot" style={{ background: meta.color }} />
+        <Badge shape="round" size="sm" color={meta.color} />
         <Text weight="bold" saliency="high">
           {meta.label}
         </Text>
@@ -86,7 +88,7 @@ export function Inspector(props: InspectorProps) {
         {meta.helper}
       </Text>
 
-      <div className="rl-panel-divider" />
+      <Divider my="4" />
 
       <Eyebrow>Selected {selection?.wordIndex != null ? "word" : "text"}</Eyebrow>
       {selection ? (
@@ -117,9 +119,7 @@ export function Inspector(props: InspectorProps) {
             return (
               <div key={m} className="rl-assign-card">
                 <div className="body">
-                  {color && m !== "note" && (
-                    <span className="swatch" style={{ background: color.solid }} />
-                  )}
+                  {color && m !== "note" && <Badge shape="square" size="lg" color={color.solid} />}
                   <div className="text">
                     <Eyebrow>{MODE_LABELS[m]}</Eyebrow>
                     <Text size="sm" weight="semibold" saliency="high">
@@ -145,7 +145,7 @@ export function Inspector(props: InspectorProps) {
       {/* Current-mode control. Keyed on the span so local drafts reset per word. */}
       {mode !== "read" && selection && (
         <>
-          <div className="rl-panel-divider" />
+          <Divider my="4" />
           <ModeControl
             key={`${mode}:${selection.start}:${selection.end}`}
             {...props}
@@ -177,7 +177,7 @@ function RhymeControl(
   const active = covering["rhyme-structure"]?.value as RhymeGroup | undefined;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <Flex direction="column" gap="4">
       <div>
         <Eyebrow mb="2">Assign rhyme group</Eyebrow>
         <div className="rl-group-grid">
@@ -243,7 +243,7 @@ function RhymeControl(
           </Flex>
         </Flex>
       </div>
-    </div>
+    </Flex>
   );
 }
 
