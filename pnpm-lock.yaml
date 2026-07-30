@@ -15,8 +15,8 @@ importers:
         specifier: 1.44.0
         version: 1.44.0(vite@8.1.4(@types/node@22.20.1)(esbuild@0.25.12)(jiti@2.7.0))(workerd@1.20260708.1)(wrangler@4.110.0)
       '@saintly-software/baritone':
-        specifier: 1.0.0-alpha.1
-        version: 1.0.0-alpha.1(@base-ui/react@1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-table@9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@vanilla-extract/css@1.21.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 1.0.0-alpha.2
+        version: 1.0.0-alpha.2(@base-ui/react@1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-table@9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@vanilla-extract/css@1.21.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-query':
         specifier: 5.101.2
         version: 5.101.2(react@19.2.7)
@@ -1380,8 +1380,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@saintly-software/baritone@1.0.0-alpha.1':
-    resolution: {integrity: sha512-qJA+4Lr6RUjRXL+GD9R++wO2LJ70bk50QdoCg7S9Yv7HNCNVKmLtXEuCXKUPmYMu2BZlGkqoGTdWL1gP7x4Hqg==}
+  '@saintly-software/baritone@1.0.0-alpha.2':
+    resolution: {integrity: sha512-iR+bBQgFekAHiI8RssSbPlkgZsVYhBZvCxBwusc7zy4exrRre1UcEkaKcYY0XNQsQEgFKW9kqODTvOOR6H1hJw==}
     peerDependencies:
       '@base-ui/react': ^1.6.0
       '@tanstack/react-table': ^9.0.0-beta.53
@@ -3669,7 +3669,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@saintly-software/baritone@1.0.0-alpha.1(@base-ui/react@1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-table@9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@vanilla-extract/css@1.21.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@saintly-software/baritone@1.0.0-alpha.2(@base-ui/react@1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-table@9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@vanilla-extract/css@1.21.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@base-ui/react': 1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-table': 9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

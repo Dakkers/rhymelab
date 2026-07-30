@@ -1,5 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
+import { Notice } from "@saintly-software/baritone";
+import { FileQuestionMark as FileQuestionIcon } from "lucide-react";
 import { TopBar } from "#/components/TopBar";
 import { Workbench } from "#/components/Workbench";
 import { q } from "#/lib/queries";
@@ -21,7 +23,12 @@ function MissingEntry() {
     <>
       <TopBar />
       <main className="rl-page">
-        <div className="rl-empty">That entry doesn't exist (or was deleted).</div>
+        <Notice
+          icon={<FileQuestionIcon size={18} aria-hidden />}
+          description="It may have been deleted, or the link is wrong."
+        >
+          That entry doesn't exist
+        </Notice>
       </main>
     </>
   );

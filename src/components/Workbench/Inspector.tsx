@@ -1,6 +1,15 @@
 import { useState } from "react";
-import { Button, Chip, Flex, TextInput, ToggleGroup } from "@saintly-software/baritone";
+import {
+  Button,
+  Chip,
+  Combobox,
+  Flex,
+  Text,
+  TextInput,
+  ToggleGroup,
+} from "@saintly-software/baritone";
 import { X as XIcon } from "lucide-react";
+import { Eyebrow } from "#/components/Eyebrow";
 import {
   MODE_META,
   RHYME_GROUPS,
@@ -52,52 +61,54 @@ export function Inspector(props: InspectorProps) {
 
   return (
     <aside className="rl-work-aside">
-      <div className="rl-panel-label">Current section</div>
-      <div className="rl-panel-section-title" style={{ marginTop: 6 }}>
-        {activeSection ? activeSection.label : "—"}
+      <Eyebrow>Current section</Eyebrow>
+      <Flex align="center" gap="3" mt="2">
+        <Text size="lg" weight="semibold" saliency="high">
+          {activeSection ? activeSection.label : "—"}
+        </Text>
+
         {activeSection && (
-          <span
-            style={{
-              fontSize: "0.72rem",
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "var(--rl-brand)",
-            }}
-          >
+          <Eyebrow as="span" letterSpacing="wider" style={{ color: "var(--rl-brand)" }}>
             {sectionTypeLabel(activeSection.type)}
-          </span>
+          </Eyebrow>
         )}
-      </div>
+      </Flex>
 
       <div className="rl-panel-divider" />
 
-      <div className="rl-mode-heading">
-        <span className="dot" style={{ background: meta.color }} />
-        {meta.label}
-      </div>
-      <p className="rl-helper" style={{ marginTop: 8 }}>
+      <Flex align="center" gap="2">
+        <span className="rl-mode-dot" style={{ background: meta.color }} />
+        <Text weight="bold" saliency="high">
+          {meta.label}
+        </Text>
+      </Flex>
+      <Text as="p" size="sm" saliency="low" mt="2">
         {meta.helper}
-      </p>
+      </Text>
 
       <div className="rl-panel-divider" />
 
-      <div className="rl-panel-label">
-        Selected {selection?.wordIndex != null ? "word" : "text"}
-      </div>
+      <Eyebrow>Selected {selection?.wordIndex != null ? "word" : "text"}</Eyebrow>
       {selection ? (
-        <div className="rl-selected-word" style={{ marginTop: 6 }}>
+        <Text
+          font="serif"
+          size="3xl"
+          weight="semibold"
+          saliency="high"
+          overflowWrap="break-word"
+          mt="2"
+        >
           “{selection.text}”
-        </div>
+        </Text>
       ) : (
-        <div className="rl-selected-empty" style={{ marginTop: 6 }}>
+        <Text size="sm" italic saliency="low" mt="2">
           Select a word in the lyrics to annotate it.
-        </div>
+        </Text>
       )}
 
       {/* Cross-mode summary of what's on the selected span. */}
       {selection && Object.keys(covering).length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+        <Flex direction="column" gap="2" mt="4">
           {(Object.keys(covering) as AnnotationMode[]).map((m) => {
             const ann = covering[m]!;
             const color = colorForAnnotation(ann);
@@ -110,8 +121,10 @@ export function Inspector(props: InspectorProps) {
                     <span className="swatch" style={{ background: color.solid }} />
                   )}
                   <div className="text">
-                    <span className="label">{MODE_LABELS[m]}</span>
-                    <span className="value">{value}</span>
+                    <Eyebrow>{MODE_LABELS[m]}</Eyebrow>
+                    <Text size="sm" weight="semibold" saliency="high">
+                      {value}
+                    </Text>
                   </div>
                 </div>
                 <Button
@@ -126,7 +139,7 @@ export function Inspector(props: InspectorProps) {
               </div>
             );
           })}
-        </div>
+        </Flex>
       )}
 
       {/* Current-mode control. Keyed on the span so local drafts reset per word. */}
@@ -166,9 +179,7 @@ function RhymeControl(
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
-        <div className="rl-panel-label" style={{ marginBottom: 8 }}>
-          Assign rhyme group
-        </div>
+        <Eyebrow mb="2">Assign rhyme group</Eyebrow>
         <div className="rl-group-grid">
           {RHYME_GROUPS.map((g) => {
             const c = RHYME_GROUP_COLORS[g];
@@ -186,9 +197,13 @@ function RhymeControl(
                   style={{ background: c.solid, color: c.ink }}
                   aria-hidden
                 >
-                  {g}
+                  <Text as="span" size="xs" weight="superbold" style={{ color: "inherit" }}>
+                    {g}
+                  </Text>
                 </span>
-                <span className="rl-group-count">{counts[g]}</span>
+                <Text as="span" size="xs" weight="semibold" saliency="low" ml="auto">
+                  {counts[g]}
+                </Text>
               </button>
             );
           })}
@@ -205,24 +220,28 @@ function RhymeControl(
       </ToggleGroup>
 
       <div>
-        <div className="rl-panel-label" style={{ marginBottom: 8 }}>
-          Legend
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div className="rl-legend-row">
+        <Eyebrow mb="2">Legend</Eyebrow>
+        <Flex direction="column" gap="2">
+          <Flex align="center" gap="3">
             <span className="rl-legend-swatch" style={{ background: RHYME_GROUP_COLORS.A.tint }} />
-            Rhyming words share a colour
-          </div>
-          <div className="rl-legend-row">
+            <Text size="sm" saliency="low">
+              Rhyming words share a colour
+            </Text>
+          </Flex>
+          <Flex align="center" gap="3">
             <span
               className="rl-legend-swatch"
               style={{ background: RHYME_GROUP_COLORS.X.solid, color: RHYME_GROUP_COLORS.X.ink }}
             >
-              X
+              <Text as="span" size="xs" weight="superbold" style={{ color: "inherit" }}>
+                X
+              </Text>
             </span>
-            A line or word that doesn't rhyme
-          </div>
-        </div>
+            <Text size="sm" saliency="low">
+              A line or word that doesn't rhyme
+            </Text>
+          </Flex>
+        </Flex>
       </div>
     </div>
   );
@@ -235,10 +254,8 @@ function OptionControl(
   const active = props.covering[props.mode as AnnotationMode]?.value;
   return (
     <div>
-      <div className="rl-panel-label" style={{ marginBottom: 8 }}>
-        Assign {MODE_META[props.mode].label.toLowerCase()}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <Eyebrow mb="2">Assign {MODE_META[props.mode].label.toLowerCase()}</Eyebrow>
+      <Flex gap="2" wrap>
         {options.map((o) => (
           <Button
             key={o.value}
@@ -251,7 +268,7 @@ function OptionControl(
             {o.label}
           </Button>
         ))}
-      </div>
+      </Flex>
     </div>
   );
 }
@@ -259,43 +276,50 @@ function OptionControl(
 function ThemeControl(
   props: InspectorProps & { covering: Partial<Record<AnnotationMode, AnnotationDTO>> },
 ) {
-  const active = props.covering.theme?.value ?? "";
-  const [draft, setDraft] = useState(active);
-  const themes = existingThemes(props.annotations).filter((t) => t !== active);
+  const active = props.covering.theme?.value ?? null;
+  const themes = existingThemes(props.annotations);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div className="rl-panel-label">Assign theme</div>
-      <div className="rl-taginput" style={{ padding: "4px 6px" }}>
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && draft.trim()) {
-              e.preventDefault();
-              props.onWrite(draft.trim(), null);
-            }
-          }}
-          placeholder="Name a theme…"
-        />
-        <Button
-          appearance="text"
-          onClick={() => draft.trim() && props.onWrite(draft.trim(), null)}
-          disabled={props.busy || !draft.trim()}
-        >
-          Add
-        </Button>
-      </div>
-      {themes.length > 0 && (
+    <Flex direction="column" gap="3">
+      <Eyebrow>Assign theme</Eyebrow>
+      {/*
+        Unlike the other modes, a theme isn't drawn from a fixed vocabulary — it's
+        whatever this entry has accumulated — so this is a single-select over
+        `existingThemes` with `freeText` to coin a new one. There's no local draft
+        state: the value is the annotation covering the span, and committing writes
+        straight through. `onWrite(null, …)` is the identical call `clearMode` makes,
+        which is what lets the built-in ✕ mean "clear the theme".
+      */}
+      <Combobox
+        freeText
+        aria-label="Theme"
+        placeholder="Name a theme…"
+        options={themes.map((t) => ({ value: t, label: t }))}
+        value={active}
+        onValueChange={(value) => value !== active && props.onWrite(value, null)}
+        disabled={props.busy}
+      />
+      {/*
+        The popup lists these too, but keeping them visible is the point: annotating
+        runs word-by-word through a handful of recurring themes, and a chip is one
+        click where the combobox is open-then-pick.
+      */}
+      {themes.some((t) => t !== active) && (
         <Flex gap="1" wrap>
-          {themes.map((t) => (
-            <Chip key={t} size="sm" onClick={props.busy ? undefined : () => props.onWrite(t, null)}>
-              {t}
-            </Chip>
-          ))}
+          {themes
+            .filter((t) => t !== active)
+            .map((t) => (
+              <Chip
+                key={t}
+                size="sm"
+                onClick={props.busy ? undefined : () => props.onWrite(t, null)}
+              >
+                {t}
+              </Chip>
+            ))}
         </Flex>
       )}
-    </div>
+    </Flex>
   );
 }
 
@@ -306,16 +330,16 @@ function NoteControl(
   const [draft, setDraft] = useState(current);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <Flex direction="column" gap="3">
       <TextInput
         multiline
         rows={5}
         label="Note"
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(value) => setDraft(value)}
         placeholder="Write a note about this word or phrase…"
       />
-      <div style={{ display: "flex", gap: 8 }}>
+      <Flex gap="2">
         <Button
           onClick={() => props.onWrite(null, draft.trim() || null)}
           disabled={props.busy || draft.trim() === current.trim()}
@@ -336,7 +360,7 @@ function NoteControl(
             Remove
           </Button>
         )}
-      </div>
-    </div>
+      </Flex>
+    </Flex>
   );
 }

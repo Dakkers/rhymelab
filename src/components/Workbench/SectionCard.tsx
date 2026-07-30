@@ -1,5 +1,6 @@
 import type { MouseEvent, ReactNode } from "react";
-import { Select } from "@saintly-software/baritone";
+import { Select, Text } from "@saintly-software/baritone";
+import { Eyebrow } from "#/components/Eyebrow";
 import {
   RHYME_GROUP_COLORS,
   SECTION_TYPE_OPTIONS,
@@ -35,11 +36,17 @@ export function SectionCard(props: SectionCardProps) {
     <section className="rl-section-card" data-editing={editing ? "true" : undefined}>
       <header className="rl-section-head">
         <span className="rl-section-label">
-          {section.label}
-          {editing && <span className="rl-editing-badge">Editing</span>}
+          <Eyebrow as="span" saliency="mid">
+            {section.label}
+          </Eyebrow>
+          {editing && (
+            <Eyebrow as="span" className="rl-editing-badge">
+              Editing
+            </Eyebrow>
+          )}
         </span>
         <span className="rl-section-type">
-          <span className="label">Type</span>
+          <Eyebrow as="span">Type</Eyebrow>
           <Select
             options={SECTION_TYPE_OPTIONS}
             value={section.type}
@@ -51,11 +58,18 @@ export function SectionCard(props: SectionCardProps) {
         </span>
       </header>
 
-      <div className={`rl-lyrics${annotate ? " rl-annotate" : ""}`}>
+      {/* The lyric body itself: serif, one size up from body copy, and set loose
+          enough that the per-line rhyme badges have room to sit beside it. */}
+      <Text
+        font="serif"
+        size="xl"
+        className={annotate ? "rl-annotate" : undefined}
+        style={{ lineHeight: 1.85 }}
+      >
         {lines.map((line) => (
           <Line key={line.index} line={line} {...props} />
         ))}
-      </div>
+      </Text>
     </section>
   );
 }
@@ -150,7 +164,9 @@ function LineBadge({
         onClick={onClick}
         aria-label="Assign rhyme group to this line"
       >
-        +
+        <Text as="span" size="sm" weight="semibold" style={{ color: "inherit", lineHeight: 1 }}>
+          +
+        </Text>
       </button>
     );
   }
@@ -169,7 +185,9 @@ function LineBadge({
       onClick={onClick}
       aria-label={`Rhyme group ${g}`}
     >
-      {g}
+      <Text as="span" size="sm" weight="superbold" style={{ color: "inherit", lineHeight: 1 }}>
+        {g}
+      </Text>
     </button>
   );
 }

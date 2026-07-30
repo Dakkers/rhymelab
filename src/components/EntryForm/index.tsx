@@ -1,5 +1,4 @@
-import { useState, type InputHTMLAttributes, type KeyboardEvent } from "react";
-import { Chip, Field, Flex, Select, TextInput } from "@saintly-software/baritone";
+import { Combobox, Flex, Select, TextInput } from "@saintly-software/baritone";
 import { ENTRY_KINDS, type EntryKind } from "#/lib/constants";
 import type { EntryDetail } from "#/server/entries";
 
@@ -66,7 +65,7 @@ export function EntryFields({ value, onChange, disabled, showTitleError }: Entry
       <TextInput
         label="Title"
         value={value.title}
-        onChange={(e) => onChange({ title: e.target.value })}
+        onChange={(value) => onChange({ title: value })}
         disabled={disabled}
         state={showTitleError && !value.title.trim() ? "invalid" : "neutral"}
         helpText={showTitleError && !value.title.trim() ? "A title is required." : undefined}
@@ -86,7 +85,7 @@ export function EntryFields({ value, onChange, disabled, showTitleError }: Entry
           type="number"
           inputMode="numeric"
           value={value.year}
-          onChange={(e) => onChange({ year: e.target.value })}
+          onChange={(value) => onChange({ year: value })}
           disabled={disabled}
           placeholder="e.g. 1845"
         />
@@ -96,98 +95,45 @@ export function EntryFields({ value, onChange, disabled, showTitleError }: Entry
         <TextInput
           label={artistLabel}
           value={value.artist}
-          onChange={(e) => onChange({ artist: e.target.value })}
+          onChange={(value) => onChange({ artist: value })}
           disabled={disabled}
         />
         <TextInput
           label={collectionLabel}
           value={value.collection}
-          onChange={(e) => onChange({ collection: e.target.value })}
+          onChange={(value) => onChange({ collection: value })}
           disabled={disabled}
         />
       </div>
 
-      <Field label="Tags">
-        {({ nameAttrs, describedBy }) => (
-          <TagInput
-            value={value.tags}
-            onChange={(tags) => onChange({ tags })}
-            disabled={disabled}
-            inputProps={{ ...nameAttrs, "aria-describedby": describedBy }}
-          />
-        )}
-      </Field>
+      {/*
+        Tags are open-ended, so there's no fixed option list: `freeText` is what
+        actually commits a value, and the options are the tags already chosen.
+        Feeding them back in isn't decorative — Combobox hides the "Add …" row
+        when the query case-insensitively matches an option, which is what stops
+        "rap" and "Rap" from both landing on the same entry.
+      */}
+      <Combobox
+        multiple
+        freeText
+        label="Tags"
+        options={value.tags.map((t) => ({ value: t, label: t }))}
+        value={value.tags}
+        onValueChange={(tags) => onChange({ tags })}
+        disabled={disabled}
+        hideClearButton={!value.tags.length}
+        placeholder={value.tags.length ? undefined : "Add tags…"}
+      />
 
       <TextInput
         multiline
         rows={4}
         label="Notes"
         value={value.notes}
-        onChange={(e) => onChange({ notes: e.target.value })}
+        onChange={(value) => onChange({ notes: value })}
         disabled={disabled}
         placeholder="Anything worth remembering about this piece…"
       />
     </Flex>
-  );
-}
-
-/** A minimal chip-input: type + Enter/comma to add, Backspace to remove last. */
-export function TagInput({
-  value,
-  onChange,
-  disabled,
-  inputProps,
-}: {
-  value: string[];
-  onChange: (tags: string[]) => void;
-  disabled?: boolean;
-  inputProps?: InputHTMLAttributes<HTMLInputElement>;
-}) {
-  const [draft, setDraft] = useState("");
-
-  function commit(raw: string) {
-    const parts = raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!parts.length) return;
-    const next = [...value];
-    for (const p of parts) {
-      if (!next.some((t) => t.toLowerCase() === p.toLowerCase())) next.push(p);
-    }
-    onChange(next);
-    setDraft("");
-  }
-
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      commit(draft);
-    } else if (e.key === "Backspace" && !draft && value.length) {
-      onChange(value.slice(0, -1));
-    }
-  }
-
-  return (
-    <div className="rl-taginput">
-      {value.map((t) => (
-        <Chip
-          key={t}
-          size="sm"
-          handleRemove={disabled ? undefined : () => onChange(value.filter((x) => x !== t))}
-        >
-          {t}
-        </Chip>
-      ))}
-      <input
-        {...inputProps}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={onKeyDown}
-        onBlur={() => draft && commit(draft)}
-        disabled={disabled}
-        placeholder={value.length ? "" : "Add tags…"}
-      />
-    </div>
   );
 }

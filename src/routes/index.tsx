@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Flex, Link, Text } from "@saintly-software/baritone";
+import { Flex, Heading, Link, Text } from "@saintly-software/baritone";
+import { AlphaChip, BrandName } from "#/components/TopBar";
 import { getAuth } from "#/server/auth";
 
 export const Route = createFileRoute("/")({
@@ -22,20 +23,13 @@ function LandingPage() {
       >
         <Flex align="center" gap="3">
           <span className="rl-brand-dot" aria-hidden />
-          <span className="rl-brand-name" style={{ fontSize: "1.4rem", color: "var(--rl-ink)" }}>
-            RhymeLab
-          </span>
-          <span
-            className="rl-chip-beta"
-            style={{ color: "var(--rl-ink-soft)", borderColor: "var(--rl-hairline-strong)" }}
-          >
-            Alpha
-          </span>
+          <BrandName size="xl" />
+          <AlphaChip style={{ borderColor: "var(--rl-hairline-strong)" }} />
         </Flex>
 
-        <h1 className="rl-title" style={{ fontSize: "2.8rem" }}>
+        <Heading level={1} size="8xl" font="serif" style={{ lineHeight: 1.04 }}>
           Read closely. Mark the music.
-        </h1>
+        </Heading>
         <Text size="lg" saliency="low">
           A private workbench for annotating songs and poems — rhyme structure, sound, theme,
           device, and notes, laid over the words themselves.

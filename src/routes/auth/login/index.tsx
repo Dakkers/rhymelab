@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Button, Card, Flex, Heading, Text, TextInput } from "@saintly-software/baritone";
+import { BrandName } from "#/components/TopBar";
 import { getAuth, login } from "#/server/auth";
 
 export const Route = createFileRoute("/auth/login/")({
@@ -48,9 +49,7 @@ function LoginPage() {
         <Flex render={<form onSubmit={submit} />} direction="column" gap="4">
           <Flex align="center" gap="3">
             <span className="rl-brand-dot" aria-hidden />
-            <span className="rl-brand-name" style={{ color: "var(--rl-ink)" }}>
-              RhymeLab
-            </span>
+            <BrandName />
           </Flex>
           <Flex direction="column" gap="1">
             <Heading level={2} size="xl">
@@ -64,7 +63,7 @@ function LoginPage() {
             label="Password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(value) => setPassword(value)}
             state={failed ? "invalid" : "neutral"}
             helpText={failed ? "That password didn't match." : undefined}
             autoFocus

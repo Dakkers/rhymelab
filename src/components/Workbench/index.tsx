@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Badge, Flex, Link, Notice, ToggleGroup } from "@saintly-software/baritone";
+import { Link as RouterLink } from "@tanstack/react-router";
+import { Badge, Box, Flex, Heading, Notice, Text, ToggleGroup } from "@saintly-software/baritone";
 import { Info as InfoIcon } from "lucide-react";
-import { TopBar } from "#/components/TopBar";
+import { Eyebrow } from "#/components/Eyebrow";
+import { TopBar, TopBarContext } from "#/components/TopBar";
 import {
   MODE_META,
   VIEW_MODES,
@@ -162,13 +164,10 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
     .filter(Boolean)
     .join(" · ");
   const context = (
-    <span className="rl-topbar-context">
-      <span className="label">Analyzing</span>
-      <span className="value">
-        {entry.title}
-        {entry.artist ? ` · ${entry.artist}` : ""}
-      </span>
-    </span>
+    <TopBarContext
+      label="Analyzing"
+      value={`${entry.title}${entry.artist ? ` · ${entry.artist}` : ""}`}
+    />
   );
 
   return (
@@ -177,14 +176,15 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
       <div className="rl-workbench">
         <div className="rl-work-main">
           <div className="rl-work-inner">
-            <div className="rl-eyebrow">{eyebrow}</div>
-            <h1 className="rl-title" style={{ fontSize: "2.9rem", marginTop: 6 }}>
+            <Eyebrow>{eyebrow}</Eyebrow>
+            <Heading level={1} size="8xl" font="serif" mt="2" style={{ lineHeight: 1.04 }}>
               {entry.title}
-            </h1>
+            </Heading>
+
             {byline && (
-              <div className="rl-byline" style={{ fontSize: "1.15rem", marginTop: 6 }}>
+              <Text size="lg" font="serif" italic saliency="low" mt="2">
                 {byline}
-              </div>
+              </Text>
             )}
 
             {showBanner && sectionsWithLines.length > 0 && (
@@ -192,7 +192,7 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
                 intent="positive"
                 icon={<InfoIcon size={18} aria-hidden />}
                 close={() => setShowBanner(false)}
-                style={{ marginTop: 20 }}
+                mt="6"
               >
                 Structure auto-detected — <strong>{sectionsWithLines.length} sections</strong>.
                 Change a section's type from its header.
@@ -217,12 +217,23 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
             </div>
 
             {entry.lyrics.trim().length === 0 ? (
-              <div className="rl-empty" style={{ marginTop: 24 }}>
-                No lyrics yet. <Link href={`/entries/${id}/edit`}>Add lyrics</Link> to start
-                annotating.
-              </div>
+              <Notice
+                mt="6"
+                description="Paste the lyrics in and the workbench will split them into sections you can annotate."
+                actions={[
+                  <Notice.Action
+                    key="add"
+                    href={`/entries/${id}/edit`}
+                    render={<RouterLink to="/entries/$entryId/edit" params={{ entryId: id }} />}
+                  >
+                    Add lyrics
+                  </Notice.Action>,
+                ]}
+              >
+                No lyrics yet
+              </Notice>
             ) : (
-              <div style={{ marginTop: 18 }}>
+              <Box mt="4">
                 {sectionsWithLines.map(({ section, lines: sectionLines }) => (
                   <SectionCard
                     key={section.id}
@@ -243,7 +254,7 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
                     onChangeType={(type) => changeSectionType(section, type)}
                   />
                 ))}
-              </div>
+              </Box>
             )}
           </div>
         </div>

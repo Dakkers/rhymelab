@@ -1,8 +1,19 @@
 import { useState } from "react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Button, Card, Flex, Link, Text, TextInput } from "@saintly-software/baritone";
-import { TopBar } from "#/components/TopBar";
+import {
+  Button,
+  Card,
+  Flex,
+  Heading,
+  Link,
+  Notice,
+  Text,
+  TextInput,
+} from "@saintly-software/baritone";
+import { FileQuestionMark as FileQuestionIcon } from "lucide-react";
+import { Eyebrow } from "#/components/Eyebrow";
+import { TopBar, TopBarContext } from "#/components/TopBar";
 import {
   EntryFields,
   entryToForm,
@@ -27,7 +38,12 @@ function MissingEntry() {
     <>
       <TopBar />
       <main className="rl-page rl-page--narrow">
-        <div className="rl-empty">That entry doesn't exist (or was deleted).</div>
+        <Notice
+          icon={<FileQuestionIcon size={18} aria-hidden />}
+          description="It may have been deleted, or the link is wrong."
+        >
+          That entry doesn't exist
+        </Notice>
       </main>
     </>
   );
@@ -107,21 +123,14 @@ function EditForm({
 
   return (
     <>
-      <TopBar
-        context={
-          <span className="rl-topbar-context">
-            <span className="label">Editing</span>
-            <span className="value">{entry.title}</span>
-          </span>
-        }
-      />
+      <TopBar context={<TopBarContext label="Editing" value={entry.title} />} />
       <main className="rl-page rl-page--narrow">
-        <Flex align="center" justify="between" gap="3" style={{ marginBottom: 22 }}>
+        <Flex align="center" justify="between" gap="3" mb="6">
           <div>
-            <div className="rl-eyebrow">Edit entry</div>
-            <h1 className="rl-title" style={{ fontSize: "1.9rem", marginTop: 4 }}>
+            <Eyebrow>Edit entry</Eyebrow>
+            <Heading level={1} size="4xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
               {entry.title}
-            </h1>
+            </Heading>
           </div>
           <Link appearance="button" intent="neutral" saliency="low" href={`/entries/${id}`}>
             Open workbench
@@ -130,11 +139,9 @@ function EditForm({
 
         <Flex direction="column" gap="6">
           <Card saliency="low">
-            <Text className="rl-eyebrow" style={{ marginBottom: 14, display: "block" }}>
-              Details
-            </Text>
+            <Eyebrow mb="4">Details</Eyebrow>
             <EntryFields value={form} onChange={patch} disabled={savingDetails} showTitleError />
-            <Flex align="center" gap="3" style={{ marginTop: 18 }}>
+            <Flex align="center" gap="3" mt="4">
               <Button onClick={saveDetails} loading={savingDetails} disabled={savingDetails}>
                 Save details
               </Button>
@@ -147,23 +154,21 @@ function EditForm({
           </Card>
 
           <Card saliency="low">
-            <Text className="rl-eyebrow" style={{ marginBottom: 8, display: "block" }}>
-              Lyrics
-            </Text>
+            <Eyebrow mb="2">Lyrics</Eyebrow>
             <TextInput
               multiline
               rows={14}
               aria-label="Lyrics"
               helpText="Blank lines separate sections. Editing the text re-detects sections and re-places existing annotations where it can."
               value={lyrics}
-              onChange={(e) => {
-                setLyrics(e.target.value);
+              onChange={(value) => {
+                setLyrics(value);
                 setLyricsMsg(null);
               }}
               disabled={savingLyrics}
               spellCheck={false}
             />
-            <Flex align="center" gap="3" style={{ marginTop: 14 }}>
+            <Flex align="center" gap="3" mt="4">
               <Button onClick={saveLyricsAction} loading={savingLyrics} disabled={savingLyrics}>
                 Save lyrics
               </Button>
@@ -176,9 +181,7 @@ function EditForm({
           </Card>
 
           <Card saliency="low" intent="negative">
-            <Text className="rl-eyebrow" style={{ marginBottom: 10, display: "block" }}>
-              Danger zone
-            </Text>
+            <Eyebrow mb="3">Danger zone</Eyebrow>
             {confirmDelete ? (
               <Flex align="center" gap="3" wrap>
                 <Text size="sm">Delete “{entry.title}” and all its annotations?</Text>

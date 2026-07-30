@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Button, Card, Flex, Link, TextInput } from "@saintly-software/baritone";
+import { Box, Button, Card, Flex, Heading, Link, TextInput } from "@saintly-software/baritone";
+import { Eyebrow } from "#/components/Eyebrow";
 import { TopBar } from "#/components/TopBar";
 import {
   EntryFields,
@@ -45,12 +46,12 @@ function NewEntryPage() {
     <>
       <TopBar />
       <main className="rl-page rl-page--narrow">
-        <div style={{ marginBottom: 24 }}>
-          <div className="rl-eyebrow">New entry</div>
-          <h1 className="rl-title" style={{ fontSize: "2rem", marginTop: 4 }}>
+        <Box mb="6">
+          <Eyebrow>New entry</Eyebrow>
+          <Heading level={1} size="4xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
             Add a song or poem
-          </h1>
-        </div>
+          </Heading>
+        </Box>
 
         <Flex direction="column" gap="6">
           <Card saliency="low">
@@ -64,7 +65,7 @@ function NewEntryPage() {
               label="Lyrics"
               helpText="Paste the full text. Leave a blank line between sections — they'll be detected automatically. You can edit this later."
               value={lyrics}
-              onChange={(e) => setLyrics(e.target.value)}
+              onChange={(value) => setLyrics(value)}
               disabled={busy}
               placeholder={"Once upon a midnight dreary, while I pondered, weak and weary,\n…"}
               spellCheck={false}

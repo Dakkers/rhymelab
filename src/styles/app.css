@@ -4,6 +4,12 @@
  * inspector panel) is bespoke enough to live as real CSS with state selectors,
  * rather than being forced through design-system components. Baritone still owns
  * the form controls, buttons, selects and notices.
+ *
+ * What's *not* here is type. Every run of plain text goes through Baritone's
+ * `Text` / `Heading`, so size, weight, colour and family are token-backed rather
+ * than hand-rolled; the rules below are boxes, not words. The two families are
+ * declared once — right below — and handed to `BaritoneTheme` in `__root.tsx`,
+ * which republishes them as `--font-sans` / `--font-serif` for `<Text font="…">`.
  */
 
 :root {
@@ -33,33 +39,6 @@
   background: var(--rl-canvas);
   color: var(--rl-ink);
   font-family: var(--rl-sans);
-}
-
-/* ---------------------------------------------------------------- */
-/* Shared type helpers                                               */
-/* ---------------------------------------------------------------- */
-
-.rl-eyebrow {
-  font-family: var(--rl-sans);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--rl-ink-faint);
-}
-
-.rl-title {
-  font-family: var(--rl-serif);
-  font-weight: 600;
-  color: var(--rl-ink);
-  line-height: 1.04;
-  letter-spacing: -0.01em;
-}
-
-.rl-byline {
-  font-family: var(--rl-serif);
-  font-style: italic;
-  color: var(--rl-ink-soft);
 }
 
 /* ---------------------------------------------------------------- */
@@ -96,19 +75,9 @@
   flex: none;
 }
 
-.rl-brand-name {
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-size: 0.95rem;
-}
-
+/* Just the pill around the "Alpha" mark — the type on it comes from `Text`, and
+   the border colour is set per-placement (dark bar vs. cream canvas). */
 .rl-chip-beta {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--rl-topbar-ink-soft);
   border: 1px solid rgba(245, 241, 232, 0.25);
   border-radius: 6px;
   padding: 3px 7px;
@@ -127,23 +96,6 @@
   gap: 8px;
   min-width: 0;
   overflow: hidden;
-}
-
-.rl-topbar-context .label {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--rl-topbar-ink-soft);
-}
-
-.rl-topbar-context .value {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--rl-topbar-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .rl-topnav {
@@ -283,18 +235,11 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--rl-ink-soft);
 }
 
+/* The "Editing" flag. Its `color` has to win over the one `Text` resolves from
+   the theme, which it does because this sheet is loaded after Baritone's. */
 .rl-editing-badge {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: #fff;
   background: var(--rl-brand);
   border-radius: 5px;
@@ -307,24 +252,9 @@
   gap: 8px;
 }
 
-.rl-section-type .label {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--rl-ink-faint);
-}
-
 /* ---------------------------------------------------------------- */
 /* Lyrics + words                                                   */
 /* ---------------------------------------------------------------- */
-
-.rl-lyrics {
-  font-family: var(--rl-serif);
-  font-size: 1.32rem;
-  line-height: 1.85;
-  color: var(--rl-ink);
-}
 
 .rl-line {
   position: relative;
@@ -373,18 +303,15 @@
   height: 22px;
   padding: 0 5px;
   border-radius: 7px;
-  font-family: var(--rl-sans);
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1;
   cursor: pointer;
   border: none;
 }
 
+/* The badge glyph is a `Text` set to `color: inherit`, so these colours reach it
+   through the button and the hover state still works. */
 .rl-line-badge--add {
   background: #ebe6dc;
   color: var(--rl-ink-faint);
-  font-weight: 600;
 }
 
 .rl-line-badge--add:hover {
@@ -396,63 +323,18 @@
 /* Right inspector panel                                            */
 /* ---------------------------------------------------------------- */
 
-.rl-panel-label {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--rl-ink-faint);
-}
-
 .rl-panel-divider {
   height: 1px;
   background: var(--rl-hairline);
   margin: 18px 0;
 }
 
-.rl-panel-section-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: var(--rl-ink);
-}
-
-.rl-mode-heading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--rl-ink);
-}
-
-.rl-mode-heading .dot {
+/* The colour dot beside the active mode's name. */
+.rl-mode-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   flex: none;
-}
-
-.rl-helper {
-  font-size: 0.82rem;
-  line-height: 1.5;
-  color: var(--rl-ink-soft);
-}
-
-.rl-selected-word {
-  font-family: var(--rl-serif);
-  font-size: 1.7rem;
-  font-weight: 600;
-  color: var(--rl-ink);
-  word-break: break-word;
-}
-
-.rl-selected-empty {
-  font-size: 0.9rem;
-  color: var(--rl-ink-faint);
-  font-style: italic;
 }
 
 .rl-assign-card {
@@ -478,22 +360,6 @@
   height: 14px;
   border-radius: 4px;
   flex: none;
-}
-
-.rl-assign-card .text .label {
-  display: block;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--rl-ink-faint);
-}
-
-.rl-assign-card .text .value {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--rl-ink);
 }
 
 /* Rhyme group grid */
@@ -527,6 +393,9 @@
   background: var(--rl-surface-2);
 }
 
+/* The two coloured chips that carry a group letter. Both set `color` for the
+   `Text` inside them to inherit — the letter has to read against whichever
+   group colour it lands on, which no token can know. */
 .rl-group-swatch {
   width: 18px;
   height: 18px;
@@ -535,30 +404,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.66rem;
-  font-weight: 800;
-}
-
-.rl-group-letter {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--rl-ink);
-}
-
-.rl-group-count {
-  margin-left: auto;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--rl-ink-faint);
-}
-
-/* Legend */
-.rl-legend-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.8rem;
-  color: var(--rl-ink-soft);
 }
 
 .rl-legend-swatch {
@@ -569,22 +414,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.62rem;
-  font-weight: 800;
 }
 
 /* ---------------------------------------------------------------- */
 /* Misc                                                             */
 /* ---------------------------------------------------------------- */
-
-.rl-empty {
-  border: 1.5px dashed var(--rl-hairline-strong);
-  border-radius: var(--rl-radius);
-  padding: 40px 28px;
-  text-align: center;
-  color: var(--rl-ink-soft);
-  background: var(--rl-surface);
-}
 
 .rl-form-grid {
   display: grid;
@@ -596,34 +430,4 @@
   .rl-form-grid {
     grid-template-columns: 1fr;
   }
-}
-
-/* ---------------------------------------------------------------- */
-/* Forms                                                            */
-/* ---------------------------------------------------------------- */
-
-.rl-taginput {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  border: 1px solid var(--rl-hairline-strong);
-  border-radius: var(--rl-radius-sm);
-  padding: 7px 8px;
-  background: var(--rl-surface);
-}
-
-.rl-taginput:focus-within {
-  outline: 2px solid var(--rl-focus);
-  outline-offset: 1px;
-}
-
-.rl-taginput input {
-  flex: 1;
-  min-width: 120px;
-  font-family: var(--rl-sans);
-  font-size: 0.9rem;
-  color: var(--rl-ink);
-  background: transparent;
-  padding: 3px 2px;
 }

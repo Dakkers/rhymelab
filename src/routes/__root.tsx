@@ -34,7 +34,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-  const tokens = buildDefaultTokens("light");
+  // The two families are declared once, in `app.css`, and pulled through by
+  // reference so the CSS and the theme can't drift apart. `sans` is a built-in
+  // token (it's what bare text uses); `serif` is ours, published as `--font-serif`
+  // and selected with `<Text font="serif">` — see `src/baritone.d.ts`.
+  const tokens = buildDefaultTokens("light", { fonts: { sans: "var(--rl-sans)" } });
   // Match the app's cream canvas so Baritone's neutral surfaces read as the
   // white chrome that sits on top of it.
   tokens.surface.color.neutral.low.default.bgc = "oklch(1 0 0)";
@@ -46,7 +50,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
 
-      <BaritoneTheme tokens={tokens} scheme="light" render={<body className="rl-body" />}>
+      <BaritoneTheme
+        tokens={tokens}
+        scheme="light"
+        fonts={{ serif: "var(--rl-serif)" }}
+        render={<body className="rl-body" />}
+      >
         {/* Every internal Baritone <Link href> navigates through TanStack Router;
             external / new-tab / download links stay plain anchors. */}
         <LinkProvider render={({ href, ...props }) => <RouterLink to={href} {...props} />}>

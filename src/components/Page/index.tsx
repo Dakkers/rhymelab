@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Heading, Text } from "@saintly-software/baritone";
+import { Box, Flex, Heading, Text } from "@saintly-software/baritone";
 
 export interface PageProps {
   /** The page title, rendered as the semantic `<h1>`. */
@@ -19,18 +19,16 @@ export interface PageProps {
  */
 export function Page({ title, subtitle, actions, children }: PageProps) {
   return (
-    <div style={{ padding: "2rem", maxWidth: 900, marginInline: "auto" }}>
-      <header
-        style={{
-          display: "flex",
-          alignItems: subtitle != null ? "flex-start" : "center",
-          justifyContent: "space-between",
-          gap: "0.75rem",
-          marginBottom: "2rem",
-        }}
+    <Box p="8" mx="auto" style={{ maxWidth: 900 }}>
+      <Flex
+        render={<header />}
+        align={subtitle != null ? "start" : "center"}
+        justify="between"
+        gap="3"
+        mb="8"
       >
         <div style={{ minWidth: 0 }}>
-          <Heading level={1} size="2xl">
+          <Heading level={1} size="2xl" font="serif" style={{ lineHeight: 1.04 }}>
             {title}
           </Heading>
           {subtitle != null && (
@@ -40,8 +38,8 @@ export function Page({ title, subtitle, actions, children }: PageProps) {
           )}
         </div>
         {actions}
-      </header>
+      </Flex>
       {children}
-    </div>
+    </Box>
   );
 }
