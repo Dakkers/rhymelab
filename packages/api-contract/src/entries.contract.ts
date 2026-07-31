@@ -11,6 +11,7 @@ import {
   deleteAnnotationInput,
   saveLyricsInput,
   setAnnotationInput,
+  setAnnotationsInput,
   updateEntryInput,
   updateSectionInput,
 } from "./schemas";
@@ -37,4 +38,11 @@ export const updateSection = oc.input(updateSectionInput).output(ok);
 export const setAnnotation = oc
   .input(setAnnotationInput)
   .output(z.object({ ok: z.literal(true), cleared: z.boolean(), id: z.number().nullable() }));
+/** Batch upsert-or-clear; `results` line up with the input `items`, in order. */
+export const setAnnotations = oc.input(setAnnotationsInput).output(
+  z.object({
+    ok: z.literal(true),
+    results: z.array(z.object({ cleared: z.boolean(), id: z.number().nullable() })),
+  }),
+);
 export const deleteAnnotation = oc.input(deleteAnnotationInput).output(ok);

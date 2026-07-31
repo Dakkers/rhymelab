@@ -28,20 +28,25 @@ import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
 import {
   annotationsCoveringSpan,
   colorForAnnotation,
+  commonRhymeGroup,
   existingThemes,
   groupCountsForSection,
+  type LineSelection,
   type Selection,
 } from "./logic";
 
 interface InspectorProps {
   mode: ViewMode;
   selection: Selection | null;
+  lineSelection: LineSelection | null;
   annotations: AnnotationDTO[];
   activeSection: SectionDTO | null;
   view: RhymeView;
+  findRhyme: (start: number, end: number) => AnnotationDTO | null;
   onViewChange: (v: RhymeView) => void;
   onWrite: (value: string | null, body: string | null) => void;
   onClearMode: (mode: AnnotationMode) => void;
+  onWriteGroup: (group: RhymeGroup | null) => void;
   busy: boolean;
 }
 
@@ -54,12 +59,12 @@ const MODE_LABELS: Record<AnnotationMode, string> = {
   note: "Note",
 };
 
+/** How many selected lines to spell out before collapsing the rest into "+ N more". */
+const LINE_PREVIEW = 6;
+
 export function Inspector(props: InspectorProps) {
-  const { mode, selection, annotations, activeSection } = props;
+  const { mode, activeSection } = props;
   const meta = MODE_META[mode];
-  const covering = selection
-    ? annotationsCoveringSpan(annotations, selection.start, selection.end)
-    : {};
 
   return (
     <aside className="rl-work-aside">
@@ -90,6 +95,20 @@ export function Inspector(props: InspectorProps) {
 
       <Divider my="4" />
 
+      {mode === "rhyme-scheme" ? <RhymeSchemePanel {...props} /> : <WordPanel {...props} />}
+    </aside>
+  );
+}
+
+/** Word/phrase selection panel — every mode except rhyme scheme. */
+function WordPanel(props: InspectorProps) {
+  const { mode, selection, annotations } = props;
+  const covering = selection
+    ? annotationsCoveringSpan(annotations, selection.start, selection.end)
+    : {};
+
+  return (
+    <>
       <Eyebrow>Selected {selection?.wordIndex != null ? "word" : "text"}</Eyebrow>
       {selection ? (
         <Text
@@ -153,7 +172,7 @@ export function Inspector(props: InspectorProps) {
           />
         </>
       )}
-    </aside>
+    </>
   );
 }
 
@@ -161,20 +180,69 @@ function ModeControl(
   props: InspectorProps & { covering: Partial<Record<AnnotationMode, AnnotationDTO>> },
 ) {
   const { mode } = props;
-  if (mode === "rhyme-scheme") return <RhymeControl {...props} />;
   if (mode === "theme") return <ThemeControl {...props} />;
   if (mode === "note") return <NoteControl {...props} />;
   return <OptionControl {...props} />;
 }
 
-function RhymeControl(
-  props: InspectorProps & { covering: Partial<Record<AnnotationMode, AnnotationDTO>> },
-) {
-  const { activeSection, annotations, covering, view } = props;
+/** Rhyme-scheme panel — a line selection plus the group grid that writes it. */
+function RhymeSchemePanel(props: InspectorProps) {
+  const lines = props.lineSelection?.lines ?? [];
+  const active = commonRhymeGroup(props.findRhyme, lines);
+
+  return (
+    <>
+      <Eyebrow>{lines.length > 1 ? "Selected lines" : "Selected line"}</Eyebrow>
+      {lines.length === 0 ? (
+        <Text size="sm" italic saliency="low" mt="2">
+          Check the lines that rhyme, then assign a group. ⇧-click for a range.
+        </Text>
+      ) : lines.length === 1 ? (
+        <Text
+          font="serif"
+          size="3xl"
+          weight="semibold"
+          saliency="high"
+          overflowWrap="break-word"
+          mt="2"
+        >
+          “{lines[0]!.text.trim()}”
+        </Text>
+      ) : (
+        <>
+          <Text size="lg" weight="semibold" saliency="high" mt="2">
+            {lines.length} lines
+          </Text>
+          <Flex direction="column" gap="1" mt="2">
+            {lines.slice(0, LINE_PREVIEW).map((l) => (
+              <Text key={l.index} font="serif" size="sm" saliency="low" overflowWrap="break-word">
+                “{l.text.trim()}”
+              </Text>
+            ))}
+            {lines.length > LINE_PREVIEW && (
+              <Text size="sm" saliency="low">
+                + {lines.length - LINE_PREVIEW} more
+              </Text>
+            )}
+          </Flex>
+        </>
+      )}
+
+      {lines.length > 0 && (
+        <>
+          <Divider my="4" />
+          <RhymeControl {...props} active={active} />
+        </>
+      )}
+    </>
+  );
+}
+
+function RhymeControl(props: InspectorProps & { active: RhymeGroup | undefined }) {
+  const { activeSection, annotations, view, active } = props;
   const counts = activeSection
     ? groupCountsForSection(annotations, activeSection)
     : ({ A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0 } as Record<RhymeGroup, number>);
-  const active = covering["rhyme-scheme"]?.value as RhymeGroup | undefined;
 
   return (
     <Flex direction="column" gap="4">
@@ -189,7 +257,7 @@ function RhymeControl(
                 type="button"
                 className="rl-group-btn"
                 data-active={active === g ? "true" : undefined}
-                onClick={() => props.onWrite(active === g ? null : g, null)}
+                onClick={() => props.onWriteGroup(active === g ? null : g)}
                 disabled={props.busy}
               >
                 <span
@@ -225,7 +293,7 @@ function RhymeControl(
           <Flex align="center" gap="3">
             <span className="rl-legend-swatch" style={{ background: RHYME_GROUP_COLORS.A.tint }} />
             <Text size="sm" saliency="low">
-              Rhyming words share a colour
+              Rhyming lines share a colour
             </Text>
           </Flex>
           <Flex align="center" gap="3">
@@ -238,7 +306,7 @@ function RhymeControl(
               </Text>
             </span>
             <Text size="sm" saliency="low">
-              A line or word that doesn't rhyme
+              A line that doesn't rhyme
             </Text>
           </Flex>
         </Flex>

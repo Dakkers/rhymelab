@@ -115,7 +115,8 @@ export const MODE_META: Record<ViewMode, ModeMeta> = {
     mode: "rhyme-scheme",
     label: "Rhyme scheme",
     color: "#EC5C79",
-    helper: "Select a word, then assign a rhyme group. Use X for a line that doesn't rhyme.",
+    helper:
+      "Check the lines that share a rhyme — click anywhere on a line — then assign a group. ⇧-click for a range. X marks a line that doesn't rhyme.",
   },
   "rhyme-type": {
     mode: "rhyme-type",

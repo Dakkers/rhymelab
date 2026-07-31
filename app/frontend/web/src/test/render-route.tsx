@@ -34,13 +34,16 @@ import { BaritoneTheme, LinkProvider } from "@saintly-software/baritone";
 import { APP_FONTS, brandVars, buildAppTokens } from "#/lib/theme";
 
 /**
- * The chrome a signed-in route renders within, minus the HTML-document shell.
- * The theme (tokens, fonts, brand vars) comes from `#/lib/theme` — the same
- * construction the app's root route uses — so components are painted exactly as
- * the app paints them. The stylesheets imported at the top of this file supply
- * the rest (`--rl-serif`, `.rl-*`, …).
+ * The app's theme, minus the HTML-document shell. The tokens/fonts/brand vars
+ * come from `#/lib/theme` — the same construction the app's root route uses — so
+ * components are painted exactly as the app paints them. The stylesheets imported
+ * at the top of this file supply the rest (`--rl-serif`, `.rl-*`, …).
+ *
+ * Shared with `render-component.tsx`; it's link-provider-free so each caller can
+ * bring the `LinkProvider` its context supports (a router-backed `RouterLink`
+ * for routes, a plain `<a>` for standalone components).
  */
-function TestShell({ children }: { children: ReactNode }) {
+export function TestThemeProvider({ children }: { children: ReactNode }) {
   const tokens = buildAppTokens();
   return (
     // `render` makes the theme provider itself the `.rl-body` canvas (the app
@@ -53,10 +56,20 @@ function TestShell({ children }: { children: ReactNode }) {
       style={brandVars(tokens)}
       render={<div className="rl-body" />}
     >
+      {children}
+    </BaritoneTheme>
+  );
+}
+
+/** The chrome a signed-in route renders within: the theme plus a router-backed
+ *  link provider (a `<Link>` inside a route resolves against the test router). */
+function TestShell({ children }: { children: ReactNode }) {
+  return (
+    <TestThemeProvider>
       <LinkProvider render={({ href, ...props }) => <RouterLink to={href} {...props} />}>
         {children}
       </LinkProvider>
-    </BaritoneTheme>
+    </TestThemeProvider>
   );
 }
 

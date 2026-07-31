@@ -1,10 +1,10 @@
 import { expect, test, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route } from "./index";
 import { renderRoute } from "#/test/render-route";
 import { makeLongIslandEntry } from "#/test/mocks/fixtures";
-import { observeSetAnnotation, seedEntry } from "#/test/mocks/handlers";
+import { observeSetAnnotations, seedEntry } from "#/test/mocks/handlers";
 
 test("renders the fetched entry's details", async () => {
   // Seed the real "Long Island" demo entry (lyrics sourced from `.dummy/`).
@@ -18,79 +18,91 @@ test("renders the fetched entry's details", async () => {
   // Byline (artist · year) renders as a single text node.
   expect(screen.getByText("Test Artist · 2024")).toBeInTheDocument();
 
-  // The lyrics render into the workbench (each word is its own selectable span).
-  // "bike" occurs once in the demo lyrics, so exactly one span carries it.
-  expect(screen.getByText("bike")).toBeInTheDocument();
+  // The lyrics render into the workbench. In line mode each line is a checkbox
+  // labelled by its text, so the second line is findable by its full text.
+  expect(screen.getByText("I'd bike over to your house")).toBeInTheDocument();
 });
 
-test("assigns a rhyme group to the last word of a line", async () => {
-  // The demo's first line ("If the world was ending") ends on "ending" — the
-  // word we select and annotate. Keep the seeded lyrics to derive offsets from.
+test("assigns a rhyme group to a whole line", async () => {
+  // Keep the seeded lyrics to derive the line's character span from.
   const { lyrics } = seedEntry(makeLongIslandEntry());
 
-  // Spy on the exact payload the workbench sends the API for the assignment.
-  const setAnnotation = vi.fn();
-  observeSetAnnotation(setAnnotation);
+  // Spy on the exact batch payload the workbench sends the API.
+  const setAnnotations = vi.fn();
+  observeSetAnnotations(setAnnotations);
 
   // The workbench opens on the rhyme-scheme layer by default (see
-  // WORKBENCH_SEARCH_DEFAULTS), so words are already selectable and assigning a
-  // group needs no mode switch.
+  // WORKBENCH_SEARCH_DEFAULTS), so every non-blank line is a selectable checkbox.
   renderRoute(Route, { path: "/entries/$entryId", initialEntries: ["/entries/1"] });
 
   const user = userEvent.setup();
-
-  // 1. The entry rendered: its lyrics are split into selectable word spans.
   await screen.findByRole("heading", { level: 1, name: "Long Island" });
-  const lastWord = screen.getByText("ending");
 
-  // Nothing is annotated yet: the word carries no highlight and every non-blank
-  // line offers an empty "+" badge (one per line) rather than a group letter.
+  // Every non-blank line is its own checkbox, initially unchecked.
   const lineCount = lyrics.split("\n").filter((line) => line.trim().length > 0).length;
-  expect(lastWord).not.toHaveAttribute("data-annot");
-  expect(screen.getAllByLabelText("Assign rhyme group to this line")).toHaveLength(lineCount);
+  expect(screen.getAllByRole("checkbox")).toHaveLength(lineCount);
 
-  // 2. Click the last word of the first line to select it. The inspector then
-  // reflects the selection and reveals the rhyme-group grid.
-  await user.click(lastWord);
-  expect(await screen.findByText("“ending”")).toBeInTheDocument();
+  // Click anywhere on the first line to tick it — the word spans are inert, so
+  // the click lands on the row. The inspector quotes the selected line.
+  const firstLine = screen.getByRole("checkbox", { name: "If the world was ending" });
+  await user.click(firstLine);
+  expect(firstLine).toBeChecked();
+  expect(await screen.findByText("“If the world was ending”")).toBeInTheDocument();
 
-  // 3. Assign rhyme group "A". The grid buttons label their swatch with the
-  // group letter; click A's.
-  const groupButton = screen.getByText("A").closest("button");
-  expect(groupButton).not.toBeNull();
-  await user.click(groupButton!);
+  // Assign rhyme group "A" from the grid.
+  await user.click(screen.getByText("A").closest("button")!);
 
-  // The write round-trips through MSW → oRPC → the store, and invalidation
-  // refetches the entry. The line's badge now reports group A…
-  const badge = await screen.findByLabelText("Rhyme group A");
-  expect(badge).toHaveTextContent("A");
+  // The line's badge now reports group A, and (selection cleared after the write)
+  // the checkbox is unticked again, ready for the next group.
+  expect(await screen.findByLabelText("Rhyme group A")).toHaveTextContent("A");
+  expect(screen.getByRole("checkbox", { name: "If the world was ending" })).not.toBeChecked();
 
-  // The spy caught exactly one write, carrying group "A" over the character span
-  // of "ending" (offsets derived from the seeded lyrics, not hard-coded). The
-  // first line's "ending" is the first occurrence of that substring, so
-  // `indexOf` lands on the very word we selected.
-  const start = lyrics.indexOf("ending");
-  expect(setAnnotation).toHaveBeenCalledTimes(1);
-  expect(setAnnotation).toHaveBeenCalledWith({
+  // Exactly one batch write, carrying the whole first-line span (offsets derived
+  // from the seeded lyrics, not hard-coded), value "A".
+  const line = "If the world was ending";
+  const start = lyrics.indexOf(line);
+  expect(setAnnotations).toHaveBeenCalledTimes(1);
+  expect(setAnnotations).toHaveBeenCalledWith({
     entryId: 1,
     mode: "rhyme-scheme",
-    startOffset: start,
-    endOffset: start + "ending".length,
-    value: "A",
-    body: null,
+    items: [{ startOffset: start, endOffset: start + line.length, value: "A", body: null }],
+  });
+});
+
+test("assigns a rhyme group to several lines at once", async () => {
+  const { lyrics } = seedEntry(makeLongIslandEntry());
+  const setAnnotations = vi.fn();
+  observeSetAnnotations(setAnnotations);
+
+  renderRoute(Route, { path: "/entries/$entryId", initialEntries: ["/entries/1"] });
+
+  const user = userEvent.setup();
+  await screen.findByRole("heading", { level: 1, name: "Long Island" });
+
+  // Tick two lines — no modifier needed, plain clicks accumulate.
+  await user.click(screen.getByRole("checkbox", { name: "If the world was ending" }));
+  await user.click(screen.getByRole("checkbox", { name: "Steal the bottle Dad's been saving" }));
+  expect(await screen.findByText("2 lines")).toBeInTheDocument();
+
+  // One click assigns "A" to both, in a single batch write.
+  await user.click(screen.getByText("A").closest("button")!);
+
+  const line1 = "If the world was ending";
+  const line3 = "Steal the bottle Dad's been saving";
+  const s1 = lyrics.indexOf(line1);
+  const s3 = lyrics.indexOf(line3);
+  expect(setAnnotations).toHaveBeenCalledTimes(1);
+  expect(setAnnotations).toHaveBeenCalledWith({
+    entryId: 1,
+    mode: "rhyme-scheme",
+    items: [
+      { startOffset: s1, endOffset: s1 + line1.length, value: "A", body: null },
+      { startOffset: s3, endOffset: s3 + line3.length, value: "A", body: null },
+    ],
   });
 
-  // …that line now shows group A, so one fewer "+" add-badge remains, and the
-  // selected word is highlighted.
-  expect(screen.getAllByLabelText("Assign rhyme group to this line")).toHaveLength(lineCount - 1);
-  expect(screen.getByText("ending")).toHaveAttribute("data-annot", "true");
-
-  // The inspector's cross-mode summary confirms the rhyme-scheme annotation.
-  // (Locate the card by its unique "Clear" button rather than the mode label,
-  // which also appears in the mode bar and the panel header.)
-  const summary = screen.getByLabelText("Clear Rhyme scheme").closest(".rl-assign-card");
-  expect(summary).not.toBeNull();
-  expect(within(summary as HTMLElement).getByText("A")).toBeInTheDocument();
+  // Both lines carry group A now.
+  expect(await screen.findAllByLabelText("Rhyme group A")).toHaveLength(2);
 });
 
 test("renders a not-found state when the entry doesn't exist", async () => {

@@ -114,6 +114,33 @@ export const setAnnotationInput = z
     path: ["endOffset"],
   });
 
+/**
+ * Batch form of `setAnnotation`: apply one `mode`'s annotations to several spans
+ * at once — e.g. assign a rhyme group to a set of selected lines. Each item is
+ * upserted-or-cleared exactly like the single form (per-item `value`/`body`
+ * null clears that span); the backend runs the whole batch in one transaction.
+ */
+export const setAnnotationsInput = z.object({
+  entryId: id,
+  mode: z.enum(ANNOTATION_MODES),
+  items: z
+    .array(
+      z
+        .object({
+          startOffset: z.int().min(0),
+          endOffset: z.int().min(0),
+          value: optionalText(120),
+          body: optionalText(4000),
+        })
+        .refine((v) => v.endOffset > v.startOffset, {
+          message: "Selection is empty",
+          path: ["endOffset"],
+        }),
+    )
+    .min(1, "No spans given")
+    .max(500),
+});
+
 export const deleteAnnotationInput = z.object({ id });
 
 /* ------------------------------------------------------------------ */
@@ -124,3 +151,4 @@ export type CreateEntryInput = z.infer<typeof createEntryInput>;
 export type UpdateEntryInput = z.infer<typeof updateEntryInput>;
 export type SaveLyricsInput = z.infer<typeof saveLyricsInput>;
 export type SetAnnotationInput = z.infer<typeof setAnnotationInput>;
+export type SetAnnotationsInput = z.infer<typeof setAnnotationsInput>;

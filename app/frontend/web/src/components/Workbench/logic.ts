@@ -7,11 +7,14 @@
 import {
   MODE_META,
   RHYME_GROUP_COLORS,
+  linesInRange,
+  parseLines,
   type AnnotationMode,
+  type LineToken,
   type RhymeGroup,
   type ViewMode,
 } from "@rhymelab/core";
-import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
+import type { AnnotationDTO, EntryDetail, SectionDTO } from "@rhymelab/api-contract";
 
 export interface Selection {
   start: number;
@@ -19,6 +22,83 @@ export interface Selection {
   text: string;
   /** Global word index when a single word is selected; null for a phrase. */
   wordIndex: number | null;
+}
+
+/** One line as a selectable, annotatable span (rhyme scheme works line-by-line). */
+export interface LineSpan {
+  /** 0-based line index across the whole text (stable id within a selection). */
+  index: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+/**
+ * The rhyme-scheme selection: one or more lines, always within a single section
+ * (multi-select never crosses a section boundary). `lines` is ordered by index
+ * and non-empty.
+ */
+export interface LineSelection {
+  sectionId: number;
+  lines: LineSpan[];
+}
+
+/** A section paired with the parsed lines that fall inside it. */
+export interface SectionWithLines {
+  section: SectionDTO;
+  lines: LineToken[];
+}
+
+/**
+ * Split an entry into its sections, each carrying the lines it spans. When the
+ * backend hasn't split the lyrics (no `sections`) but there is text, synthesise a
+ * single "Lyrics" section covering all of it so there's always something to
+ * annotate; empty lyrics yield no sections at all.
+ */
+export function deriveSections(entry: EntryDetail): SectionWithLines[] {
+  const parsed = parseLines(entry.lyrics);
+  const sections: SectionDTO[] =
+    entry.sections.length > 0
+      ? entry.sections
+      : entry.lyrics.trim().length > 0
+        ? [
+            {
+              id: -1,
+              orderIndex: 0,
+              type: "verse",
+              label: "Lyrics",
+              startOffset: 0,
+              endOffset: entry.lyrics.length,
+            },
+          ]
+        : [];
+  return sections.map((section) => ({
+    section,
+    lines: linesInRange(parsed, section.startOffset, section.endOffset),
+  }));
+}
+
+type RhymeFinder = (start: number, end: number) => AnnotationDTO | null;
+
+/** The rhyme group assigned to a line, or null when it has none. */
+export function lineRhymeGroup(findRhyme: RhymeFinder, line: LineSpan): RhymeGroup | null {
+  const ann = findRhyme(line.start, line.end);
+  return ann?.value ? (ann.value as RhymeGroup) : null;
+}
+
+/**
+ * The rhyme group shared by *every* line in a selection, or `undefined` when
+ * they differ (or any is unassigned) — drives whether a group button reads as
+ * active for a multi-line selection.
+ */
+export function commonRhymeGroup(
+  findRhyme: RhymeFinder,
+  lines: LineSpan[],
+): RhymeGroup | undefined {
+  if (lines.length === 0) return undefined;
+  const first = lineRhymeGroup(findRhyme, lines[0]!);
+  if (first == null) return undefined;
+  return lines.every((l) => lineRhymeGroup(findRhyme, l) === first) ? first : undefined;
 }
 
 export interface HighlightColor {

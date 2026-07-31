@@ -225,12 +225,6 @@
   gap: 10px;
 }
 
-.rl-section-type {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 /* ---------------------------------------------------------------- */
 /* Lyrics + words                                                   */
 /* ---------------------------------------------------------------- */
@@ -242,6 +236,54 @@
 
 .rl-line--blank {
   height: 0.9em;
+}
+
+/* Rhyme scheme selects whole lines: the line is the click target and (in
+   "colours" view) the tinted band, so its words are inert — the line owns
+   hover, selection, and colour. The group tint is applied inline; the inset
+   bar below layers on top so a selected line still reads as selected. */
+.rl-line--rhyme {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  cursor: pointer;
+  border-radius: var(--rl-radius-sm);
+  padding-left: 8px;
+  margin-left: -8px;
+  transition:
+    background 90ms ease,
+    box-shadow 90ms ease;
+}
+
+.rl-line--rhyme:focus-visible {
+  outline: 2px solid var(--rl-primary-focus);
+  outline-offset: 2px;
+}
+
+.rl-line--rhyme:hover {
+  background: var(--rl-surface-2);
+}
+
+.rl-line--rhyme[data-line-selected="true"] {
+  background: var(--rl-primary-tint);
+  box-shadow: inset 3px 0 0 0 var(--rl-primary);
+}
+
+/* Wrapper around the Baritone Checkbox (which draws the box + label itself). Its
+   only job is to stop the box/label click from bubbling (so the row doesn't
+   double-toggle), so it must hug the control — `flex: 0 1 auto` keeps it at
+   content width (empty space to its right falls through to the row's click) while
+   still allowing a long line to shrink and wrap. */
+.rl-line-check {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* The lyric rides in the checkbox's label slot; keep it the serif lyric type
+   rather than Baritone's form-label styling. */
+.rl-line-label {
+  font: inherit;
+  color: inherit;
 }
 
 .rl-word {

@@ -10,12 +10,13 @@
 import { implement, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { http, passthrough } from "msw";
-import { themeColor } from "@rhymelab/core";
+import { type AnnotationMode, themeColor } from "@rhymelab/core";
 import {
   contract,
   type EntryDetail,
   type EntrySummary,
   type SetAnnotationInput,
+  type SetAnnotationsInput,
 } from "@rhymelab/api-contract";
 
 /** Base URL the oRPC client targets (see `src/lib/orpc.ts`). */
@@ -40,10 +41,16 @@ export function seedEntry(entry: EntryDetail): EntryDetail {
  * component sends; unset by default so it's zero-cost otherwise.
  */
 let onSetAnnotation: ((input: SetAnnotationInput) => void) | null = null;
+let onSetAnnotations: ((input: SetAnnotationsInput) => void) | null = null;
 
 /** Attach (or clear, with `null`) the `setAnnotation` observer for a test. */
 export function observeSetAnnotation(fn: ((input: SetAnnotationInput) => void) | null): void {
   onSetAnnotation = fn;
+}
+
+/** Attach (or clear, with `null`) the batch `setAnnotations` observer for a test. */
+export function observeSetAnnotations(fn: ((input: SetAnnotationsInput) => void) | null): void {
+  onSetAnnotations = fn;
 }
 
 /** Wipe the store back to defaults. Called from `afterEach` in the setup file. */
@@ -51,6 +58,7 @@ export function resetStore(): void {
   store.entries.clear();
   store.authed = true;
   onSetAnnotation = null;
+  onSetAnnotations = null;
 }
 
 function toSummary(entry: EntryDetail): EntrySummary {
@@ -75,6 +83,62 @@ function nextAnnotationId(entry: EntryDetail): number {
   return entry.annotations.reduce((max, a) => Math.max(max, a.id), 0) + 1;
 }
 
+/** One span's desired state — the payload shared by `setAnnotation`/`setAnnotations`. */
+interface StoreItem {
+  startOffset: number;
+  endOffset: number;
+  value: string | null;
+  body: string | null;
+}
+
+/**
+ * Upsert-or-clear one annotation in the in-memory store, mutating `entry` in
+ * place — a faithful-but-minimal port of the backend's `applyAnnotation` shared
+ * by both the single and batch mock handlers.
+ */
+function applyToStore(
+  entry: EntryDetail,
+  mode: AnnotationMode,
+  item: StoreItem,
+): { cleared: boolean; id: number | null } {
+  const quote = entry.lyrics.slice(item.startOffset, item.endOffset);
+  const existing = entry.annotations.findIndex(
+    (a) =>
+      !a.detached &&
+      a.mode === mode &&
+      a.startOffset === item.startOffset &&
+      a.endOffset === item.endOffset,
+  );
+
+  // Both value and body null → clear whatever is at this exact span+mode.
+  if (item.value === null && item.body === null) {
+    if (existing >= 0) entry.annotations.splice(existing, 1);
+    return { cleared: true, id: null };
+  }
+
+  const color = mode === "theme" && item.value ? themeColor(item.value) : null;
+
+  if (existing >= 0) {
+    const keep = entry.annotations[existing]!;
+    Object.assign(keep, { value: item.value, body: item.body, quote, color, detached: false });
+    return { cleared: false, id: keep.id };
+  }
+
+  const id = nextAnnotationId(entry);
+  entry.annotations.push({
+    id,
+    mode,
+    startOffset: item.startOffset,
+    endOffset: item.endOffset,
+    quote,
+    value: item.value,
+    body: item.body,
+    color,
+    detached: false,
+  });
+  return { cleared: false, id };
+}
+
 /**
  * Only the procedures a page render or its exercised interactions perform are
  * implemented. Add mutations here as tests need them — an un-implemented
@@ -96,43 +160,18 @@ const router = {
       onSetAnnotation?.(input);
       const entry = store.entries.get(input.entryId);
       if (!entry) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
+      const { cleared, id } = applyToStore(entry, input.mode, input);
+      return { ok: true as const, cleared, id };
+    }),
 
-      const quote = entry.lyrics.slice(input.startOffset, input.endOffset);
-      const existing = entry.annotations.findIndex(
-        (a) =>
-          !a.detached &&
-          a.mode === input.mode &&
-          a.startOffset === input.startOffset &&
-          a.endOffset === input.endOffset,
-      );
-
-      // Both value and body null → clear whatever is at this exact span+mode.
-      if (input.value === null && input.body === null) {
-        if (existing >= 0) entry.annotations.splice(existing, 1);
-        return { ok: true as const, cleared: true, id: null };
-      }
-
-      const color = input.mode === "theme" && input.value ? themeColor(input.value) : null;
-
-      if (existing >= 0) {
-        const keep = entry.annotations[existing]!;
-        Object.assign(keep, { value: input.value, body: input.body, quote, color, detached: false });
-        return { ok: true as const, cleared: false, id: keep.id };
-      }
-
-      const id = nextAnnotationId(entry);
-      entry.annotations.push({
-        id,
-        mode: input.mode,
-        startOffset: input.startOffset,
-        endOffset: input.endOffset,
-        quote,
-        value: input.value,
-        body: input.body,
-        color,
-        detached: false,
-      });
-      return { ok: true as const, cleared: false, id };
+    // Batch upsert-or-clear — the port of the backend `setAnnotations`. Applies
+    // every item to the stored entry and returns per-item results in order.
+    setAnnotations: os.entries.setAnnotations.handler(({ input }) => {
+      onSetAnnotations?.(input);
+      const entry = store.entries.get(input.entryId);
+      if (!entry) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
+      const results = input.items.map((item) => applyToStore(entry, input.mode, item));
+      return { ok: true as const, results };
     }),
   },
 };

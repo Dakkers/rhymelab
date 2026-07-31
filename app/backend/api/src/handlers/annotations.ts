@@ -5,74 +5,86 @@
  * trusting the client — lyrics text stays authoritative.
  */
 import { ORPCError } from "@orpc/server";
-import { themeColor } from "@rhymelab/core";
+import { type AnnotationMode, themeColor } from "@rhymelab/core";
+import type { Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 import { authed } from "../orpc";
 
+/** One span's desired state — the payload shared by the single and batch forms. */
+interface AnnotationSpan {
+  startOffset: number;
+  endOffset: number;
+  value: string | null;
+  body: string | null;
+}
+
 /**
- * Upsert (or clear) one annotation for a `(mode, span)`. Clearing — both `value`
- * and `body` null — soft-deletes any existing annotation there. Otherwise the
- * annotation at that exact span+mode is updated in place, or created.
+ * Upsert (or clear) a single annotation for `(mode, span)` against `db` — either
+ * the base client or a transaction client, so the batch form can run many of
+ * these atomically. Clearing — both `value` and `body` null — soft-deletes any
+ * existing annotation there. Otherwise the annotation at that exact span+mode is
+ * updated in place, or created. Callers must have validated the offsets against
+ * `lyrics` first (see `loadEntryForSpans`).
  */
-export const setAnnotation = authed.entries.setAnnotation.handler(async ({ input }) => {
-  const now = new Date();
+async function applyAnnotation(
+  db: Prisma.TransactionClient,
+  entryId: number,
+  lyrics: string,
+  mode: AnnotationMode,
+  span: AnnotationSpan,
+  now: Date,
+): Promise<{ cleared: boolean; id: number | null }> {
+  const quote = lyrics.slice(span.startOffset, span.endOffset);
 
-  const entry = await prisma.entry.findFirst({ where: { id: input.entryId, deletedAt: null } });
-  if (!entry) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
-  if (input.endOffset > entry.lyrics.length) {
-    throw new ORPCError("BAD_REQUEST", { message: "Selection out of range" });
-  }
-  const quote = entry.lyrics.slice(input.startOffset, input.endOffset);
-
-  const existing = await prisma.annotation.findMany({
+  const existing = await db.annotation.findMany({
     where: {
-      entryId: input.entryId,
-      mode: input.mode,
-      startOffset: input.startOffset,
-      endOffset: input.endOffset,
+      entryId,
+      mode,
+      startOffset: span.startOffset,
+      endOffset: span.endOffset,
       deletedAt: null,
     },
   });
 
-  const cleared = input.value === null && input.body === null;
+  const cleared = span.value === null && span.body === null;
   if (cleared) {
     if (existing.length) {
-      await prisma.annotation.updateMany({
+      await db.annotation.updateMany({
         where: { id: { in: existing.map((e) => e.id) } },
         data: { deletedAt: now },
       });
     }
-    return { ok: true as const, cleared: true, id: null };
+    return { cleared: true, id: null };
   }
 
-  const color = input.mode === "theme" && input.value ? themeColor(input.value) : null;
+  const color = mode === "theme" && span.value ? themeColor(span.value) : null;
 
   if (existing.length) {
     const keep = existing[0]!;
-    await prisma.annotation.update({
+    await db.annotation.update({
       where: { id: keep.id },
-      data: { value: input.value, body: input.body, quote, color, detached: false, updatedAt: now },
+      data: { value: span.value, body: span.body, quote, color, detached: false, updatedAt: now },
     });
     // Defensive: collapse any accidental duplicates at this exact span.
     const extras = existing.slice(1).map((e) => e.id);
     if (extras.length) {
-      await prisma.annotation.updateMany({
+      await db.annotation.updateMany({
         where: { id: { in: extras } },
         data: { deletedAt: now },
       });
     }
-    return { ok: true as const, cleared: false, id: keep.id };
+    return { cleared: false, id: keep.id };
   }
 
-  const inserted = await prisma.annotation.create({
+  const inserted = await db.annotation.create({
     data: {
-      entryId: input.entryId,
-      mode: input.mode,
-      startOffset: input.startOffset,
-      endOffset: input.endOffset,
+      entryId,
+      mode,
+      startOffset: span.startOffset,
+      endOffset: span.endOffset,
       quote,
-      value: input.value,
-      body: input.body,
+      value: span.value,
+      body: span.body,
       color,
       createdAt: now,
       updatedAt: now,
@@ -80,7 +92,52 @@ export const setAnnotation = authed.entries.setAnnotation.handler(async ({ input
     select: { id: true },
   });
 
-  return { ok: true as const, cleared: false, id: inserted.id };
+  return { cleared: false, id: inserted.id };
+}
+
+/** Load the live entry and assert every span fits its lyrics, or throw. */
+async function loadEntryForSpans(entryId: number, maxEndOffset: number) {
+  const entry = await prisma.entry.findFirst({ where: { id: entryId, deletedAt: null } });
+  if (!entry) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
+  if (maxEndOffset > entry.lyrics.length) {
+    throw new ORPCError("BAD_REQUEST", { message: "Selection out of range" });
+  }
+  return entry;
+}
+
+export const setAnnotation = authed.entries.setAnnotation.handler(async ({ input }) => {
+  const now = new Date();
+  const entry = await loadEntryForSpans(input.entryId, input.endOffset);
+  const { cleared, id } = await applyAnnotation(
+    prisma,
+    input.entryId,
+    entry.lyrics,
+    input.mode,
+    input,
+    now,
+  );
+  return { ok: true as const, cleared, id };
+});
+
+/**
+ * Batch upsert-or-clear: apply one mode's annotations to many spans in a single
+ * transaction (e.g. assign a rhyme group to several selected lines at once).
+ * `results` line up with `input.items`, in order.
+ */
+export const setAnnotations = authed.entries.setAnnotations.handler(async ({ input }) => {
+  const now = new Date();
+  const maxEnd = input.items.reduce((m, it) => Math.max(m, it.endOffset), 0);
+  const entry = await loadEntryForSpans(input.entryId, maxEnd);
+
+  const results = await prisma.$transaction(async (tx) => {
+    const out: Array<{ cleared: boolean; id: number | null }> = [];
+    for (const item of input.items) {
+      out.push(await applyAnnotation(tx, input.entryId, entry.lyrics, input.mode, item, now));
+    }
+    return out;
+  });
+
+  return { ok: true as const, results };
 });
 
 export const deleteAnnotation = authed.entries.deleteAnnotation.handler(async ({ input }) => {

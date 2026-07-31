@@ -22,6 +22,7 @@ export const contract = {
     delete: entries.del,
     updateSection: entries.updateSection,
     setAnnotation: entries.setAnnotation,
+    setAnnotations: entries.setAnnotations,
     deleteAnnotation: entries.deleteAnnotation,
   },
 };
@@ -47,10 +48,12 @@ export {
   deleteAnnotationInput,
   saveLyricsInput,
   setAnnotationInput,
+  setAnnotationsInput,
   updateEntryInput,
   updateSectionInput,
   type CreateEntryInput,
   type SaveLyricsInput,
   type SetAnnotationInput,
+  type SetAnnotationsInput,
   type UpdateEntryInput,
 } from "./schemas";
