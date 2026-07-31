@@ -1,10 +1,14 @@
-# This isn't a workspace (single-package project) — this file exists because pnpm
-# reads its install settings from here. The supply-chain hardening below is the
-# reason it's kept.
+# Monorepo workspace. See the reference layout in Dakkers/dimensionz-legacy.
+packages:
+  - app/frontend/web
+  - app/backend/api
+  - packages/core
+  - packages/api-contract
 
 # ─── Supply-chain hardening ──────────────────────────────────────────────────
-# These settings make `pnpm install` resolve dependencies defensively. Keep them
-# on; loosen an individual knob only with a deliberate reason.
+# Carried over from the original single-package setup. These make `pnpm install`
+# resolve dependencies defensively. Keep them on; loosen an individual knob only
+# with a deliberate reason.
 
 # Ignore any package version published less than 24h (1440 min) ago. Most
 # malicious releases are caught and unpublished within hours, so this closes the
@@ -18,37 +22,35 @@ minimumReleaseAgeExclude:
   - "@saintly-software/baritone"
 
 # Refuse transitive dependencies that resolve to anything other than a registry
-# tarball — git URLs, http(s) tarballs, `file:` links, etc. A direct dep may
-# still use them (see `catalog`/workspace links), but a *sub*-dependency pulling
-# in code from off-registry is treated as an error.
+# tarball — git URLs, http(s) tarballs, `file:` links, etc.
 blockExoticSubdeps: true
 
 # Never let resolution move a package *below* a version already trusted in the
 # lockfile. Blocks downgrade-style attacks that reintroduce a known-bad version.
-# "Trust" is judged by publish-time evidence (e.g. provenance attestation), so a
-# newer release that simply stopped publishing provenance trips this too.
 trustPolicy: "no-downgrade"
 
-# Specific versions exempt from `trustPolicy`. These are benign provenance gaps in
-# widely-used transitive deps (e.g. `@types/*` packages, which often ship without
-# provenance) — vetted and pinned by exact version so the exemption can't widen.
+# Specific versions exempt from `trustPolicy` — benign provenance gaps in widely
+# used transitive deps, vetted and pinned by exact version.
 trustPolicyExclude:
   - "undici-types@6.21.0"
   - "semver@6.3.1"
 
-# Pin exact versions on `pnpm add` (no `^`/`~`), so an install can't silently
-# float onto a newer, unreviewed release.
+# Pin exact versions on `pnpm add` (no `^`/`~`).
 savePrefix: ""
 
-# Only the packages listed here may run install/build lifecycle scripts
-# (postinstall, etc.). Everything else is blocked by default — an unlisted
-# dependency cannot execute arbitrary code at install time. Add a package here
-# (with a quick look at *why* it needs a build step) only when its build is
-# genuinely required.
+# Only the packages listed here may run install/build lifecycle scripts. Prisma
+# needs its engines built; esbuild/lightningcss/workerd are the frontend's.
 allowBuilds:
   esbuild: true
   lightningcss: true
+  workerd: true
+  prisma: true
+  "@prisma/client": true
+  "@prisma/engines": true
   # Pulled in transitively (via Wrangler); we don't process images, so deny its
   # native build. Flip to `true` if you start using sharp.
   sharp: false
-  workerd: true
+  # Test-only dependency. Its postinstall is a best-effort no-op (funding notice)
+  # and the request-mocking service worker is generated explicitly via `msw init`
+  # (committed to app/frontend/web/public), so the build script isn't needed.
+  msw: false

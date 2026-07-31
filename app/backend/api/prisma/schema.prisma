@@ -1,0 +1,104 @@
+// RhymeLab's data model, ported from the original Drizzle/D1 (SQLite) schema to
+// Postgres. Lyrics are the source of truth as plain text; sections and
+// annotations anchor to character offsets into that text (see @rhymelab/core's
+// anchor + lyrics helpers).
+//
+// Enum-like columns (kind, section type, annotation mode) are plain `String` —
+// their vocabularies contain hyphens (`pre-chorus`, `rhyme-structure`) which are
+// invalid Prisma enum identifiers. The zod contract in @rhymelab/api-contract is
+// the validator (contract-first), so the DB constraint isn't load-bearing.
+//
+// Entries soft-delete (deletedAt); sections and annotations cascade with their
+// entry (sections are re-derived on every lyrics save anyway).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/_generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Entry {
+  id         Int       @id @default(autoincrement())
+  title      String
+  /// 'song' | 'poem'
+  kind       String
+  /// Artist (song) or author (poem).
+  artist     String?
+  /// Album (song) or collection/book (poem).
+  collection String?
+  /// Release / writing year.
+  year       Int?
+  /// Free-text description or working notes about the whole entry.
+  notes      String?
+  /// The canonical lyrics text. Blank lines separate sections.
+  lyrics     String    @default("")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  tags        EntryTag[]
+  sections    Section[]
+  annotations Annotation[]
+
+  @@index([kind])
+  @@map("entries")
+}
+
+model EntryTag {
+  entryId Int    @map("entry_id")
+  name    String
+  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, name])
+  @@map("entry_tags")
+}
+
+model Section {
+  id          Int      @id @default(autoincrement())
+  entryId     Int      @map("entry_id")
+  /// 0-based position in the lyrics.
+  orderIndex  Int      @map("order_index")
+  /// One of SECTION_TYPES.
+  type        String
+  /// Display label, e.g. "Stanza I", "Verse 1".
+  label       String
+  startOffset Int      @map("start_offset")
+  endOffset   Int      @map("end_offset")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
+  @@map("sections")
+}
+
+model Annotation {
+  id          Int       @id @default(autoincrement())
+  entryId     Int       @map("entry_id")
+  /// One of ANNOTATION_MODES.
+  mode        String
+  startOffset Int       @map("start_offset")
+  endOffset   Int       @map("end_offset")
+  /// Exact `lyrics.slice(start, end)` at write time — used to re-anchor.
+  quote       String
+  value       String?
+  body        String?
+  color       String?
+  /// True when a lyrics edit orphaned this annotation (kept, but off the text).
+  detached    Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
+  @@index([entryId, mode])
+  @@map("annotations")
+}

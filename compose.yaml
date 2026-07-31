@@ -1,0 +1,34 @@
+# Local Postgres for the API. Works with any Docker-compatible engine — including
+# OrbStack, which exposes the standard `docker`/`docker compose` CLI.
+#
+#   docker compose up -d      # start Postgres in the background
+#   docker compose down       # stop it (data persists in the named volume)
+#   docker compose down -v    # stop and wipe the data
+#
+# Host port is 5433 (not 5432) to avoid colliding with any other local Postgres
+# already bound to 5432. Inside the container Postgres still listens on 5432.
+#
+# Connection string (matches app/backend/api/.env):
+#   postgresql://rhymelab:rhymelab@localhost:5433/rhymelab
+services:
+  postgres:
+    image: postgres:17
+    container_name: rhymelab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rhymelab
+      POSTGRES_PASSWORD: rhymelab
+      POSTGRES_DB: rhymelab
+    ports:
+      # host 5433 -> container 5432 (5432 may be taken by another local Postgres)
+      - "5433:5432"
+    volumes:
+      - rhymelab_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhymelab -d rhymelab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  rhymelab_pgdata:

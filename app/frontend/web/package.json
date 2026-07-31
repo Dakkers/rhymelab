@@ -1,0 +1,75 @@
+{
+  "name": "@rhymelab/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite dev --config .config/vite.config.ts --port 3000",
+    "build": "vite build --config .config/vite.config.ts",
+    "preview": "pnpm run build && vite preview --config .config/vite.config.ts",
+    "deploy": "pnpm run build && wrangler deploy",
+    "generate-routes": "tsr generate",
+    "cf-typegen": "wrangler types --config .config/wrangler.jsonc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config .config/vitest.config.ts",
+    "test:watch": "vitest --config .config/vitest.config.ts",
+    "test:debug": "VITEST_KEEP_DOM=1 vitest --config .config/vitest.config.ts",
+    "fmt": "oxfmt --config .config/.oxfmtrc.json . '!src/routeTree.gen.ts'",
+    "fmt:check": "oxfmt --config .config/.oxfmtrc.json --check . '!src/routeTree.gen.ts'",
+    "lint": "oxlint --config .config/.oxlintrc.json --fix",
+    "lint:check": "oxlint --config .config/.oxlintrc.json"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@cloudflare/vite-plugin": "1.44.0",
+    "@orpc/client": "1.14.5",
+    "@orpc/contract": "1.14.5",
+    "@orpc/tanstack-query": "1.14.5",
+    "@rhymelab/api-contract": "workspace:*",
+    "@rhymelab/core": "workspace:*",
+    "@saintly-software/baritone": "1.0.0-alpha.2",
+    "@tanstack/react-query": "5.101.2",
+    "@tanstack/react-router": "1.170.18",
+    "@tanstack/react-router-ssr-query": "1.167.1",
+    "@tanstack/react-start": "1.168.30",
+    "@tanstack/react-table": "9.0.0-beta.53",
+    "@tanstack/router-plugin": "1.168.19",
+    "@vanilla-extract/css": "1.21.1",
+    "@vanilla-extract/css-utils": "0.1.6",
+    "lucide-react": "1.25.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@orpc/server": "1.14.5",
+    "@tanstack/router-cli": "1.167.18",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "7.0.0",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vanilla-extract/vite-plugin": "5.2.5",
+    "@vitejs/plugin-react": "6.0.3",
+    "@vitest/browser": "4.1.10",
+    "@vitest/browser-playwright": "4.1.10",
+    "msw": "2.15.0",
+    "oxfmt": "0.50.0",
+    "oxlint": "1.64.0",
+    "playwright": "1.62.0",
+    "typescript": "6.0.3",
+    "vite": "8.1.4",
+    "vitest": "4.1.10",
+    "wrangler": "4.110.0"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

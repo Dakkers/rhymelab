@@ -1,0 +1,52 @@
+/**
+ * Fastify app wiring the oRPC router in over the RPC protocol.
+ *
+ * The session cookie is parsed here (before oRPC) and handed to handlers as
+ * context; auth procedures set/clear it via `context.reply`. CORS runs in
+ * credentials mode against the web app's exact origin so the browser attaches the
+ * cookie on cross-port requests.
+ */
+import cookie from "@fastify/cookie";
+import cors from "@fastify/cors";
+import { onError } from "@orpc/server";
+import { RPCHandler } from "@orpc/server/fastify";
+import Fastify from "fastify";
+import { router } from "./router";
+import type { Session } from "./orpc";
+import { COOKIE_NAME, COOKIE_VALUE, sessionSecret } from "./session";
+
+export async function buildServer() {
+  const handler = new RPCHandler(router, {
+    interceptors: [onError((error) => console.error(error))],
+  });
+
+  const app = Fastify({ logger: true });
+
+  await app.register(cookie, { secret: sessionSecret() });
+  await app.register(cors, {
+    origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
+    credentials: true,
+  });
+
+  // oRPC decodes the request body itself; without this catch-all parser Fastify
+  // pre-parses it and oRPC's request decoding breaks.
+  app.addContentTypeParser("*", (_req, _payload, done) => done(null, undefined));
+
+  app.all("/rpc/*", async (req, reply) => {
+    const raw = req.cookies[COOKIE_NAME];
+    const unsigned = raw ? req.unsignCookie(raw) : { valid: false as const, value: null };
+    const session: Session | null =
+      unsigned.valid && unsigned.value === COOKIE_VALUE ? { authed: true } : null;
+
+    const { matched } = await handler.handle(req, reply, {
+      prefix: "/rpc",
+      context: { session, reply },
+    });
+
+    if (!matched) {
+      reply.status(404).send("Not found");
+    }
+  });
+
+  return app;
+}

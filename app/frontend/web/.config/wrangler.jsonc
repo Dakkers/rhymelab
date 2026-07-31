@@ -1,0 +1,42 @@
+/**
+ * Cloudflare Workers config. See:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "rhymelab",
+  "compatibility_date": "2025-09-02",
+  // `nodejs_compat` gives the Worker a Node-shaped runtime — notably `process`
+  // and `process.env`, which the session code reads for its secret. With this
+  // compatibility date, `vars` and secrets are also surfaced on `process.env`.
+  "compatibility_flags": ["nodejs_compat"],
+  // TanStack Start's server entry. The build (via the vite plugin) emits the
+  // worker bundle that Wrangler deploys.
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "enabled": true,
+  },
+
+  /**
+   * Alpha is a single user's private library. The Worker serves the app at the
+   * custom domain below — the zone `dakota-stlaurent.com` must be on this
+   * Cloudflare account for `wrangler deploy` to attach it. Remove/adjust this
+   * block to deploy to the default `*.workers.dev` subdomain instead.
+   */
+  "routes": [
+    {
+      "pattern": "rhymelab.dakota-stlaurent.com",
+      "custom_domain": true,
+    },
+  ],
+
+  /**
+   * Data now lives behind the separate API (`@rhymelab/api`), reached over HTTP
+   * via the oRPC client — the web worker no longer binds a database or reads app
+   * secrets. The API base URL is a build-time Vite var (`VITE_API_URL`), set in
+   * `.config/.env*`, not a Worker binding.
+   *
+   * After changing bindings, run `pnpm cf-typegen` to regenerate
+   * `worker-configuration.d.ts`.
+   */
+}

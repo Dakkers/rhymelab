@@ -1,0 +1,8 @@
+node_modules/
+dist/
+# Prisma client is generated (prisma generate) — never commit it.
+src/_generated/
+# Secrets (committed .env holds non-secret defaults).
+.env.local
+.env.*.local
+*.tsbuildinfo
