@@ -40,6 +40,19 @@ export default defineConfig({
   // `.env*` files live alongside this config rather than in the project root.
   envDir: ".config",
   resolve: { tsconfigPaths: true },
+  server: {
+    // Routes are code-split, so Vite doesn't discover a route's deps until you
+    // first navigate to it — at which point it optimizes them and force-reloads
+    // the page to apply the new bundle. On the workbench that reload lands
+    // mid-interaction and wipes React state, so a click made too early (a
+    // recorded flow, or `e2e/rhyme-groups.spec.ts`) is silently lost. Pre-
+    // transform the workbench route on server start so its deps are optimized up
+    // front — no first-visit reload. Path is relative to Vite's root (the
+    // project root / cwd), same as everything else here.
+    warmup: {
+      clientFiles: ["src/routes/_authenticated/entries/$entryId/index.tsx"],
+    },
+  },
   plugins: [
     cloudflare({ configPath: "./.config/wrangler.jsonc", viteEnvironment: { name: "ssr" } }),
     tanstackStart(),
