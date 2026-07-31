@@ -1,5 +1,11 @@
 {
-  "include": ["src", ".config/vite.config.ts", ".config/vitest.config.ts"],
+  "include": [
+    "src",
+    "e2e",
+    ".config/vite.config.ts",
+    ".config/vitest.config.ts",
+    ".config/playwright.config.ts"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

@@ -1,0 +1,3 @@
+# Saved session cookie from auth.setup.ts — machine-local, and a live session
+# token. Never commit it.
+.auth/

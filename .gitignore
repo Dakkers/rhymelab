@@ -46,6 +46,11 @@ Thumbs.db
 # Test coverage
 coverage/
 
+# Playwright (E2E) — local run artifacts; saved auth state is ignored next to it
+test-results/
+playwright-report/
+.last-run.json
+
 # Scratch space — tracked as an empty dir via .gitkeep
 .dummy/*
 !.dummy/.gitkeep
