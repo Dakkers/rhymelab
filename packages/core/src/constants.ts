@@ -78,7 +78,7 @@ export const DEFAULT_SECTION_TYPE: SectionType = "verse";
  * theme *and* a device). `read` is the plain reading view and stores nothing.
  */
 export const ANNOTATION_MODES = [
-  "rhyme-structure",
+  "rhyme-scheme",
   "rhyme-type",
   "sound",
   "theme",
@@ -111,9 +111,9 @@ export const MODE_META: Record<ViewMode, ModeMeta> = {
     color: "#9A948A",
     helper: "A clean reading view. Switch modes to start annotating.",
   },
-  "rhyme-structure": {
-    mode: "rhyme-structure",
-    label: "Rhyme structure",
+  "rhyme-scheme": {
+    mode: "rhyme-scheme",
+    label: "Rhyme scheme",
     color: "#EC5C79",
     helper: "Select a word, then assign a rhyme group. Use X for a line that doesn't rhyme.",
   },
@@ -150,7 +150,7 @@ export const MODE_META: Record<ViewMode, ModeMeta> = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Rhyme structure — the A–F / X groups                                */
+/* Rhyme scheme — the A–F / X groups                                */
 /* ------------------------------------------------------------------ */
 
 export const RHYME_GROUPS = ["A", "B", "C", "D", "E", "F", "X"] as const;

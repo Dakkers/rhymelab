@@ -31,7 +31,7 @@ function LandingPage() {
           Read closely. Mark the music.
         </Heading>
         <Text size="lg" saliency="low">
-          A private workbench for annotating songs and poems — rhyme structure, sound, theme,
+          A private workbench for annotating songs and poems — rhyme scheme, sound, theme,
           device, and notes, laid over the words themselves.
         </Text>
 

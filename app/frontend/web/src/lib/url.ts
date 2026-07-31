@@ -47,7 +47,7 @@ export const entryIdParams = {
 
 /** The workbench opens on the rhyme layer, drawn in colour. */
 export const WORKBENCH_SEARCH_DEFAULTS = {
-  mode: "rhyme-structure",
+  mode: "rhyme-scheme",
   view: "colours",
 } satisfies { mode: ViewMode; view: RhymeView };
 

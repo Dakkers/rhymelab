@@ -74,7 +74,7 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
     [entry.annotations, mode],
   );
   const findRhyme = useMemo(
-    () => makeWordFinder(entry.annotations, "rhyme-structure"),
+    () => makeWordFinder(entry.annotations, "rhyme-scheme"),
     [entry.annotations],
   );
 

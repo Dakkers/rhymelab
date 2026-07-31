@@ -22,7 +22,7 @@ test("assigns a rhyme group to a line, then clears it", async ({ page }) => {
   await page.getByRole("link", { name: /Long Island/i }).click();
 
   // We're on the entry's workbench: the URL carries an entry id and the <h1> is
-  // the title. The workbench opens on the rhyme-structure layer by default, so
+  // the title. The workbench opens on the rhyme-scheme layer by default, so
   // lines are immediately assignable without switching modes.
   await expect(page).toHaveURL(/\/entries\/\d+/);
   await expect(page.getByRole("heading", { level: 1, name: "Long Island" })).toBeVisible();
@@ -57,13 +57,13 @@ test("assigns a rhyme group to a line, then clears it", async ({ page }) => {
   // the line's badge flips from "+" to a group, so one fewer add-badge remains…
   await groupA.click();
   await expect(addBadges).toHaveCount(before - 1);
-  // …and the inspector's cross-mode summary now offers to clear the rhyme-structure
+  // …and the inspector's cross-mode summary now offers to clear the rhyme-scheme
   // annotation — proof the group actually landed on the selected span.
-  await expect(inspector.getByLabel("Clear Rhyme structure")).toBeVisible();
+  await expect(inspector.getByLabel("Clear Rhyme scheme")).toBeVisible();
 
   // Clean up: clicking the already-active group toggles it back off, so the line
   // returns to a "+" and the entry is left exactly as we found it.
   await groupA.click();
   await expect(addBadges).toHaveCount(before);
-  await expect(inspector.getByLabel("Clear Rhyme structure")).toBeHidden();
+  await expect(inspector.getByLabel("Clear Rhyme scheme")).toBeHidden();
 });

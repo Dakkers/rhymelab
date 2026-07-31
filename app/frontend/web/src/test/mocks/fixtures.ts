@@ -58,7 +58,7 @@ export function makeSection(overrides: Partial<SectionDTO> = {}): SectionDTO {
 export function makeAnnotation(overrides: Partial<AnnotationDTO> = {}): AnnotationDTO {
   return {
     id: 1,
-    mode: "rhyme-structure",
+    mode: "rhyme-scheme",
     startOffset: 0,
     endOffset: 0,
     quote: "",

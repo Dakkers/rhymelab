@@ -38,7 +38,7 @@ export function tintOf(hex: string, alpha = 0.24): string {
 
 /** The highlight an annotation paints with, or null if it carries no colour. */
 export function colorForAnnotation(ann: AnnotationDTO): HighlightColor | null {
-  if (ann.mode === "rhyme-structure") {
+  if (ann.mode === "rhyme-scheme") {
     const c = RHYME_GROUP_COLORS[(ann.value ?? "X") as RhymeGroup];
     return c ? { solid: c.solid, tint: c.tint, ink: c.ink } : null;
   }
@@ -100,7 +100,7 @@ export function groupCountsForSection(
   const counts: Record<RhymeGroup, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0 };
   for (const a of annotations) {
     if (
-      a.mode === "rhyme-structure" &&
+      a.mode === "rhyme-scheme" &&
       !a.detached &&
       a.value &&
       a.startOffset >= section.startOffset &&

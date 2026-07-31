@@ -32,7 +32,7 @@ test("assigns a rhyme group to the last word of a line", async () => {
   const setAnnotation = vi.fn();
   observeSetAnnotation(setAnnotation);
 
-  // The workbench opens on the rhyme-structure layer by default (see
+  // The workbench opens on the rhyme-scheme layer by default (see
   // WORKBENCH_SEARCH_DEFAULTS), so words are already selectable and assigning a
   // group needs no mode switch.
   renderRoute(Route, { path: "/entries/$entryId", initialEntries: ["/entries/1"] });
@@ -73,7 +73,7 @@ test("assigns a rhyme group to the last word of a line", async () => {
   expect(setAnnotation).toHaveBeenCalledTimes(1);
   expect(setAnnotation).toHaveBeenCalledWith({
     entryId: 1,
-    mode: "rhyme-structure",
+    mode: "rhyme-scheme",
     startOffset: start,
     endOffset: start + "ending".length,
     value: "A",
@@ -85,10 +85,10 @@ test("assigns a rhyme group to the last word of a line", async () => {
   expect(screen.getAllByLabelText("Assign rhyme group to this line")).toHaveLength(lineCount - 1);
   expect(screen.getByText("ending")).toHaveAttribute("data-annot", "true");
 
-  // The inspector's cross-mode summary confirms the rhyme-structure annotation.
+  // The inspector's cross-mode summary confirms the rhyme-scheme annotation.
   // (Locate the card by its unique "Clear" button rather than the mode label,
   // which also appears in the mode bar and the panel header.)
-  const summary = screen.getByLabelText("Clear Rhyme structure").closest(".rl-assign-card");
+  const summary = screen.getByLabelText("Clear Rhyme scheme").closest(".rl-assign-card");
   expect(summary).not.toBeNull();
   expect(within(summary as HTMLElement).getByText("A")).toBeInTheDocument();
 });

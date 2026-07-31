@@ -79,7 +79,7 @@ function Line(props: SectionCardProps & { line: LineToken }) {
   return (
     <div className="rl-line">
       {renderSegments(line, props)}
-      {mode === "rhyme-structure" && last && (
+      {mode === "rhyme-scheme" && last && (
         <LineBadge
           word={last}
           view={view}
@@ -112,7 +112,7 @@ function renderSegments(line: LineToken, props: SectionCardProps) {
     const ann = annotate ? props.findCurrent(word.start, word.end) : null;
     const color = ann ? colorForAnnotation(ann) : null;
     // In rhyme "letters" view the words aren't tinted — the badges carry the scheme.
-    const showTint = color && !(mode === "rhyme-structure" && view === "letters");
+    const showTint = color && !(mode === "rhyme-scheme" && view === "letters");
 
     nodes.push(
       <span

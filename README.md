@@ -1,6 +1,6 @@
 # RhymeLab
 
-A private workbench for **annotating songs and poems** — rhyme structure, rhyme
+A private workbench for **annotating songs and poems** — rhyme scheme, rhyme
 types, sound devices, themes, literary devices, and free-form notes, laid
 directly over the words. Built for a single user (alpha), hosted on **Cloudflare
 Workers** with a **D1 (SQLite)** database.
@@ -15,12 +15,12 @@ layered on top anchors to **character offsets** into it:
 - **Sections** are auto-detected from blank lines (a verse, chorus, stanza…). Their
   _type_ and _label_ are editable and persist across lyric edits.
 - **Annotations** are `[start, end)` ranges — usually one word, sometimes a phrase.
-  Each carries a **mode** (rhyme-structure / rhyme-type / sound / theme / device /
+  Each carries a **mode** (rhyme-scheme / rhyme-type / sound / theme / device /
   note), so a single word can hold several at once. Each annotation snapshots the
   exact text it covers (`quote`) so it can be re-found after the lyrics are edited.
 
 The workbench (`/entries/:id`) is a reading view with a **mode bar**; the hero mode,
-**Rhyme structure**, assigns colour-coded groups (A–F, X) with per-section counts,
+**Rhyme scheme**, assigns colour-coded groups (A–F, X) with per-section counts,
 shared word colours, and line-end scheme badges.
 
 ## Tech stack

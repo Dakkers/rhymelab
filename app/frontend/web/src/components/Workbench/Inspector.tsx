@@ -46,7 +46,7 @@ interface InspectorProps {
 }
 
 const MODE_LABELS: Record<AnnotationMode, string> = {
-  "rhyme-structure": "Rhyme structure",
+  "rhyme-scheme": "Rhyme scheme",
   "rhyme-type": "Rhyme type",
   sound: "Sound",
   theme: "Theme",
@@ -161,7 +161,7 @@ function ModeControl(
   props: InspectorProps & { covering: Partial<Record<AnnotationMode, AnnotationDTO>> },
 ) {
   const { mode } = props;
-  if (mode === "rhyme-structure") return <RhymeControl {...props} />;
+  if (mode === "rhyme-scheme") return <RhymeControl {...props} />;
   if (mode === "theme") return <ThemeControl {...props} />;
   if (mode === "note") return <NoteControl {...props} />;
   return <OptionControl {...props} />;
@@ -174,7 +174,7 @@ function RhymeControl(
   const counts = activeSection
     ? groupCountsForSection(annotations, activeSection)
     : ({ A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0 } as Record<RhymeGroup, number>);
-  const active = covering["rhyme-structure"]?.value as RhymeGroup | undefined;
+  const active = covering["rhyme-scheme"]?.value as RhymeGroup | undefined;
 
   return (
     <Flex direction="column" gap="4">
