@@ -18,7 +18,7 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BARITONE_DIR="${BARITONE_DIR:-$APP_DIR/../baritone-design-system}"
+BARITONE_DIR="${BARITONE_DIR:-$APP_DIR/../../../../baritone-design-system}"
 PKG="@saintly-software/baritone"
 
 if [ ! -d "$BARITONE_DIR" ]; then

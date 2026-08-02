@@ -246,36 +246,52 @@ function RhymeControl(props: InspectorProps & { active: RhymeGroup | undefined }
 
   return (
     <Flex direction="column" gap="4">
-      <div>
-        <Eyebrow mb="2">Assign rhyme group</Eyebrow>
-        <div className="rl-group-grid">
-          {RHYME_GROUPS.map((g) => {
-            const c = RHYME_GROUP_COLORS[g];
-            return (
-              <button
-                key={g}
-                type="button"
-                className="rl-group-btn"
-                data-active={active === g ? "true" : undefined}
-                onClick={() => props.onWriteGroup(active === g ? null : g)}
-                disabled={props.busy}
-              >
-                <span
-                  className="rl-group-swatch"
-                  style={{ background: c.solid, color: c.ink }}
-                  aria-hidden
+      {/*
+        `clearable` is what lets this be a ToggleGroup at all: a span may carry no
+        group (`active` is undefined until one is assigned), and re-pressing the
+        active group is how you take it back off — both of which the strict arm
+        forbids. Each segment's colour is per-group *data*, not a token, so it
+        rides in as an inline-styled swatch child while the group's own
+        intent/saliency style the selected state.
+
+        Each segment draws that swatch with its count trailing it, so the
+        flattened text would announce as "A 3" — hence the authored `aria-label`,
+        which still contains the visible letter and count per WCAG 2.5.3.
+      */}
+      <div className="rl-group-field">
+        <ToggleGroup
+          clearable
+          label="Assign rhyme group"
+          className="rl-group-grid"
+          value={active ?? null}
+          onChange={props.onWriteGroup}
+          intent="primary"
+          saliency="mid"
+          size="sm"
+          disabled={props.busy}
+        >
+          {({ ToggleGroupItem }) =>
+            RHYME_GROUPS.map((g) => {
+              const c = RHYME_GROUP_COLORS[g];
+              return (
+                <ToggleGroupItem
+                  key={g}
+                  value={g}
+                  aria-label={`Rhyme group ${g}, ${counts[g]} lines`}
                 >
-                  <Text as="span" size="xs" weight="superbold" style={{ color: "inherit" }}>
-                    {g}
+                  <span className="rl-group-swatch" style={{ background: c.solid, color: c.ink }}>
+                    <Text as="span" size="xs" weight="superbold" style={{ color: "inherit" }}>
+                      {g}
+                    </Text>
+                  </span>
+                  <Text as="span" size="xs" weight="semibold" saliency="low">
+                    {counts[g]}
                   </Text>
-                </span>
-                <Text as="span" size="xs" weight="semibold" saliency="low" ml="auto">
-                  {counts[g]}
-                </Text>
-              </button>
-            );
-          })}
-        </div>
+                </ToggleGroupItem>
+              );
+            })
+          }
+        </ToggleGroup>
       </div>
 
       <ToggleGroup label="View" value={view} onChange={props.onViewChange}>

@@ -362,35 +362,33 @@
   min-width: 0;
 }
 
-/* Rhyme group grid */
+/* Rhyme group grid — the layout override on Baritone's `ToggleGroup` root, which
+   is a single-line `inline-flex` toolbar by default. Seven segments carrying both
+   a swatch and a count don't fit across the inspector, so this retargets the same
+   component to a 4-column grid. Single-class specificity on both sides, so this
+   only wins because app.css is linked after baritone's stylesheet (see
+   __root.tsx). The segments' box, colour, and focus ring stay Baritone's.
+
+   The `> *` reaches one level into the component on purpose. A labelled
+   `ToggleGroup` wraps itself in a `Field` hardcoded to `fit: "content"`, which
+   shrink-wraps twice over: the root is `inline-flex` (so it never claims the
+   line) and it stacks its children `align-items: flex-start` (so the control
+   stack shrinks to content even once the root is wide). Left alone the `1fr`
+   columns collapse to ~52px each in a 324px aside instead of filling it.
+   Baritone exposes no `fit`/`width` knob and `slotProps` only reaches the label
+   and help text, so the Field root is unaddressable from props. These two
+   declarations undo exactly that shrink-wrap; the recipe's column direction and
+   spacing are untouched. Revisit if ToggleGroup grows a width prop. */
+.rl-group-field > * {
+  display: flex;
+  align-items: stretch;
+}
+
 .rl-group-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-}
-
-.rl-group-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: var(--rl-surface);
-  border: 1.5px solid var(--rl-hairline);
-  border-radius: var(--rl-radius-sm);
-  padding: 7px 8px;
-  cursor: pointer;
-  font-family: var(--rl-sans);
-  transition:
-    border-color 120ms ease,
-    background 120ms ease;
-}
-
-.rl-group-btn:hover {
-  border-color: var(--rl-hairline-strong);
-}
-
-.rl-group-btn[data-active="true"] {
-  border-color: var(--rl-ink);
-  background: var(--rl-surface-2);
+  width: 100%;
 }
 
 /* The two coloured chips that carry a group letter. Both set `color` for the

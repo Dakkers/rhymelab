@@ -59,6 +59,10 @@ export default defineConfig({
             enabled: true,
             provider: playwright(),
             instances: [{ browser: "chromium" }],
+            // Render at a small-desktop size so the workbench lays out with its
+            // two-column (main + inspector) layout rather than the ≤900px stacked
+            // one — the workbench tests assert against the desktop layout.
+            viewport: { width: 1366, height: 768 },
             // Headless on CI; headed (visible browser) on a desktop dev machine.
             headless: isCI,
             // Test failures are reported in the terminal; skip screenshot files.
