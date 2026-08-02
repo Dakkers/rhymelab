@@ -123,7 +123,7 @@ function EditForm({
       <Flex align="center" justify="between" gap="3" mb="6">
         <div>
           <Eyebrow>Edit entry</Eyebrow>
-          <Heading level={1} size="4xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
+          <Heading level={1} size="4xl" font="serif" mt="1" lineHeight="title">
             {entry.title}
           </Heading>
         </div>

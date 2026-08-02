@@ -92,11 +92,10 @@
   gap: 16px;
 }
 
+/* Colour + hover only — the link label's size/weight/family come from the `Text`
+   inside each link (see `NavBar`), keeping type out of app.css. */
 .rl-nav a,
 .rl-nav button {
-  font-family: var(--rl-sans);
-  font-size: 0.82rem;
-  font-weight: 500;
   color: var(--rl-navbar-ink-soft);
   background: transparent;
   transition: color 120ms ease;

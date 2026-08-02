@@ -47,7 +47,7 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
       header={
         <>
           <Eyebrow>{eyebrow}</Eyebrow>
-          <Heading level={1} size="8xl" font="serif" mt="2" style={{ lineHeight: 1.04 }}>
+          <Heading level={1} size="8xl" font="serif" mt="2" lineHeight="title">
             {entry.title}
           </Heading>
 

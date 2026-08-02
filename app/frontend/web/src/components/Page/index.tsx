@@ -28,7 +28,7 @@ export function Page({ title, subtitle, actions, children }: PageProps) {
         mb="8"
       >
         <div style={{ minWidth: 0 }}>
-          <Heading level={1} size="2xl" font="serif" style={{ lineHeight: 1.04 }}>
+          <Heading level={1} size="2xl" font="serif" lineHeight="title">
             {title}
           </Heading>
           {subtitle != null && (

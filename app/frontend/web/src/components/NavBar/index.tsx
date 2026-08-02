@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link as RouterLink } from "@tanstack/react-router";
 import { Text, type TextProps } from "@saintly-software/baritone";
 
@@ -22,13 +23,29 @@ export function NavBar() {
       </RouterLink>
 
       <nav className="rl-nav">
-        <RouterLink to="/library">Library</RouterLink>
+        <RouterLink to="/library">
+          <NavLabel>Library</NavLabel>
+        </RouterLink>
         {/* preload=false so a hover-preload of the logout route doesn't sign out. */}
         <RouterLink to="/auth/logout" preload={false}>
-          Log out
+          <NavLabel>Log out</NavLabel>
         </RouterLink>
       </nav>
     </header>
+  );
+}
+
+/**
+ * The nav links' type, from the design system — `nav` size + `medium` weight — so
+ * the label carries no hand-rolled `font-*` (`.rl-nav` is colour + hover only). The
+ * dark bar is outside Baritone's colour tokens, so the label takes the anchor's
+ * colour by inheritance rather than a token.
+ */
+function NavLabel({ children }: { children: ReactNode }) {
+  return (
+    <Text as="span" size="nav" weight="medium" style={{ color: "inherit" }}>
+      {children}
+    </Text>
   );
 }
 

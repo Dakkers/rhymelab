@@ -45,7 +45,7 @@ function NewEntryPage() {
     <main className="rl-page rl-page--narrow">
       <Box mb="6">
         <Eyebrow>New entry</Eyebrow>
-        <Heading level={1} size="4xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
+        <Heading level={1} size="4xl" font="serif" mt="1" lineHeight="title">
           Add a song or poem
         </Heading>
       </Box>

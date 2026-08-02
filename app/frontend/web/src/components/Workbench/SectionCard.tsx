@@ -77,8 +77,8 @@ export function SectionCard(props: SectionCardProps) {
       <Text
         font="serif"
         size="xl"
+        lineHeight="lyric"
         className={wordAnnotate ? "rl-annotate" : undefined}
-        style={{ lineHeight: 1.85 }}
       >
         {rhyme ? (
           // Group the section's line-checkboxes and name the group by the section,
@@ -223,7 +223,7 @@ function LineBadge({
       aria-label={`Rhyme group ${g}`}
       style={{ background: bg, color: fg, border }}
     >
-      <Text as="span" size="sm" weight="superbold" style={{ color: "inherit", lineHeight: 1 }}>
+      <Text as="span" size="sm" weight="superbold" lineHeight="none" style={{ color: "inherit" }}>
         {g}
       </Text>
     </span>

@@ -27,12 +27,12 @@ function LandingPage() {
           <AlphaChip style={{ borderColor: "var(--rl-hairline-strong)" }} />
         </Flex>
 
-        <Heading level={1} size="8xl" font="serif" style={{ lineHeight: 1.04 }}>
+        <Heading level={1} size="8xl" font="serif" lineHeight="title">
           Read closely. Mark the music.
         </Heading>
         <Text size="lg" saliency="low">
-          A private workbench for annotating songs and poems — rhyme scheme, sound, theme,
-          device, and notes, laid over the words themselves.
+          A private workbench for annotating songs and poems — rhyme scheme, sound, theme, device,
+          and notes, laid over the words themselves.
         </Text>
 
         <Link appearance="button" href="/library">

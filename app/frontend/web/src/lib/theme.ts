@@ -19,6 +19,32 @@ const BRAND_OKLCH = { h: 34, c: 0.2 };
 export const APP_FONTS = { serif: "var(--rl-serif)" };
 
 /**
+ * The custom leadings for `BaritoneTheme`'s `lineHeights` prop — hand-tuned
+ * display and lyric values that sit outside Baritone's built-in `none`…`loose`
+ * ramp. Each publishes a `--lineHeight-<name>` custom property, selected with
+ * `<Heading lineHeight="title">` / `<Text lineHeight="lyric">` (the names are
+ * declared in `src/baritone.d.ts`). `title` is the tight leading every serif
+ * title shares; `lyric` is the loose body leading in the workbench section cards.
+ */
+export const APP_LINE_HEIGHTS = { title: "1.04", lyric: "1.85" };
+
+/**
+ * The custom weight for `BaritoneTheme`'s `weights` prop. `medium` (500) sits
+ * between the built-in `default` (400) and `semibold` (600) — the nav-link weight,
+ * now selected with `<Text weight="medium">` rather than hand-rolled in `app.css`.
+ * Published as `--fontWeight-medium`; the name is declared in `src/baritone.d.ts`.
+ */
+export const APP_WEIGHTS = { medium: "500" };
+
+/**
+ * The custom size for `BaritoneTheme`'s `sizes` prop. `nav` (0.82rem) is the
+ * compact nav-link label — a step between the built-in `xs` and `sm` — now selected
+ * with `<Text size="nav">` instead of a bare `font-size` in `app.css`. Published as
+ * `--fontSize-nav`; the name is declared in `src/baritone.d.ts`.
+ */
+export const APP_SIZES = { nav: "0.82rem" };
+
+/**
  * Build the app's design tokens. The `primary` seed is the brand red-orange
  * expressed as its oklch hue + chroma, which is all Baritone needs to derive the
  * whole intent ramp — fills, tints, borders, focus rings, and the three text

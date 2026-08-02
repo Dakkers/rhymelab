@@ -8,7 +8,14 @@ import {
 import { BaritoneTheme, LinkProvider } from "@saintly-software/baritone";
 
 import { NotFound } from "../components/NotFound";
-import { APP_FONTS, brandVars, buildAppTokens } from "../lib/theme";
+import {
+  APP_FONTS,
+  APP_LINE_HEIGHTS,
+  APP_SIZES,
+  APP_WEIGHTS,
+  brandVars,
+  buildAppTokens,
+} from "../lib/theme";
 import resetCss from "../styles/reset.css?url";
 import baritoneCss from "../styles/styles.css?url";
 import appCss from "../styles/app.css?url";
@@ -49,6 +56,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         tokens={tokens}
         scheme="light"
         fonts={APP_FONTS}
+        lineHeights={APP_LINE_HEIGHTS}
+        weights={APP_WEIGHTS}
+        sizes={APP_SIZES}
         render={<body className="rl-body" />}
         style={brandVars(tokens)}
       >

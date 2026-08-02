@@ -31,7 +31,14 @@ import {
   type AnyRouter,
 } from "@tanstack/react-router";
 import { BaritoneTheme, LinkProvider } from "@saintly-software/baritone";
-import { APP_FONTS, brandVars, buildAppTokens } from "#/lib/theme";
+import {
+  APP_FONTS,
+  APP_LINE_HEIGHTS,
+  APP_SIZES,
+  APP_WEIGHTS,
+  brandVars,
+  buildAppTokens,
+} from "#/lib/theme";
 
 /**
  * The app's theme, minus the HTML-document shell. The tokens/fonts/brand vars
@@ -53,6 +60,9 @@ export function TestThemeProvider({ children }: { children: ReactNode }) {
       tokens={tokens}
       scheme="light"
       fonts={APP_FONTS}
+      lineHeights={APP_LINE_HEIGHTS}
+      weights={APP_WEIGHTS}
+      sizes={APP_SIZES}
       style={brandVars(tokens)}
       render={<div className="rl-body" />}
     >

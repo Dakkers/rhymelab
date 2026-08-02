@@ -32,7 +32,7 @@ function LibraryPage() {
       <Flex align="center" justify="between" gap="4" mb="8">
         <div>
           <Eyebrow>Library</Eyebrow>
-          <Heading level={1} size="5xl" font="serif" mt="1" style={{ lineHeight: 1.04 }}>
+          <Heading level={1} size="5xl" font="serif" mt="1" lineHeight="title">
             Your songs & poems
           </Heading>
         </div>
