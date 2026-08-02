@@ -95,6 +95,43 @@ export type ViewMode = (typeof VIEW_MODES)[number];
 export const RHYME_VIEWS = ["colours", "letters"] as const;
 export type RhymeView = (typeof RHYME_VIEWS)[number];
 
+/* ------------------------------------------------------------------ */
+/* Annotation tiers                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The two granularities the workbench annotates at. `basic` works line-by-line
+ * (every mode selects whole lines); `advanced` is the future word-level layer —
+ * the same modes over individual words — and is deferred, so it renders as a
+ * disabled tier for now.
+ */
+export const ANNOTATION_TIERS = ["basic", "advanced"] as const;
+export type AnnotationTier = (typeof ANNOTATION_TIERS)[number];
+
+export interface TierMeta {
+  tier: AnnotationTier;
+  label: string;
+  /** One-line description of what the tier annotates. */
+  helper: string;
+  /** Whether the tier is selectable yet. `advanced` is deferred. */
+  enabled: boolean;
+}
+
+export const TIER_META: Record<AnnotationTier, TierMeta> = {
+  basic: {
+    tier: "basic",
+    label: "Basic",
+    helper: "Annotate whole lines.",
+    enabled: true,
+  },
+  advanced: {
+    tier: "advanced",
+    label: "Advanced",
+    helper: "Annotate individual words. Coming soon.",
+    enabled: false,
+  },
+};
+
 export interface ModeMeta {
   mode: ViewMode;
   label: string;
@@ -122,31 +159,31 @@ export const MODE_META: Record<ViewMode, ModeMeta> = {
     mode: "rhyme-type",
     label: "Rhyme types",
     color: "#2FB9A0",
-    helper: "Select a word and label how it rhymes — perfect, slant, internal, and so on.",
+    helper: "Select the lines that rhyme and label how — perfect, slant, and so on.",
   },
   sound: {
     mode: "sound",
     label: "Sounds",
     color: "#4C8DF0",
-    helper: "Mark sonic devices — alliteration, assonance, consonance, sibilance.",
+    helper: "Select the lines that carry a sound — alliteration, assonance, consonance, sibilance.",
   },
   theme: {
     mode: "theme",
     label: "Theme",
     color: "#8B6DF0",
-    helper: "Tag words and phrases with the themes and imagery they carry.",
+    helper: "Select the lines and tag the themes and imagery they carry.",
   },
   device: {
     mode: "device",
     label: "Device",
     color: "#F0973C",
-    helper: "Mark literary devices — metaphor, simile, personification, and more.",
+    helper: "Select the lines that use a device — metaphor, simile, personification, and more.",
   },
   note: {
     mode: "note",
     label: "Note",
     color: "#C9922E",
-    helper: "Write a free-form note about any word or phrase.",
+    helper: "Select the lines and write a free-form note about them.",
   },
 };
 

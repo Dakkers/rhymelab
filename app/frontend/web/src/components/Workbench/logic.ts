@@ -78,27 +78,47 @@ export function deriveSections(entry: EntryDetail): SectionWithLines[] {
   }));
 }
 
-type RhymeFinder = (start: number, end: number) => AnnotationDTO | null;
+/** A per-mode finder over a line span (see `makeWordFinder`). */
+type LineFinder = (start: number, end: number) => AnnotationDTO | null;
 
-/** The rhyme group assigned to a line, or null when it has none. */
-export function lineRhymeGroup(findRhyme: RhymeFinder, line: LineSpan): RhymeGroup | null {
-  const ann = findRhyme(line.start, line.end);
-  return ann?.value ? (ann.value as RhymeGroup) : null;
+/**
+ * The field shared by *every* line in a selection for one mode's finder, or
+ * `undefined` when they differ (or any line is unassigned) — drives whether an
+ * option/group reads as active for a multi-line selection. `pick` reads the
+ * relevant field off the covering annotation (`value` for the group/option
+ * modes, `body` for notes).
+ */
+function commonField(
+  finder: LineFinder,
+  lines: LineSpan[],
+  pick: (ann: AnnotationDTO) => string | null,
+): string | undefined {
+  if (lines.length === 0) return undefined;
+  const fieldOf = (l: LineSpan): string | null => {
+    const ann = finder(l.start, l.end);
+    return ann ? pick(ann) : null;
+  };
+  const first = fieldOf(lines[0]!);
+  if (first == null) return undefined;
+  return lines.every((l) => fieldOf(l) === first) ? first : undefined;
+}
+
+/** The `value` shared by every selected line for a mode, or `undefined`. */
+export function commonValueForLines(finder: LineFinder, lines: LineSpan[]): string | undefined {
+  return commonField(finder, lines, (a) => a.value);
+}
+
+/** The note `body` shared by every selected line, or `undefined`. */
+export function commonBodyForLines(finder: LineFinder, lines: LineSpan[]): string | undefined {
+  return commonField(finder, lines, (a) => a.body);
 }
 
 /**
- * The rhyme group shared by *every* line in a selection, or `undefined` when
- * they differ (or any is unassigned) — drives whether a group button reads as
- * active for a multi-line selection.
+ * The rhyme group shared by every line in a selection — the rhyme-scheme
+ * specialisation of `commonValueForLines`, narrowed back to `RhymeGroup`.
  */
-export function commonRhymeGroup(
-  findRhyme: RhymeFinder,
-  lines: LineSpan[],
-): RhymeGroup | undefined {
-  if (lines.length === 0) return undefined;
-  const first = lineRhymeGroup(findRhyme, lines[0]!);
-  if (first == null) return undefined;
-  return lines.every((l) => lineRhymeGroup(findRhyme, l) === first) ? first : undefined;
+export function commonRhymeGroup(finder: LineFinder, lines: LineSpan[]): RhymeGroup | undefined {
+  return commonValueForLines(finder, lines) as RhymeGroup | undefined;
 }
 
 export interface HighlightColor {

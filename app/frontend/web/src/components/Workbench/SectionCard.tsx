@@ -1,30 +1,31 @@
-import type { MouseEvent, ReactNode } from "react";
 import { Badge, Button, Checkbox, Flex, Select, Text } from "@saintly-software/baritone";
 import { Eyebrow } from "#/components/Eyebrow";
 import {
+  MODE_META,
   RHYME_GROUP_COLORS,
   SECTION_TYPE_OPTIONS,
+  labelForValue,
+  themeColor,
+  type AnnotationMode,
   type RhymeGroup,
   type RhymeView,
   type SectionType,
   type ViewMode,
 } from "@rhymelab/core";
-import type { LineToken, WordToken } from "@rhymelab/core";
+import type { LineToken } from "@rhymelab/core";
 import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
-import { colorForAnnotation, type LineSelection, type Selection } from "./logic";
+import { colorForAnnotation, type LineSelection } from "./logic";
 
 interface SectionCardProps {
   section: SectionDTO;
   lines: LineToken[];
   mode: ViewMode;
   view: RhymeView;
-  selection: Selection | null;
   lineSelection: LineSelection | null;
   editing: boolean;
   busy: boolean;
   findCurrent: (start: number, end: number) => AnnotationDTO | null;
   findRhyme: (start: number, end: number) => AnnotationDTO | null;
-  onSelectWord: (word: WordToken, shiftKey: boolean) => void;
   onSelectLine: (line: LineToken, section: SectionDTO, e: { shiftKey: boolean }) => void;
   onSelectAllLines: (section: SectionDTO) => void;
   onChangeType: (type: SectionType) => void;
@@ -32,10 +33,9 @@ interface SectionCardProps {
 
 export function SectionCard(props: SectionCardProps) {
   const { section, lines, mode, editing } = props;
-  const rhyme = mode === "rhyme-scheme";
-  // Only the word-level modes make individual words interactive; line mode and
-  // read mode leave them inert, so they don't get the `.rl-word` cursor/hover.
-  const wordAnnotate = mode !== "read" && !rhyme;
+  // Every mode except the plain reading view annotates whole lines: the line is
+  // the click target (a checkbox row) and, when tinted, the coloured band.
+  const lineLevel = mode !== "read";
 
   return (
     <section className="rl-section-card" data-editing={editing ? "true" : undefined}>
@@ -49,7 +49,7 @@ export function SectionCard(props: SectionCardProps) {
           )}
         </span>
         <Flex inline align="center" gap="3" render={<span />}>
-          {mode === "rhyme-scheme" && (
+          {lineLevel && (
             <Button
               appearance="text"
               variant="sm"
@@ -73,14 +73,9 @@ export function SectionCard(props: SectionCardProps) {
       </header>
 
       {/* The lyric body itself: serif, one size up from body copy, and set loose
-          enough that the per-line rhyme badges have room to sit beside it. */}
-      <Text
-        font="serif"
-        size="xl"
-        lineHeight="lyric"
-        className={wordAnnotate ? "rl-annotate" : undefined}
-      >
-        {rhyme ? (
+          enough that the per-line badges have room to sit beside it. */}
+      <Text font="serif" size="xl" lineHeight="lyric">
+        {lineLevel ? (
           // Group the section's line-checkboxes and name the group by the section,
           // so assistive tech announces "Verse 1, group" around the set.
           <div role="group" aria-label={section.label}>
@@ -89,114 +84,73 @@ export function SectionCard(props: SectionCardProps) {
             ))}
           </div>
         ) : (
-          lines.map((line) => <Line key={line.index} line={line} {...props} />)
+          lines.map((line) => <ReadLine key={line.index} line={line} />)
         )}
       </Text>
     </section>
   );
 }
 
+/**
+ * One selectable annotation row. Every line-level mode works the same way: a
+ * Baritone Checkbox owns the selection (role, keyboard, focus) and the whole row
+ * is a click target around it — click anywhere on the line to tick it. The active
+ * mode's annotation tints the row and marks it at the right edge (a rhyme group
+ * letter, or a value badge for the other modes).
+ */
 function Line(props: SectionCardProps & { line: LineToken }) {
   const { line, section, mode, view } = props;
 
-  // Rhyme scheme is line-level: a Baritone Checkbox owns the selection (role,
-  // keyboard, focus), and the whole row is a click target around it — click
-  // anywhere on the line to tick it. The assigned group letter sits on the right
-  // and (in "colours" view) a tint runs across the line. Words still render as
-  // spans so the text reads normally, but they don't handle clicks; the row does.
-  if (mode === "rhyme-scheme") {
-    if (line.blank) return <div className="rl-line rl-line--blank" />;
-    const ann = props.findRhyme(line.start, line.end);
-    const color = ann?.value ? colorForAnnotation(ann) : null;
-    const tint = color && view === "colours" ? color.tint : undefined;
-    const selected = props.lineSelection?.lines.some((l) => l.index === line.index) ?? false;
+  if (line.blank) return <div className="rl-line rl-line--blank" />;
 
-    return (
-      <div
-        className="rl-line rl-line--rhyme"
-        data-line-selected={selected ? "true" : undefined}
-        style={tint ? { background: tint } : undefined}
-        onClick={(e) => props.onSelectLine(line, section, e)}
-      >
-        {/* The lyric IS the checkbox's label, so the box is named by the visible
-            line (no duplicate string) and the text is part of the native toggle
-            target. The wrapper stops the box/label click from bubbling so the row
-            handler doesn't double-toggle it; the row still makes the surrounding
-            space clickable. */}
-        <span className="rl-line-check" onClick={(e) => e.stopPropagation()}>
-          <Checkbox
-            size="sm"
-            value={selected}
-            slotProps={{ label: { className: "rl-line-label" } }}
-            label={line.text.trim()}
-            onChange={(_value, event) =>
-              props.onSelectLine(line, section, event as unknown as { shiftKey: boolean })
-            }
-          />
-        </span>
+  const ann = props.findCurrent(line.start, line.end);
+  const annotated = !!ann && (!!ann.value || !!ann.body);
+  const color = annotated ? colorForAnnotation(ann) : null;
+  // Rhyme scheme paints its tint only in "colours" view (the letters view keeps
+  // the lyrics plain); every other mode always tints an annotated line.
+  const tint = color && (mode !== "rhyme-scheme" || view === "colours") ? color.tint : undefined;
+  const selected = props.lineSelection?.lines.some((l) => l.index === line.index) ?? false;
+
+  return (
+    <div
+      className="rl-line rl-line--select"
+      data-line-selected={selected ? "true" : undefined}
+      style={tint ? { background: tint } : undefined}
+      onClick={(e) => props.onSelectLine(line, section, e)}
+    >
+      {/* The lyric IS the checkbox's label, so the box is named by the visible
+          line (no duplicate string) and the text is part of the native toggle
+          target. The wrapper stops the box/label click from bubbling so the row
+          handler doesn't double-toggle it; the row still makes the surrounding
+          space clickable. */}
+      <span className="rl-line-check" onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          size="sm"
+          value={selected}
+          slotProps={{ label: { className: "rl-line-label" } }}
+          label={line.text.trim()}
+          onChange={(_value, event) =>
+            props.onSelectLine(line, section, event as unknown as { shiftKey: boolean })
+          }
+        />
+      </span>
+      {mode === "rhyme-scheme" ? (
         <LineBadge line={line} view={view} findRhyme={props.findRhyme} />
-      </div>
-    );
-  }
-
-  return <div className="rl-line">{renderSegments(line, props)}</div>;
+      ) : (
+        ann && <LineMarker mode={mode as AnnotationMode} ann={ann} />
+      )}
+    </div>
+  );
 }
 
-/**
- * Rebuild the line from its text, wrapping each word in a selectable span (the
- * word-level annotation modes; line mode labels its checkbox with the line text
- * instead and never calls this).
- */
-function renderSegments(line: LineToken, props: SectionCardProps) {
-  const { mode, selection } = props;
-  const annotate = mode !== "read";
-  const nodes: ReactNode[] = [];
-  let cursor = 0;
-
-  const inSelection = (w: WordToken) =>
-    selection != null && w.start >= selection.start && w.end <= selection.end;
-
-  line.words.forEach((word, i) => {
-    const localStart = word.start - line.start;
-    const localEnd = word.end - line.start;
-
-    if (localStart > cursor) {
-      nodes.push(<span key={`s${i}`}>{line.text.slice(cursor, localStart)}</span>);
-    }
-
-    const ann = annotate ? props.findCurrent(word.start, word.end) : null;
-    const color = ann ? colorForAnnotation(ann) : null;
-
-    nodes.push(
-      <span
-        key={`w${i}`}
-        className="rl-word"
-        data-annot={color ? "true" : undefined}
-        data-selected={inSelection(word) ? "true" : undefined}
-        style={color ? { background: color.tint, color: color.ink } : undefined}
-        onClick={
-          annotate
-            ? (e: MouseEvent) => {
-                e.stopPropagation();
-                props.onSelectWord(word, e.shiftKey);
-              }
-            : undefined
-        }
-      >
-        {word.text}
-      </span>,
-    );
-    cursor = localEnd;
-  });
-
-  if (cursor < line.text.length) {
-    nodes.push(<span key="tail">{line.text.slice(cursor)}</span>);
-  }
-  return nodes;
+/** A line in the plain reading view — no selection, no annotation. */
+function ReadLine({ line }: { line: LineToken }) {
+  if (line.blank) return <div className="rl-line rl-line--blank" />;
+  return <div className="rl-line">{line.text}</div>;
 }
 
-/** The group letter shown at a line's right edge — display only; the row (a
- *  checkbox) owns selection, so there's no "+" affordance here anymore. */
+/** The group letter shown at a rhyme line's right edge — display only; the row (a
+ *  checkbox) owns selection. */
 function LineBadge({
   line,
   view,
@@ -228,4 +182,27 @@ function LineBadge({
       </Text>
     </span>
   );
+}
+
+/**
+ * The right-edge marker for the non-rhyme line modes: a Baritone Badge carrying
+ * the assigned value, coloured by the mode (or the theme's own hue). A note has
+ * no short value, so it shows a coloured dot instead.
+ */
+function LineMarker({ mode, ann }: { mode: AnnotationMode; ann: AnnotationDTO }) {
+  if (mode === "note") {
+    return (
+      <Badge
+        shape="round"
+        size="sm"
+        color={MODE_META.note.color}
+        aria-label="Note"
+        className="rl-line-marker"
+      />
+    );
+  }
+  const value = ann.value ?? "";
+  const color = mode === "theme" ? themeColor(value) : MODE_META[mode].color;
+  const label = mode === "theme" ? value : labelForValue(mode, value);
+  return <Badge size="sm" color={color} text={label} className="rl-line-marker" />;
 }
