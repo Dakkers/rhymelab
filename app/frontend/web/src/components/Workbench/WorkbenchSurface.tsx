@@ -2,14 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "@tanstack/react-router";
 import { Box, Notice } from "@saintly-software/baritone";
-import {
-  defaultSectionLabel,
-  type AnnotationMode,
-  type LineToken,
-  type RhymeView,
-  type SectionType,
-  type ViewMode,
-} from "@rhymelab/core";
+import { type AnnotationMode, type LineToken, type RhymeView, type ViewMode } from "@rhymelab/core";
 import type { EntryDetail, SectionDTO } from "@rhymelab/api-contract";
 import { client } from "#/lib/orpc";
 import { invalidateEntry } from "#/lib/queries";
@@ -62,10 +55,6 @@ export function WorkbenchSurface({
 
   const sectionsWithLines = useMemo(() => deriveSections(entry), [entry]);
 
-  const findCurrent = useMemo(
-    () => makeWordFinder(entry.annotations, mode),
-    [entry.annotations, mode],
-  );
   const findRhyme = useMemo(
     () => makeWordFinder(entry.annotations, "rhyme-scheme"),
     [entry.annotations],
@@ -153,21 +142,6 @@ export function WorkbenchSurface({
     }
   }
 
-  async function changeSectionType(section: SectionDTO, type: SectionType) {
-    if (section.id < 0) return;
-    setBusy(true);
-    try {
-      await client.entries.updateSection({
-        id: section.id,
-        type,
-        label: defaultSectionLabel(type, section.orderIndex + 1),
-      });
-      await invalidateEntry(queryClient, id);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="rl-workbench">
       <div className="rl-work-main">
@@ -202,11 +176,9 @@ export function WorkbenchSurface({
                   lineSelection={lineSelection}
                   editing={activeSection?.id === section.id}
                   busy={busy}
-                  findCurrent={findCurrent}
                   findRhyme={findRhyme}
                   onSelectLine={selectLine}
                   onSelectAllLines={selectAllLines}
-                  onChangeType={(type) => changeSectionType(section, type)}
                 />
               ))}
             </Box>
@@ -221,7 +193,6 @@ export function WorkbenchSurface({
         activeSection={activeSection}
         view={view}
         findRhyme={findRhyme}
-        findCurrent={findCurrent}
         onViewChange={onViewChange}
         onWriteLines={writeLines}
         busy={busy}

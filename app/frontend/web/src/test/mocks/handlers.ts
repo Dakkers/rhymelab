@@ -10,7 +10,7 @@
 import { implement, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { http, passthrough } from "msw";
-import { type AnnotationMode, themeColor } from "@rhymelab/core";
+import { type AnnotationMode } from "@rhymelab/core";
 import {
   contract,
   type EntryDetail,
@@ -116,7 +116,9 @@ function applyToStore(
     return { cleared: true, id: null };
   }
 
-  const color = mode === "theme" && item.value ? themeColor(item.value) : null;
+  // Mirror the backend: rhyme-scheme stores no `color` (it paints from its
+  // group), so this is always null now the tinted modes are gone.
+  const color = null;
 
   if (existing >= 0) {
     const keep = entry.annotations[existing]!;

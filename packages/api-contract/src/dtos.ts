@@ -5,7 +5,7 @@
  * code is untouched. The inferred types are the app's canonical data types.
  */
 import { z } from "zod";
-import { ANNOTATION_MODES, ENTRY_KINDS, SECTION_TYPES } from "@rhymelab/core";
+import { ANNOTATION_MODES, ENTRY_KINDS } from "@rhymelab/core";
 
 export const EntrySummarySchema = z.object({
   id: z.number(),
@@ -24,7 +24,6 @@ export type EntrySummary = z.infer<typeof EntrySummarySchema>;
 export const SectionDTOSchema = z.object({
   id: z.number(),
   orderIndex: z.number(),
-  type: z.enum(SECTION_TYPES),
   label: z.string(),
   startOffset: z.number(),
   endOffset: z.number(),

@@ -1,28 +1,18 @@
 /**
  * Pure derivations for the workbench: turning an entry's annotations into the
- * per-word highlight map, per-section rhyme-group counts, and the colour a given
- * annotation paints with. Kept out of the components so the rendering stays a
- * thin projection of these.
+ * per-line highlight lookup, per-section rhyme-group counts, and the colour a
+ * given annotation paints with. Kept out of the components so the rendering
+ * stays a thin projection of these.
  */
 import {
-  MODE_META,
   RHYME_GROUP_COLORS,
   linesInRange,
   parseLines,
-  type AnnotationMode,
   type LineToken,
   type RhymeGroup,
   type ViewMode,
 } from "@rhymelab/core";
 import type { AnnotationDTO, EntryDetail, SectionDTO } from "@rhymelab/api-contract";
-
-export interface Selection {
-  start: number;
-  end: number;
-  text: string;
-  /** Global word index when a single word is selected; null for a phrase. */
-  wordIndex: number | null;
-}
 
 /** One line as a selectable, annotatable span (rhyme scheme works line-by-line). */
 export interface LineSpan {
@@ -65,7 +55,6 @@ export function deriveSections(entry: EntryDetail): SectionWithLines[] {
             {
               id: -1,
               orderIndex: 0,
-              type: "verse",
               label: "Lyrics",
               startOffset: 0,
               endOffset: entry.lyrics.length,
@@ -108,11 +97,6 @@ export function commonValueForLines(finder: LineFinder, lines: LineSpan[]): stri
   return commonField(finder, lines, (a) => a.value);
 }
 
-/** The note `body` shared by every selected line, or `undefined`. */
-export function commonBodyForLines(finder: LineFinder, lines: LineSpan[]): string | undefined {
-  return commonField(finder, lines, (a) => a.body);
-}
-
 /**
  * The rhyme group shared by every line in a selection — the rhyme-scheme
  * specialisation of `commonValueForLines`, narrowed back to `RhymeGroup`.
@@ -127,27 +111,10 @@ export interface HighlightColor {
   ink: string;
 }
 
-/** `#rrggbb` → `rgba(r,g,b,alpha)`. */
-export function tintOf(hex: string, alpha = 0.24): string {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-/** The highlight an annotation paints with, or null if it carries no colour. */
+/** The highlight a rhyme annotation paints with, or null if it carries no group. */
 export function colorForAnnotation(ann: AnnotationDTO): HighlightColor | null {
-  if (ann.mode === "rhyme-scheme") {
-    const c = RHYME_GROUP_COLORS[(ann.value ?? "X") as RhymeGroup];
-    return c ? { solid: c.solid, tint: c.tint, ink: c.ink } : null;
-  }
-  if (ann.mode === "theme") {
-    const base = ann.color ?? MODE_META.theme.color;
-    return { solid: base, tint: tintOf(base), ink: base };
-  }
-  const base = MODE_META[ann.mode].color;
-  return { solid: base, tint: tintOf(base), ink: base };
+  const c = RHYME_GROUP_COLORS[(ann.value ?? "X") as RhymeGroup];
+  return c ? { solid: c.solid, tint: c.tint, ink: c.ink } : null;
 }
 
 const covers = (a: AnnotationDTO, start: number, end: number) =>
@@ -160,9 +127,8 @@ const covers = (a: AnnotationDTO, start: number, end: number) =>
 export function makeWordFinder(annotations: AnnotationDTO[], mode: ViewMode) {
   if (mode === "read") return () => null;
   const inMode = annotations.filter((a) => a.mode === mode);
-  // Prefer the *tightest* covering annotation, matching `annotationsCoveringSpan`
-  // (the inspector) — so an overlapping word + phrase paint the colour the panel
-  // reports as active, not whichever was created first.
+  // Prefer the *tightest* covering annotation — so an overlapping word + phrase
+  // paint the colour the panel reports as active, not whichever was created first.
   return (start: number, end: number): AnnotationDTO | null => {
     let best: AnnotationDTO | null = null;
     for (const a of inMode) {
@@ -171,25 +137,6 @@ export function makeWordFinder(annotations: AnnotationDTO[], mode: ViewMode) {
     }
     return best;
   };
-}
-
-/** Every mode's annotation that covers a span — for the inspector's summary. */
-export function annotationsCoveringSpan(
-  annotations: AnnotationDTO[],
-  start: number,
-  end: number,
-): Partial<Record<AnnotationMode, AnnotationDTO>> {
-  const out: Partial<Record<AnnotationMode, AnnotationDTO>> = {};
-  for (const a of annotations) {
-    if (covers(a, start, end)) {
-      // Prefer the tightest covering annotation per mode.
-      const prev = out[a.mode];
-      if (!prev || a.endOffset - a.startOffset < prev.endOffset - prev.startOffset) {
-        out[a.mode] = a;
-      }
-    }
-  }
-  return out;
 }
 
 /** Rhyme-group counts within a section (by annotation start offset). */
@@ -211,13 +158,4 @@ export function groupCountsForSection(
     }
   }
   return counts;
-}
-
-/** The distinct theme names used across an entry, for quick re-use in the panel. */
-export function existingThemes(annotations: AnnotationDTO[]): string[] {
-  const seen = new Set<string>();
-  for (const a of annotations) {
-    if (a.mode === "theme" && a.value && !a.detached) seen.add(a.value);
-  }
-  return [...seen].sort((x, y) => x.localeCompare(y));
 }

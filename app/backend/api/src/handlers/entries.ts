@@ -8,13 +8,7 @@
  * the original D1 behaviour.
  */
 import { ORPCError } from "@orpc/server";
-import {
-  normalizeText,
-  reanchor,
-  type AnnotationMode,
-  type EntryKind,
-  type SectionType,
-} from "@rhymelab/core";
+import { normalizeText, reanchor, type AnnotationMode, type EntryKind } from "@rhymelab/core";
 import { prisma } from "../db";
 import { authed } from "../orpc";
 import { rederiveSections } from "./sections";
@@ -82,7 +76,6 @@ export const get = authed.entries.get.handler(async ({ input }) => {
     sections: sectionRows.map((s) => ({
       id: s.id,
       orderIndex: s.orderIndex,
-      type: s.type as SectionType,
       label: s.label,
       startOffset: s.startOffset,
       endOffset: s.endOffset,
@@ -132,7 +125,7 @@ export const create = authed.entries.create.handler(async ({ input }) => {
     });
   }
   if (lyrics.length) {
-    await rederiveSections(row.id, input.kind === "poem", lyrics, [], now);
+    await rederiveSections(row.id, lyrics, now);
   }
 
   return { id: row.id };
@@ -194,19 +187,8 @@ export const saveLyrics = authed.entries.saveLyrics.handler(async ({ input }) =>
     });
   }
 
-  // Re-derive sections, carrying type/label by position.
-  const prev = await prisma.section.findMany({
-    where: { entryId: input.id },
-    orderBy: { orderIndex: "asc" },
-    select: { orderIndex: true, type: true, label: true },
-  });
-  await rederiveSections(
-    input.id,
-    entry.kind === "poem",
-    nextText,
-    prev.map((p) => ({ orderIndex: p.orderIndex, type: p.type as SectionType, label: p.label })),
-    now,
-  );
+  // Re-derive sections from the new lyrics text (positional labels).
+  await rederiveSections(input.id, nextText, now);
 
   await prisma.entry.update({
     where: { id: input.id },

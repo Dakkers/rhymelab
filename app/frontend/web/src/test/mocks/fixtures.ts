@@ -47,8 +47,7 @@ export function makeSection(overrides: Partial<SectionDTO> = {}): SectionDTO {
   return {
     id: 1,
     orderIndex: 0,
-    type: "verse",
-    label: "Verse 1",
+    label: "Section 1",
     startOffset: 0,
     endOffset: 0,
     ...overrides,

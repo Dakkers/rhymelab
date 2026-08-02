@@ -63,9 +63,7 @@ model Section {
   entryId     Int      @map("entry_id")
   /// 0-based position in the lyrics.
   orderIndex  Int      @map("order_index")
-  /// One of SECTION_TYPES.
-  type        String
-  /// Display label, e.g. "Stanza I", "Verse 1".
+  /// Positional display label, e.g. "Section 1", "Section 2".
   label       String
   startOffset Int      @map("start_offset")
   endOffset   Int      @map("end_offset")

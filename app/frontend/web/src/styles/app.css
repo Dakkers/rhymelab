@@ -285,13 +285,6 @@
   color: inherit;
 }
 
-/* The right-edge value marker for the non-rhyme line modes (a Baritone Badge):
-   push it to the end of the flex row so it right-aligns like the rhyme letter. */
-.rl-line-marker {
-  margin-left: auto;
-  flex: none;
-}
-
 .rl-line-badge {
   position: absolute;
   right: 0;

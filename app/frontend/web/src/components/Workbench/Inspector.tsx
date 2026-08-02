@@ -1,36 +1,15 @@
-import { useState } from "react";
-import {
-  Badge,
-  Button,
-  Chip,
-  Combobox,
-  Divider,
-  Flex,
-  Text,
-  TextInput,
-  ToggleGroup,
-} from "@saintly-software/baritone";
+import { Badge, Divider, Flex, Text, ToggleGroup } from "@saintly-software/baritone";
 import { Eyebrow } from "#/components/Eyebrow";
 import {
   MODE_META,
   RHYME_GROUPS,
   RHYME_GROUP_COLORS,
-  optionsForMode,
-  sectionTypeLabel,
-  type AnnotationMode,
   type RhymeGroup,
   type RhymeView,
   type ViewMode,
 } from "@rhymelab/core";
 import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
-import {
-  commonBodyForLines,
-  commonRhymeGroup,
-  commonValueForLines,
-  existingThemes,
-  groupCountsForSection,
-  type LineSelection,
-} from "./logic";
+import { commonRhymeGroup, groupCountsForSection, type LineSelection } from "./logic";
 
 interface InspectorProps {
   mode: ViewMode;
@@ -39,11 +18,9 @@ interface InspectorProps {
   activeSection: SectionDTO | null;
   view: RhymeView;
   findRhyme: (start: number, end: number) => AnnotationDTO | null;
-  /** Finder for the active mode's annotation over a line span. */
-  findCurrent: (start: number, end: number) => AnnotationDTO | null;
   onViewChange: (v: RhymeView) => void;
-  /** Write (value) / note (body) / clear (both null) the active mode to the
-   *  selected lines. The single line-level writer every control commits through. */
+  /** Write the rhyme group (value) / clear it (null) on the selected lines. The
+   *  `body` arm is kept for the generic annotation shape but is always null now. */
   onWriteLines: (value: string | null, body: string | null) => void;
   busy: boolean;
 }
@@ -62,12 +39,6 @@ export function Inspector(props: InspectorProps) {
         <Text size="lg" weight="semibold" saliency="high">
           {activeSection ? activeSection.label : "—"}
         </Text>
-
-        {activeSection && (
-          <Eyebrow as="span" letterSpacing="wider" intent="primary" saliency="mid">
-            {sectionTypeLabel(activeSection.type)}
-          </Eyebrow>
-        )}
       </Flex>
 
       <Divider my="4" />
@@ -93,10 +64,8 @@ export function Inspector(props: InspectorProps) {
 }
 
 /**
- * The line-selection panel shared by every annotate mode: the selected line(s)
- * summary at the top, then the mode's own control (rhyme group grid, an option
- * picker, a theme combobox, or a note field), all committing to the selected
- * lines through `onWriteLines`.
+ * The line-selection panel: the selected line(s) summary at the top, then the
+ * rhyme-group control, committing to the selected lines through `onWriteLines`.
  */
 function LinePanel(props: InspectorProps) {
   const lines = props.lineSelection?.lines ?? [];
@@ -144,20 +113,11 @@ function LinePanel(props: InspectorProps) {
       {lines.length > 0 && (
         <>
           <Divider my="4" />
-          <ModeControl key={selectionKey} {...props} />
+          <RhymeControl key={selectionKey} {...props} />
         </>
       )}
     </>
   );
-}
-
-function ModeControl(props: InspectorProps) {
-  const { mode } = props;
-  if (mode === "rhyme-scheme") return <RhymeControl {...props} />;
-  if (mode === "theme") return <ThemeControl {...props} />;
-  if (mode === "note") return <NoteControl {...props} />;
-  // rhyme-type, sound, device — fixed-vocabulary option pickers.
-  return <OptionControl {...props} />;
 }
 
 /** Rhyme-scheme control: the A–F/X group grid, the colours/letters view toggle,
@@ -257,116 +217,6 @@ function RhymeControl(props: InspectorProps) {
           </Flex>
         </Flex>
       </div>
-    </Flex>
-  );
-}
-
-/** Fixed-vocabulary picker (rhyme type, sound, device) applied to the lines. */
-function OptionControl(props: InspectorProps) {
-  const mode = props.mode as AnnotationMode;
-  const options = optionsForMode(mode) ?? [];
-  const active = commonValueForLines(props.findCurrent, props.lineSelection?.lines ?? []);
-  return (
-    <div>
-      <Eyebrow mb="2">Assign {MODE_META[mode].label.toLowerCase()}</Eyebrow>
-      <Flex gap="2" wrap>
-        {options.map((o) => (
-          <Button
-            key={o.value}
-            appearance="text"
-            intent={active === o.value ? "primary" : "neutral"}
-            saliency={active === o.value ? "high" : "low"}
-            onClick={() => props.onWriteLines(active === o.value ? null : o.value, null)}
-            disabled={props.busy}
-          >
-            {o.label}
-          </Button>
-        ))}
-      </Flex>
-    </div>
-  );
-}
-
-/** Free-named theme applied to the lines — a single-select over the entry's
- *  existing themes, with `freeText` to coin a new one. */
-function ThemeControl(props: InspectorProps) {
-  const active = commonValueForLines(props.findCurrent, props.lineSelection?.lines ?? []) ?? null;
-  const themes = existingThemes(props.annotations);
-
-  return (
-    <Flex direction="column" gap="3">
-      <Eyebrow>Assign theme</Eyebrow>
-      <Combobox
-        freeText
-        aria-label="Theme"
-        placeholder="Name a theme…"
-        options={themes.map((t) => ({ value: t, label: t }))}
-        value={active}
-        onValueChange={(value) => value !== active && props.onWriteLines(value, null)}
-        disabled={props.busy}
-      />
-      {/*
-        The popup lists these too, but keeping them visible is the point: annotating
-        runs line-by-line through a handful of recurring themes, and a chip is one
-        click where the combobox is open-then-pick.
-      */}
-      {themes.some((t) => t !== active) && (
-        <Flex gap="1" wrap>
-          {themes
-            .filter((t) => t !== active)
-            .map((t) => (
-              <Chip
-                key={t}
-                size="sm"
-                onClick={props.busy ? undefined : () => props.onWriteLines(t, null)}
-              >
-                {t}
-              </Chip>
-            ))}
-        </Flex>
-      )}
-    </Flex>
-  );
-}
-
-/** Free-form note applied to the lines. Draft state is local and reset per
- *  selection (see `LinePanel`'s `key`). */
-function NoteControl(props: InspectorProps) {
-  const current = commonBodyForLines(props.findCurrent, props.lineSelection?.lines ?? []) ?? "";
-  const [draft, setDraft] = useState(current);
-
-  return (
-    <Flex direction="column" gap="3">
-      <TextInput
-        multiline
-        rows={5}
-        label="Note"
-        value={draft}
-        onChange={(value) => setDraft(value)}
-        placeholder="Write a note about these lines…"
-      />
-      <Flex gap="2">
-        <Button
-          onClick={() => props.onWriteLines(null, draft.trim() || null)}
-          disabled={props.busy || draft.trim() === current.trim()}
-        >
-          Save note
-        </Button>
-        {current && (
-          <Button
-            appearance="text"
-            intent="neutral"
-            saliency="low"
-            onClick={() => {
-              setDraft("");
-              props.onWriteLines(null, null);
-            }}
-            disabled={props.busy}
-          >
-            Remove
-          </Button>
-        )}
-      </Flex>
     </Flex>
   );
 }

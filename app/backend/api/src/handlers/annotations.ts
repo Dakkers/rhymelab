@@ -5,7 +5,7 @@
  * trusting the client — lyrics text stays authoritative.
  */
 import { ORPCError } from "@orpc/server";
-import { type AnnotationMode, themeColor } from "@rhymelab/core";
+import { type AnnotationMode } from "@rhymelab/core";
 import type { Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 import { authed } from "../orpc";
@@ -57,7 +57,10 @@ async function applyAnnotation(
     return { cleared: true, id: null };
   }
 
-  const color = mode === "theme" && span.value ? themeColor(span.value) : null;
+  // `color` was the per-theme hue; rhyme-scheme (the only mode now) colours from
+  // its group, so nothing is stored here. The column stays for when tinted modes
+  // return — see the removed `theme` mode in git history.
+  const color = null;
 
   if (existing.length) {
     const keep = existing[0]!;

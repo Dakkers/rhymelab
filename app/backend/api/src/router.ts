@@ -12,7 +12,6 @@
 import { os } from "./orpc";
 import { login, logout, me } from "./handlers/auth";
 import { create, del, get, list, saveLyrics, update } from "./handlers/entries";
-import { updateSection } from "./handlers/sections";
 import { deleteAnnotation, setAnnotation, setAnnotations } from "./handlers/annotations";
 
 export const router = os.router({
@@ -24,7 +23,6 @@ export const router = os.router({
     update,
     saveLyrics,
     delete: del,
-    updateSection,
     setAnnotation,
     setAnnotations,
     deleteAnnotation,

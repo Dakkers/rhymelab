@@ -36,8 +36,7 @@ function makeSectionedEntry(overrides: Partial<EntryDetail> = {}): EntryDetail {
   const sections: SectionDTO[] = detectSections(entry.lyrics).map((s) => ({
     id: s.orderIndex + 1,
     orderIndex: s.orderIndex,
-    type: "verse",
-    label: defaultSectionLabel("verse", s.orderIndex + 1),
+    label: defaultSectionLabel(s.orderIndex + 1),
     startOffset: s.startOffset,
     endOffset: s.endOffset,
   }));
@@ -145,9 +144,9 @@ describe("Rhyme Scheme tests", () => {
     await user.click(await byText(container, "B0"));
     // Every section head has a "Select all lines" button, so the name alone is
     // ambiguous — scope it to the one the recording hit (`section:nth-child(7)`,
-    // i.e. Verse 7). The button sits in the head, outside the section's line group.
-    const verse7 = screen.getByText("Verse 7").closest("section")!;
-    await user.click(within(verse7).getByRole("button", { name: "Select all lines" }));
+    // i.e. Section 7). The button sits in the head, outside the section's line group.
+    const section7 = screen.getByText("Section 7").closest("section")!;
+    await user.click(within(section7).getByRole("button", { name: "Select all lines" }));
     await user.click(await byText(container, "A0"));
     // Both of these are the one-word lyric line "Back". The recording saw it two
     // different ways — bare, and as "BackA" once it carried a group-A badge — but

@@ -13,7 +13,6 @@ import {
   setAnnotationInput,
   setAnnotationsInput,
   updateEntryInput,
-  updateSectionInput,
 } from "./schemas";
 import { EntryDetailSchema, EntrySummarySchema } from "./dtos";
 
@@ -30,9 +29,6 @@ export const saveLyrics = oc
   .input(saveLyricsInput)
   .output(z.object({ ok: z.literal(true), detached: z.number() }));
 export const del = oc.input(byId).output(ok);
-
-/* Section mutations */
-export const updateSection = oc.input(updateSectionInput).output(ok);
 
 /* Annotation mutations */
 export const setAnnotation = oc

@@ -1,17 +1,6 @@
-import { Badge, Button, Checkbox, Flex, Select, Text } from "@saintly-software/baritone";
+import { Badge, Button, Checkbox, Text } from "@saintly-software/baritone";
 import { Eyebrow } from "#/components/Eyebrow";
-import {
-  MODE_META,
-  RHYME_GROUP_COLORS,
-  SECTION_TYPE_OPTIONS,
-  labelForValue,
-  themeColor,
-  type AnnotationMode,
-  type RhymeGroup,
-  type RhymeView,
-  type SectionType,
-  type ViewMode,
-} from "@rhymelab/core";
+import { RHYME_GROUP_COLORS, type RhymeGroup, type RhymeView, type ViewMode } from "@rhymelab/core";
 import type { LineToken } from "@rhymelab/core";
 import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
 import { colorForAnnotation, type LineSelection } from "./logic";
@@ -24,11 +13,9 @@ interface SectionCardProps {
   lineSelection: LineSelection | null;
   editing: boolean;
   busy: boolean;
-  findCurrent: (start: number, end: number) => AnnotationDTO | null;
   findRhyme: (start: number, end: number) => AnnotationDTO | null;
   onSelectLine: (line: LineToken, section: SectionDTO, e: { shiftKey: boolean }) => void;
   onSelectAllLines: (section: SectionDTO) => void;
-  onChangeType: (type: SectionType) => void;
 }
 
 export function SectionCard(props: SectionCardProps) {
@@ -48,28 +35,17 @@ export function SectionCard(props: SectionCardProps) {
             <Badge shape="square" size="sm" intent="primary" saliency="high" text="Editing" />
           )}
         </span>
-        <Flex inline align="center" gap="3" render={<span />}>
-          {lineLevel && (
-            <Button
-              appearance="text"
-              variant="sm"
-              intent="primary"
-              onClick={() => props.onSelectAllLines(section)}
-              disabled={props.busy}
-            >
-              Select all lines
-            </Button>
-          )}
-          <Select
-            label="Type"
-            labelPosition="start"
-            options={SECTION_TYPE_OPTIONS}
-            value={section.type}
-            onChange={(v) => v && props.onChangeType(v as SectionType)}
-            size="sm"
+        {lineLevel && (
+          <Button
+            appearance="text"
+            variant="sm"
+            intent="primary"
+            onClick={() => props.onSelectAllLines(section)}
             disabled={props.busy}
-          />
-        </Flex>
+          >
+            Select all lines
+          </Button>
+        )}
       </header>
 
       {/* The lyric body itself: serif, one size up from body copy, and set loose
@@ -77,7 +53,7 @@ export function SectionCard(props: SectionCardProps) {
       <Text font="serif" size="xl" lineHeight="lyric">
         {lineLevel ? (
           // Group the section's line-checkboxes and name the group by the section,
-          // so assistive tech announces "Verse 1, group" around the set.
+          // so assistive tech announces "Section 1, group" around the set.
           <div role="group" aria-label={section.label}>
             {lines.map((line) => (
               <Line key={line.index} line={line} {...props} />
@@ -92,23 +68,21 @@ export function SectionCard(props: SectionCardProps) {
 }
 
 /**
- * One selectable annotation row. Every line-level mode works the same way: a
- * Baritone Checkbox owns the selection (role, keyboard, focus) and the whole row
- * is a click target around it — click anywhere on the line to tick it. The active
- * mode's annotation tints the row and marks it at the right edge (a rhyme group
- * letter, or a value badge for the other modes).
+ * One selectable rhyme-scheme row: a Baritone Checkbox owns the selection (role,
+ * keyboard, focus) and the whole row is a click target around it — click anywhere
+ * on the line to tick it. An assigned rhyme group tints the row (in "colours"
+ * view) and marks it at the right edge with the group letter.
  */
 function Line(props: SectionCardProps & { line: LineToken }) {
-  const { line, section, mode, view } = props;
+  const { line, section, view } = props;
 
   if (line.blank) return <div className="rl-line rl-line--blank" />;
 
-  const ann = props.findCurrent(line.start, line.end);
-  const annotated = !!ann && (!!ann.value || !!ann.body);
-  const color = annotated ? colorForAnnotation(ann) : null;
+  const ann = props.findRhyme(line.start, line.end);
+  const color = ann && ann.value ? colorForAnnotation(ann) : null;
   // Rhyme scheme paints its tint only in "colours" view (the letters view keeps
-  // the lyrics plain); every other mode always tints an annotated line.
-  const tint = color && (mode !== "rhyme-scheme" || view === "colours") ? color.tint : undefined;
+  // the lyrics plain).
+  const tint = color && view === "colours" ? color.tint : undefined;
   const selected = props.lineSelection?.lines.some((l) => l.index === line.index) ?? false;
 
   return (
@@ -134,11 +108,7 @@ function Line(props: SectionCardProps & { line: LineToken }) {
           }
         />
       </span>
-      {mode === "rhyme-scheme" ? (
-        <LineBadge line={line} view={view} findRhyme={props.findRhyme} />
-      ) : (
-        ann && <LineMarker mode={mode as AnnotationMode} ann={ann} />
-      )}
+      <LineBadge line={line} view={view} findRhyme={props.findRhyme} />
     </div>
   );
 }
@@ -182,27 +152,4 @@ function LineBadge({
       </Text>
     </span>
   );
-}
-
-/**
- * The right-edge marker for the non-rhyme line modes: a Baritone Badge carrying
- * the assigned value, coloured by the mode (or the theme's own hue). A note has
- * no short value, so it shows a coloured dot instead.
- */
-function LineMarker({ mode, ann }: { mode: AnnotationMode; ann: AnnotationDTO }) {
-  if (mode === "note") {
-    return (
-      <Badge
-        shape="round"
-        size="sm"
-        color={MODE_META.note.color}
-        aria-label="Note"
-        className="rl-line-marker"
-      />
-    );
-  }
-  const value = ann.value ?? "";
-  const color = mode === "theme" ? themeColor(value) : MODE_META[mode].color;
-  const label = mode === "theme" ? value : labelForValue(mode, value);
-  return <Badge size="sm" color={color} text={label} className="rl-line-marker" />;
 }

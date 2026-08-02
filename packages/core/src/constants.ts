@@ -21,70 +21,25 @@ export function entryKindLabel(kind: EntryKind): string {
 /* Sections                                                            */
 /* ------------------------------------------------------------------ */
 
-/**
- * A section's structural type. Lyrics are auto-split into sections on blank
- * lines; the type starts as a guess and is user-editable from the card header.
+/*
+ * Sections are untyped now: lyrics are auto-split on blank lines and each block
+ * is labelled positionally ("Section 1", "Section 2", …). The structural-type
+ * concept (verse/chorus/…) and its editable picker were removed while the app's
+ * scope narrows; the code lives in git history for when structure returns.
  */
-export const SECTION_TYPES = [
-  "verse",
-  "chorus",
-  "pre-chorus",
-  "post-chorus",
-  "bridge",
-  "hook",
-  "refrain",
-  "intro",
-  "outro",
-  "interlude",
-  "stanza",
-  "other",
-] as const;
-export type SectionType = (typeof SECTION_TYPES)[number];
-
-const SECTION_TYPE_LABELS: Record<SectionType, string> = {
-  verse: "Verse",
-  chorus: "Chorus",
-  "pre-chorus": "Pre-Chorus",
-  "post-chorus": "Post-Chorus",
-  bridge: "Bridge",
-  hook: "Hook",
-  refrain: "Refrain",
-  intro: "Intro",
-  outro: "Outro",
-  interlude: "Interlude",
-  stanza: "Stanza",
-  other: "Other",
-};
-
-export function sectionTypeLabel(type: SectionType): string {
-  return SECTION_TYPE_LABELS[type] ?? "Section";
-}
-
-export const SECTION_TYPE_OPTIONS = SECTION_TYPES.map((value) => ({
-  value,
-  label: SECTION_TYPE_LABELS[value],
-}));
-
-/** Default section type when nothing better is known (poems read as stanzas). */
-export const DEFAULT_SECTION_TYPE: SectionType = "verse";
 
 /* ------------------------------------------------------------------ */
 /* Analysis modes                                                      */
 /* ------------------------------------------------------------------ */
 
 /**
- * The analytical lenses. Each is a separate layer of annotations over the same
- * lyrics — a single word can carry one of each at once (a rhyme group *and* a
- * theme *and* a device). `read` is the plain reading view and stores nothing.
+ * The analytical lenses that store annotations. Narrowed to `rhyme-scheme` only
+ * while the app hardens the rhyme workflow — the other lenses (rhyme-type, sound,
+ * theme, device, note) were removed and live in git history (see the note in the
+ * workbench README / the commit that deleted them) for when they return.
+ * `read` (in `VIEW_MODES`) is the plain reading view and stores nothing.
  */
-export const ANNOTATION_MODES = [
-  "rhyme-scheme",
-  "rhyme-type",
-  "sound",
-  "theme",
-  "device",
-  "note",
-] as const;
+export const ANNOTATION_MODES = ["rhyme-scheme"] as const;
 export type AnnotationMode = (typeof ANNOTATION_MODES)[number];
 
 /** Every mode shown in the mode bar, including the read-only `read` view. */
@@ -155,36 +110,6 @@ export const MODE_META: Record<ViewMode, ModeMeta> = {
     helper:
       "Check the lines that share a rhyme — click anywhere on a line — then assign a group. ⇧-click for a range. X marks a line that doesn't rhyme.",
   },
-  "rhyme-type": {
-    mode: "rhyme-type",
-    label: "Rhyme types",
-    color: "#2FB9A0",
-    helper: "Select the lines that rhyme and label how — perfect, slant, and so on.",
-  },
-  sound: {
-    mode: "sound",
-    label: "Sounds",
-    color: "#4C8DF0",
-    helper: "Select the lines that carry a sound — alliteration, assonance, consonance, sibilance.",
-  },
-  theme: {
-    mode: "theme",
-    label: "Theme",
-    color: "#8B6DF0",
-    helper: "Select the lines and tag the themes and imagery they carry.",
-  },
-  device: {
-    mode: "device",
-    label: "Device",
-    color: "#F0973C",
-    helper: "Select the lines that use a device — metaphor, simile, personification, and more.",
-  },
-  note: {
-    mode: "note",
-    label: "Note",
-    color: "#C9922E",
-    helper: "Select the lines and write a free-form note about them.",
-  },
 };
 
 /* ------------------------------------------------------------------ */
@@ -216,98 +141,3 @@ export const RHYME_GROUP_COLORS: Record<RhymeGroup, RhymeGroupColor> = {
   F: { solid: "#F0973C", tint: "#FBDDBE", ink: "#5C3312" },
   X: { solid: "#B4AFA5", tint: "#E7E3DA", ink: "#3E3B34" },
 };
-
-/* ------------------------------------------------------------------ */
-/* Value vocabularies for the other modes                              */
-/* ------------------------------------------------------------------ */
-
-/** Preset options a picker offers; the value stored is the `value` string. */
-export interface Option {
-  value: string;
-  label: string;
-}
-
-export const RHYME_TYPE_OPTIONS: Option[] = [
-  { value: "perfect", label: "Perfect" },
-  { value: "slant", label: "Slant / Near" },
-  { value: "internal", label: "Internal" },
-  { value: "multisyllabic", label: "Multisyllabic" },
-  { value: "eye", label: "Eye" },
-  { value: "identical", label: "Identical" },
-  { value: "assonant", label: "Assonant" },
-  { value: "consonant", label: "Consonant" },
-  { value: "forced", label: "Forced" },
-];
-
-export const SOUND_OPTIONS: Option[] = [
-  { value: "alliteration", label: "Alliteration" },
-  { value: "assonance", label: "Assonance" },
-  { value: "consonance", label: "Consonance" },
-  { value: "sibilance", label: "Sibilance" },
-  { value: "onomatopoeia", label: "Onomatopoeia" },
-];
-
-export const DEVICE_OPTIONS: Option[] = [
-  { value: "metaphor", label: "Metaphor" },
-  { value: "simile", label: "Simile" },
-  { value: "personification", label: "Personification" },
-  { value: "imagery", label: "Imagery" },
-  { value: "hyperbole", label: "Hyperbole" },
-  { value: "enjambment", label: "Enjambment" },
-  { value: "repetition", label: "Repetition" },
-  { value: "anaphora", label: "Anaphora" },
-  { value: "allusion", label: "Allusion" },
-  { value: "symbolism", label: "Symbolism" },
-  { value: "irony", label: "Irony" },
-  { value: "oxymoron", label: "Oxymoron" },
-  { value: "wordplay", label: "Wordplay" },
-];
-
-/** Options a mode's value-picker offers, or `null` for free-text/no-value modes. */
-export function optionsForMode(mode: AnnotationMode): Option[] | null {
-  switch (mode) {
-    case "rhyme-type":
-      return RHYME_TYPE_OPTIONS;
-    case "sound":
-      return SOUND_OPTIONS;
-    case "device":
-      return DEVICE_OPTIONS;
-    default:
-      return null;
-  }
-}
-
-export function labelForValue(mode: AnnotationMode, value: string): string {
-  const opts = optionsForMode(mode);
-  return opts?.find((o) => o.value === value)?.label ?? value;
-}
-
-/* ------------------------------------------------------------------ */
-/* Theme colours                                                       */
-/* ------------------------------------------------------------------ */
-
-/**
- * Themes are free-named, so a name is mapped to a stable colour from this
- * rotating palette (same name → same colour, every render). Distinct from the
- * rhyme palette so the two layers never read as the same encoding.
- */
-export const THEME_PALETTE = [
-  "#8B6DF0",
-  "#4C8DF0",
-  "#2FB9A0",
-  "#EC5C79",
-  "#F0973C",
-  "#6FB63C",
-  "#C77DFF",
-  "#E06C9F",
-] as const;
-
-/** Deterministic name → palette colour. */
-export function themeColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  }
-  const idx = Math.abs(hash) % THEME_PALETTE.length;
-  return THEME_PALETTE[idx]!;
-}

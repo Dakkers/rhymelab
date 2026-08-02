@@ -10,8 +10,6 @@
  * how the design highlights and how rhymes actually attach to a word.
  */
 
-import { DEFAULT_SECTION_TYPE, type SectionType } from "./constants";
-
 /** A run of non-whitespace characters, with its offsets into the full text. */
 export interface WordToken {
   /** Position among the *words* of the whole poem (stable id for selection). */
@@ -171,45 +169,7 @@ export function normalizeText(text: string): string {
   return out.join("\n");
 }
 
-/**
- * A fresh section's seed type — good enough to seed the editable dropdown.
- * Poems read as stanzas; songs default to a verse.
- */
-export function guessSectionType(isPoem: boolean): SectionType {
-  return isPoem ? "stanza" : DEFAULT_SECTION_TYPE;
-}
-
-/** Roman-numeral-ish label for a section, e.g. "Stanza I", "Verse 2". */
-export function defaultSectionLabel(type: SectionType, oneBasedIndex: number): string {
-  const base = type === "stanza" ? "Stanza" : type.charAt(0).toUpperCase() + type.slice(1);
-  if (type === "stanza") return `${base} ${toRoman(oneBasedIndex)}`;
-  return `${base} ${oneBasedIndex}`;
-}
-
-function toRoman(n: number): string {
-  if (n <= 0) return String(n);
-  const table: [number, string][] = [
-    [1000, "M"],
-    [900, "CM"],
-    [500, "D"],
-    [400, "CD"],
-    [100, "C"],
-    [90, "XC"],
-    [50, "L"],
-    [40, "XL"],
-    [10, "X"],
-    [9, "IX"],
-    [5, "V"],
-    [4, "IV"],
-    [1, "I"],
-  ];
-  let out = "";
-  let rem = n;
-  for (const [v, s] of table) {
-    while (rem >= v) {
-      out += s;
-      rem -= v;
-    }
-  }
-  return out;
+/** A section's positional label, e.g. "Section 1", "Section 2". */
+export function defaultSectionLabel(oneBasedIndex: number): string {
+  return `Section ${oneBasedIndex}`;
 }

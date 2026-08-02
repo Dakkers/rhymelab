@@ -9,7 +9,7 @@
  * strings into `null` for the optional text fields.
  */
 import { z } from "zod";
-import { ANNOTATION_MODES, ENTRY_KINDS, SECTION_TYPES } from "@rhymelab/core";
+import { ANNOTATION_MODES, ENTRY_KINDS } from "@rhymelab/core";
 
 const id = z.int().positive();
 
@@ -80,16 +80,6 @@ const entryMeta = {
 export const createEntryInput = z.object({ ...entryMeta, lyrics });
 export const updateEntryInput = z.object({ id, ...entryMeta });
 export const saveLyricsInput = z.object({ id, lyrics });
-
-/* ------------------------------------------------------------------ */
-/* Section mutations                                                   */
-/* ------------------------------------------------------------------ */
-
-export const updateSectionInput = z.object({
-  id,
-  type: z.enum(SECTION_TYPES),
-  label: z.string().trim().min(1, "Label is required").max(80),
-});
 
 /* ------------------------------------------------------------------ */
 /* Annotation mutations                                                */
