@@ -4,27 +4,18 @@ import { Link as RouterLink } from "@tanstack/react-router";
 import { Box, Notice } from "@saintly-software/baritone";
 import {
   defaultSectionLabel,
-  parseLines,
   type AnnotationMode,
   type LineToken,
-  type RhymeGroup,
   type RhymeView,
   type SectionType,
   type ViewMode,
-  type WordToken,
 } from "@rhymelab/core";
 import type { EntryDetail, SectionDTO } from "@rhymelab/api-contract";
 import { client } from "#/lib/orpc";
 import { invalidateEntry } from "#/lib/queries";
 import { Inspector } from "./Inspector";
 import { SectionCard } from "./SectionCard";
-import {
-  deriveSections,
-  makeWordFinder,
-  type LineSelection,
-  type LineSpan,
-  type Selection,
-} from "./logic";
+import { deriveSections, makeWordFinder, type LineSelection, type LineSpan } from "./logic";
 
 interface WorkbenchSurfaceProps {
   entry: EntryDetail;
@@ -62,19 +53,14 @@ export function WorkbenchSurface({
 }: WorkbenchSurfaceProps) {
   const id = entry.id;
   const queryClient = useQueryClient();
-  // Word/phrase selection — used by every mode *except* rhyme scheme.
-  const [selection, setSelection] = useState<Selection | null>(null);
-  // The fixed end of a shift-click range: a plain click sets it, shift-clicks
-  // extend from it (so a phrase can be grown/shrunk by repeated shift-clicks).
-  const [anchorIndex, setAnchorIndex] = useState<number | null>(null);
-  // Rhyme scheme is line-oriented and multi-select: it tracks a set of lines
-  // within one section, independent of the word selection above.
+  // Every Basic mode is line-level and multi-select: the surface tracks a set of
+  // lines within one section (a selection never crosses a section boundary).
+  // `lineAnchor` is the fixed end of a ⇧-click range.
   const [lineSelection, setLineSelection] = useState<LineSelection | null>(null);
   const [lineAnchor, setLineAnchor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
   const sectionsWithLines = useMemo(() => deriveSections(entry), [entry]);
-  const allWords = useMemo(() => parseLines(entry.lyrics).flatMap((l) => l.words), [entry.lyrics]);
 
   const findCurrent = useMemo(
     () => makeWordFinder(entry.annotations, mode),
@@ -88,43 +74,15 @@ export function WorkbenchSurface({
   const sectionLinesOf = (sectionId: number): LineToken[] =>
     sectionsWithLines.find((s) => s.section.id === sectionId)?.lines ?? [];
 
-  // The "current section" the inspector reports on: rhyme scheme keys off the
-  // line selection, every other mode off the word selection's start offset.
+  // The "current section" the inspector reports on. Every Basic mode is
+  // line-level, so it keys off the line selection; `read` reports nothing.
   const activeSection =
-    mode === "rhyme-scheme"
-      ? lineSelection
-        ? (sectionsWithLines.find((s) => s.section.id === lineSelection.sectionId)?.section ?? null)
-        : null
-      : selection != null
-        ? (sectionsWithLines.find(
-            (s) =>
-              selection.start >= s.section.startOffset && selection.start < s.section.endOffset,
-          )?.section ?? null)
-        : null;
-
-  function selectWord(word: WordToken, shift: boolean) {
-    if (shift && anchorIndex != null) {
-      const anchor = allWords[anchorIndex];
-      if (anchor) {
-        const start = Math.min(anchor.start, word.start);
-        const end = Math.max(anchor.end, word.end);
-        const single = anchor.wordIndex === word.wordIndex;
-        // Keep `anchorIndex` fixed so the next shift-click re-extends from it.
-        setSelection({
-          start,
-          end,
-          text: entry.lyrics.slice(start, end),
-          wordIndex: single ? word.wordIndex : null,
-        });
-        return;
-      }
-    }
-    setAnchorIndex(word.wordIndex);
-    setSelection({ start: word.start, end: word.end, text: word.text, wordIndex: word.wordIndex });
-  }
+    mode !== "read" && lineSelection
+      ? (sectionsWithLines.find((s) => s.section.id === lineSelection.sectionId)?.section ?? null)
+      : null;
 
   /**
-   * Toggle a line's membership in the rhyme selection (the whole row is a
+   * Toggle a line's membership in the selection (the whole row is a
    * checkbox). A plain click accumulates — tick as many lines as you like — and
    * ⇧-click extends a range from the last-touched line. Selection stays within
    * one section; clicking into another starts fresh.
@@ -164,60 +122,30 @@ export function WorkbenchSurface({
     setLineSelection({ sectionId: section.id, lines });
   }
 
-  async function write(value: string | null, body: string | null) {
-    if (!selection || mode === "read") return;
-    setBusy(true);
-    try {
-      await client.entries.setAnnotation({
-        entryId: id,
-        mode: mode as AnnotationMode,
-        startOffset: selection.start,
-        endOffset: selection.end,
-        value,
-        body,
-      });
-      await invalidateEntry(queryClient, id);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function clearMode(m: AnnotationMode) {
-    if (!selection) return;
-    setBusy(true);
-    try {
-      await client.entries.setAnnotation({
-        entryId: id,
-        mode: m,
-        startOffset: selection.start,
-        endOffset: selection.end,
-        value: null,
-        body: null,
-      });
-      await invalidateEntry(queryClient, id);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /** Assign (or clear, when `group` is null) a rhyme group to every selected line. */
-  async function writeGroup(group: RhymeGroup | null) {
-    if (!lineSelection || lineSelection.lines.length === 0) return;
+  /**
+   * Write (or clear, when both `value` and `body` are null) the active mode to
+   * every selected line, in one batch. This is the single line-level writer for
+   * all Basic modes — a rhyme group, a device/type/sound value, a theme name, or
+   * a note body all flow through here, differing only in which field they fill.
+   */
+  async function writeLines(value: string | null, body: string | null) {
+    if (mode === "read" || !lineSelection || lineSelection.lines.length === 0) return;
     setBusy(true);
     try {
       await client.entries.setAnnotations({
         entryId: id,
-        mode: "rhyme-scheme",
+        mode: mode as AnnotationMode,
         items: lineSelection.lines.map((l) => ({
           startOffset: l.start,
           endOffset: l.end,
-          value: group,
-          body: null,
+          value,
+          body,
         })),
       });
       await invalidateEntry(queryClient, id);
-      // Clear the selection so the next group starts fresh — otherwise a follow-up
-      // click would accumulate onto the lines just stamped and overwrite them.
+      // Clear the selection so the next assignment starts fresh — otherwise a
+      // follow-up click would accumulate onto the lines just stamped and
+      // overwrite them.
       setLineSelection(null);
       setLineAnchor(null);
     } finally {
@@ -271,13 +199,11 @@ export function WorkbenchSurface({
                   lines={sectionLines}
                   mode={mode}
                   view={view}
-                  selection={selection}
                   lineSelection={lineSelection}
                   editing={activeSection?.id === section.id}
                   busy={busy}
                   findCurrent={findCurrent}
                   findRhyme={findRhyme}
-                  onSelectWord={selectWord}
                   onSelectLine={selectLine}
                   onSelectAllLines={selectAllLines}
                   onChangeType={(type) => changeSectionType(section, type)}
@@ -290,16 +216,14 @@ export function WorkbenchSurface({
 
       <Inspector
         mode={mode}
-        selection={selection}
         lineSelection={lineSelection}
         annotations={entry.annotations}
         activeSection={activeSection}
         view={view}
         findRhyme={findRhyme}
+        findCurrent={findCurrent}
         onViewChange={onViewChange}
-        onWrite={write}
-        onClearMode={clearMode}
-        onWriteGroup={writeGroup}
+        onWriteLines={writeLines}
         busy={busy}
       />
     </div>

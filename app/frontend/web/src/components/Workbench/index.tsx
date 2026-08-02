@@ -1,9 +1,20 @@
 import { useState } from "react";
-import { Badge, Flex, Heading, Notice, Text, ToggleGroup } from "@saintly-software/baritone";
+import {
+  Badge,
+  Box,
+  Flex,
+  Heading,
+  Notice,
+  Tabs,
+  Text,
+  ToggleGroup,
+} from "@saintly-software/baritone";
 import { Info as InfoIcon } from "lucide-react";
 import { Eyebrow } from "#/components/Eyebrow";
 import {
+  ANNOTATION_TIERS,
   MODE_META,
+  TIER_META,
   VIEW_MODES,
   entryKindLabel,
   type RhymeView,
@@ -68,6 +79,20 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
               type from its header.
             </Notice>
           )}
+
+          {/* Annotation tier. Basic (line-level) is the everyday layer; Advanced
+              (word-level) is deferred, so it renders as a disabled tab. */}
+          <Box mt="6">
+            <Tabs
+              value="basic"
+              onChange={() => {}}
+              tabs={ANNOTATION_TIERS.map((t) => ({
+                value: t,
+                label: TIER_META[t].label,
+                disabled: !TIER_META[t].enabled,
+              }))}
+            />
+          </Box>
 
           <div className="rl-modebar">
             <ToggleGroup label="Mode" labelPosition="start" value={mode} onChange={onModeChange}>
