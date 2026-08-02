@@ -226,7 +226,7 @@
 }
 
 /* ---------------------------------------------------------------- */
-/* Lyrics + words                                                   */
+/* Lyrics + lines                                                   */
 /* ---------------------------------------------------------------- */
 
 .rl-line {
@@ -238,11 +238,11 @@
   height: 0.9em;
 }
 
-/* Rhyme scheme selects whole lines: the line is the click target and (in
-   "colours" view) the tinted band, so its words are inert — the line owns
-   hover, selection, and colour. The group tint is applied inline; the inset
-   bar below layers on top so a selected line still reads as selected. */
-.rl-line--rhyme {
+/* Every annotate mode selects whole lines: the line is the click target and (in
+   tinted views) the coloured band, so its words are inert — the line owns hover,
+   selection, and colour. The mode tint is applied inline; the inset bar below
+   layers on top so a selected line still reads as selected. */
+.rl-line--select {
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -255,16 +255,16 @@
     box-shadow 90ms ease;
 }
 
-.rl-line--rhyme:focus-visible {
+.rl-line--select:focus-visible {
   outline: 2px solid var(--rl-primary-focus);
   outline-offset: 2px;
 }
 
-.rl-line--rhyme:hover {
+.rl-line--select:hover {
   background: var(--rl-surface-2);
 }
 
-.rl-line--rhyme[data-line-selected="true"] {
+.rl-line--select[data-line-selected="true"] {
   background: var(--rl-primary-tint);
   box-shadow: inset 3px 0 0 0 var(--rl-primary);
 }
@@ -286,31 +286,11 @@
   color: inherit;
 }
 
-.rl-word {
-  border-radius: 5px;
-  padding: 0.05em 0.12em;
-  transition: background 90ms ease;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-
-.rl-annotate .rl-word {
-  cursor: pointer;
-}
-
-.rl-annotate .rl-word:hover {
-  background: rgba(28, 25, 23, 0.06);
-}
-
-.rl-word[data-annot="true"] {
-  /* Background colour is applied inline (per group/theme). */
-  padding: 0.05em 0.2em;
-}
-
-.rl-word[data-selected="true"] {
-  outline: 2px solid var(--rl-primary-focus);
-  outline-offset: 1px;
-  border-radius: 5px;
+/* The right-edge value marker for the non-rhyme line modes (a Baritone Badge):
+   push it to the end of the flex row so it right-aligns like the rhyme letter. */
+.rl-line-marker {
+  margin-left: auto;
+  flex: none;
 }
 
 .rl-line-badge {
@@ -326,18 +306,6 @@
   border-radius: 7px;
   cursor: pointer;
   border: none;
-}
-
-/* The badge glyph is a `Text` set to `color: inherit`, so these colours reach it
-   through the button and the hover state still works. */
-.rl-line-badge--add {
-  background: #ebe6dc;
-  color: var(--rl-ink-faint);
-}
-
-.rl-line-badge--add:hover {
-  background: #e0dacd;
-  color: var(--rl-ink-soft);
 }
 
 /* ---------------------------------------------------------------- */
