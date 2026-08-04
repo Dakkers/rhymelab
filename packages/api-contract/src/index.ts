@@ -20,8 +20,8 @@ export const contract = {
     update: entries.update,
     saveLyrics: entries.saveLyrics,
     delete: entries.del,
-    setAnnotation: entries.setAnnotation,
-    setAnnotations: entries.setAnnotations,
+    setLineGroups: entries.setLineGroups,
+    clearLines: entries.clearLines,
     deleteAnnotation: entries.deleteAnnotation,
   },
 };
@@ -43,15 +43,15 @@ export {
 /* Input schemas + inferred input types (forms may reuse them). */
 export {
   byId,
+  clearLinesInput,
   createEntryInput,
   deleteAnnotationInput,
   saveLyricsInput,
-  setAnnotationInput,
-  setAnnotationsInput,
+  setLineGroupsInput,
   updateEntryInput,
+  type ClearLinesInput,
   type CreateEntryInput,
   type SaveLyricsInput,
-  type SetAnnotationInput,
-  type SetAnnotationsInput,
+  type SetLineGroupsInput,
   type UpdateEntryInput,
 } from "./schemas";

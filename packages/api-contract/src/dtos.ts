@@ -5,7 +5,7 @@
  * code is untouched. The inferred types are the app's canonical data types.
  */
 import { z } from "zod";
-import { ENTRY_KINDS } from "@rhymelab/core";
+import { ENTRY_KINDS, RHYME_GROUPS } from "@rhymelab/core";
 
 export const EntrySummarySchema = z.object({
   id: z.number(),
@@ -35,8 +35,8 @@ export const AnnotationDTOSchema = z.object({
   startOffset: z.number(),
   endOffset: z.number(),
   quote: z.string(),
-  /** The rhyme group (A–F / X), or null once cleared. */
-  value: z.string().nullable(),
+  /** The rhyme group (A–F / X). Always present — a cleared annotation is deleted. */
+  value: z.enum(RHYME_GROUPS),
   detached: z.boolean(),
 });
 export type AnnotationDTO = z.infer<typeof AnnotationDTOSchema>;
@@ -50,6 +50,8 @@ export const EntryDetailSchema = z.object({
   year: z.number().nullable(),
   notes: z.string().nullable(),
   lyrics: z.string(),
+  /** Optimistic-concurrency version — echo it back on lyrics/annotation writes. */
+  version: z.number(),
   tags: z.array(z.string()),
   sections: z.array(SectionDTOSchema),
   annotations: z.array(AnnotationDTOSchema),

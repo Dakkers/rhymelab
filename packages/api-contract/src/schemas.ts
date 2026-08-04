@@ -9,7 +9,7 @@
  * strings into `null` for the optional text fields.
  */
 import { z } from "zod";
-import { ENTRY_KINDS } from "@rhymelab/core";
+import { ENTRY_KINDS, RHYME_GROUPS } from "@rhymelab/core";
 
 const id = z.int().positive();
 
@@ -38,6 +38,9 @@ function dedupeTags(tags: string[]): string[] {
   }
   return out;
 }
+
+/** Optimistic-concurrency base version the client last saw (D-9). */
+const version = z.int().min(0);
 
 const title = z.string().trim().min(1, "Title is required").max(200);
 const kind = z.enum(ENTRY_KINDS);
@@ -79,54 +82,47 @@ const entryMeta = {
 
 export const createEntryInput = z.object({ ...entryMeta, lyrics });
 export const updateEntryInput = z.object({ id, ...entryMeta });
-export const saveLyricsInput = z.object({ id, lyrics });
+export const saveLyricsInput = z.object({ id, version, lyrics });
 
 /* ------------------------------------------------------------------ */
 /* Annotation mutations                                                */
 /* ------------------------------------------------------------------ */
 
-/**
- * Create/update/clear one annotation for a span. The server recomputes `quote`
- * from the entry's lyrics at these offsets (never trusting a client-sent quote).
- * A `null` `value` clears the annotation at that span.
- */
-export const setAnnotationInput = z
-  .object({
-    entryId: id,
-    startOffset: z.int().min(0),
-    endOffset: z.int().min(0),
-    value: optionalText(120),
-  })
-  .refine((v) => v.endOffset > v.startOffset, {
-    message: "Selection is empty",
-    path: ["endOffset"],
-  });
+// One whole-line span. Its line-exactness is re-checked server-side against the
+// current lyrics; here we only guarantee a non-empty, non-negative span.
+const spanFields = { startOffset: z.int().min(0), endOffset: z.int().min(0) };
+const nonEmptySpan = (v: { startOffset: number; endOffset: number }) => v.endOffset > v.startOffset;
+const emptySpanMsg = { message: "Selection is empty", path: ["endOffset"] };
 
 /**
- * Batch form of `setAnnotation`: assign (or clear) a rhyme group across several
- * spans at once — e.g. a set of selected lines. Each item is upserted-or-cleared
- * exactly like the single form (a per-item `null` `value` clears that span); the
- * backend runs the whole batch in one transaction.
+ * Assign a rhyme group to whole lines — REPLACE-at-line, not additive (D-4). Each
+ * item's span must be exactly one non-blank line of the current lyrics (the server
+ * re-derives lines and 400s otherwise). Carries the base `version`; a lyrics change
+ * since the client loaded → 409 (D-9). `value` is the A–F / X vocabulary, no free
+ * text (P13); clearing is a separate op (`clearLines`), so there is no null value.
  */
-export const setAnnotationsInput = z.object({
+export const setLineGroupsInput = z.object({
   entryId: id,
+  version,
   items: z
     .array(
-      z
-        .object({
-          startOffset: z.int().min(0),
-          endOffset: z.int().min(0),
-          value: optionalText(120),
-        })
-        .refine((v) => v.endOffset > v.startOffset, {
-          message: "Selection is empty",
-          path: ["endOffset"],
-        }),
+      z.object({ ...spanFields, value: z.enum(RHYME_GROUPS) }).refine(nonEmptySpan, emptySpanMsg),
     )
-    .min(1, "No spans given")
+    .min(1, "No lines given")
     .max(500),
 });
 
+/** Clear (hard-delete) the rhyme group on whole lines. User-explicit (D-3). */
+export const clearLinesInput = z.object({
+  entryId: id,
+  version,
+  items: z
+    .array(z.object({ ...spanFields }).refine(nonEmptySpan, emptySpanMsg))
+    .min(1, "No lines given")
+    .max(500),
+});
+
+/** Delete one annotation row by id. Version-exempt — targets a stable id (D-9). */
 export const deleteAnnotationInput = z.object({ id });
 
 /* ------------------------------------------------------------------ */
@@ -136,5 +132,5 @@ export const deleteAnnotationInput = z.object({ id });
 export type CreateEntryInput = z.infer<typeof createEntryInput>;
 export type UpdateEntryInput = z.infer<typeof updateEntryInput>;
 export type SaveLyricsInput = z.infer<typeof saveLyricsInput>;
-export type SetAnnotationInput = z.infer<typeof setAnnotationInput>;
-export type SetAnnotationsInput = z.infer<typeof setAnnotationsInput>;
+export type SetLineGroupsInput = z.infer<typeof setLineGroupsInput>;
+export type ClearLinesInput = z.infer<typeof clearLinesInput>;
