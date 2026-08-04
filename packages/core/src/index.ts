@@ -8,3 +8,4 @@ export * from "./constants";
 export * from "./lyrics";
 export * from "./anchor";
 export * from "./annotations";
+export * from "./reconcile";
