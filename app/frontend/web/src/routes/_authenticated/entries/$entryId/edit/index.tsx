@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ORPCError } from "@orpc/client";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
@@ -100,13 +101,24 @@ function EditForm({
     setSavingLyrics(true);
     setLyricsMsg(null);
     try {
-      const res = await client.entries.saveLyrics({ id, lyrics });
+      const res = await client.entries.saveLyrics({ id, version: entry.version, lyrics });
       await invalidateEntry(qc, id);
       setLyricsMsg(
         res.detached > 0
           ? `Saved. ${res.detached} annotation${res.detached === 1 ? "" : "s"} could no longer be placed and were detached.`
           : "Saved.",
       );
+    } catch (err) {
+      // The entry changed somewhere else since this form loaded — reload and ask
+      // the user to reapply their edit rather than clobbering the newer text.
+      if (err instanceof ORPCError && err.code === "CONFLICT") {
+        await invalidateEntry(qc, id);
+        setLyricsMsg(
+          "This entry changed elsewhere and was reloaded — reapply your edit and save again.",
+        );
+      } else {
+        throw err;
+      }
     } finally {
       setSavingLyrics(false);
     }

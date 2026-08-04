@@ -1,6 +1,6 @@
 import { Badge, Button, Checkbox, Text } from "@saintly-software/baritone";
 import { Eyebrow } from "#/components/Eyebrow";
-import { RHYME_GROUP_COLORS, type RhymeGroup, type RhymeView } from "@rhymelab/core";
+import { RHYME_GROUP_COLORS, type RhymeView } from "@rhymelab/core";
 import type { LineToken } from "@rhymelab/core";
 import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
 import { colorForAnnotation, type LineSelection } from "./logic";
@@ -69,7 +69,7 @@ function Line(props: SectionCardProps & { line: LineToken }) {
   if (line.blank) return <div className="rl-line rl-line--blank" />;
 
   const ann = props.findRhyme(line.start, line.end);
-  const color = ann && ann.value ? colorForAnnotation(ann) : null;
+  const color = ann ? colorForAnnotation(ann) : null;
   // Rhyme scheme paints its tint only in "colours" view (the letters view keeps
   // the lyrics plain).
   const tint = color && view === "colours" ? color.tint : undefined;
@@ -115,9 +115,9 @@ function LineBadge({
   findRhyme: (start: number, end: number) => AnnotationDTO | null;
 }) {
   const ann = findRhyme(line.start, line.end);
-  if (!ann || !ann.value) return null;
+  if (!ann) return null;
 
-  const g = ann.value as RhymeGroup;
+  const g = ann.value;
   const c = RHYME_GROUP_COLORS[g] ?? RHYME_GROUP_COLORS.X;
   // In "letters" view keep the badge neutral-ink so the scheme reads as letters.
   const bg = view === "letters" ? "transparent" : c.solid;

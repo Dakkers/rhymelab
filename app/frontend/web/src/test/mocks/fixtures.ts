@@ -25,6 +25,7 @@ export function makeEntryDetail(overrides: Partial<EntryDetail> = {}): EntryDeta
     year: 2024,
     notes: null,
     lyrics: "First line of the song\nSecond line of the song",
+    version: 0,
     tags: [],
     sections: [],
     annotations: [],
@@ -60,7 +61,7 @@ export function makeAnnotation(overrides: Partial<AnnotationDTO> = {}): Annotati
     startOffset: 0,
     endOffset: 0,
     quote: "",
-    value: null,
+    value: "A",
     detached: false,
     ...overrides,
   };

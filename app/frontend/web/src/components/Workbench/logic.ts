@@ -110,10 +110,10 @@ export interface HighlightColor {
   ink: string;
 }
 
-/** The highlight a rhyme annotation paints with, or null if it carries no group. */
-export function colorForAnnotation(ann: AnnotationDTO): HighlightColor | null {
-  const c = RHYME_GROUP_COLORS[(ann.value ?? "X") as RhymeGroup];
-  return c ? { solid: c.solid, tint: c.tint, ink: c.ink } : null;
+/** The highlight a rhyme annotation paints with. `value` is always a group now. */
+export function colorForAnnotation(ann: AnnotationDTO): HighlightColor {
+  const c = RHYME_GROUP_COLORS[ann.value];
+  return { solid: c.solid, tint: c.tint, ink: c.ink };
 }
 
 const covers = (a: AnnotationDTO, start: number, end: number) =>
@@ -124,34 +124,40 @@ const covers = (a: AnnotationDTO, start: number, end: number) =>
  * whether it's highlighted. Returns a finder over line spans.
  */
 export function makeLineFinder(annotations: AnnotationDTO[]) {
-  // Prefer the *tightest* covering annotation — so an overlapping line + phrase
-  // paint the colour the panel reports as active, not whichever was created first.
+  // Priority is a total order (D-7): the *narrower* covering span wins so an
+  // overlapping line + phrase paint the colour the panel reports as active; ties
+  // break to the higher id (the more recent write), never to insertion order.
   return (start: number, end: number): AnnotationDTO | null => {
     let best: AnnotationDTO | null = null;
     for (const a of annotations) {
       if (!covers(a, start, end)) continue;
-      if (!best || a.endOffset - a.startOffset < best.endOffset - best.startOffset) best = a;
+      if (best === null) {
+        best = a;
+        continue;
+      }
+      const aWidth = a.endOffset - a.startOffset;
+      const bestWidth = best.endOffset - best.startOffset;
+      if (aWidth < bestWidth || (aWidth === bestWidth && a.id > best.id)) best = a;
     }
     return best;
   };
 }
 
-/** Rhyme-group counts within a section (by annotation start offset). */
+/**
+ * Rhyme-group counts within a section — WHOLE-LINE rows only (D-8 rollup): a
+ * sub-line "emphasis" row refines a line's membership, it isn't a second member,
+ * so it doesn't add to the count. `lines` are the section's parsed lines.
+ */
 export function groupCountsForSection(
   annotations: AnnotationDTO[],
-  section: SectionDTO,
+  lines: LineToken[],
 ): Record<RhymeGroup, number> {
   const counts: Record<RhymeGroup, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0 };
+  const lineSpans = new Set(lines.filter((l) => !l.blank).map((l) => `${l.start}:${l.end}`));
   for (const a of annotations) {
-    if (
-      !a.detached &&
-      a.value &&
-      a.startOffset >= section.startOffset &&
-      a.startOffset < section.endOffset
-    ) {
-      const g = a.value as RhymeGroup;
-      if (g in counts) counts[g]++;
-    }
+    if (a.detached) continue;
+    if (!lineSpans.has(`${a.startOffset}:${a.endOffset}`)) continue; // whole-line rows only
+    counts[a.value]++;
   }
   return counts;
 }

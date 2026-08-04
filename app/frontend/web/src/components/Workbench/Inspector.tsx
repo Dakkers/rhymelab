@@ -5,6 +5,7 @@ import {
   RHYME_GROUPS,
   RHYME_GROUP_COLORS,
   RHYME_HELPER,
+  type LineToken,
   type RhymeGroup,
   type RhymeView,
 } from "@rhymelab/core";
@@ -15,11 +16,13 @@ interface InspectorProps {
   lineSelection: LineSelection | null;
   annotations: AnnotationDTO[];
   activeSection: SectionDTO | null;
+  /** The active section's parsed lines — drives the whole-line group counts (D-8). */
+  activeSectionLines: LineToken[];
   view: RhymeView;
   findRhyme: (start: number, end: number) => AnnotationDTO | null;
   onViewChange: (v: RhymeView) => void;
   /** Write the rhyme group (value) / clear it (null) on the selected lines. */
-  onWriteLines: (value: string | null) => void;
+  onWriteLines: (value: RhymeGroup | null) => void;
   busy: boolean;
 }
 
@@ -117,12 +120,11 @@ function LinePanel(props: InspectorProps) {
 /** Rhyme-scheme control: the A–F/X group grid, the colours/letters view toggle,
  *  and the legend. The group is written to every selected line. */
 function RhymeControl(props: InspectorProps) {
-  const { activeSection, annotations, view } = props;
+  const { annotations, view } = props;
   const lines = props.lineSelection?.lines ?? [];
   const active = commonRhymeGroup(props.findRhyme, lines);
-  const counts = activeSection
-    ? groupCountsForSection(annotations, activeSection)
-    : ({ A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0 } as Record<RhymeGroup, number>);
+  // Whole-line counts for the active section (empty lines ⇒ all zeros).
+  const counts = groupCountsForSection(annotations, props.activeSectionLines);
 
   // A clearable group: re-pressing the active group takes it back off (onChange
   // fires with null), which the line writer treats as "clear these lines".

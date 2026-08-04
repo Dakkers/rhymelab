@@ -1,8 +1,9 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "@tanstack/react-router";
+import { ORPCError } from "@orpc/client";
 import { Box, Notice } from "@saintly-software/baritone";
-import { type LineToken, type RhymeView } from "@rhymelab/core";
+import { type LineToken, type RhymeGroup, type RhymeView } from "@rhymelab/core";
 import type { EntryDetail, SectionDTO } from "@rhymelab/api-contract";
 import { client } from "#/lib/orpc";
 import { invalidateEntry } from "#/lib/queries";
@@ -43,6 +44,9 @@ export function WorkbenchSurface({ entry, view, onViewChange, header }: Workbenc
   const [lineSelection, setLineSelection] = useState<LineSelection | null>(null);
   const [lineAnchor, setLineAnchor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  // Set when a write 409s because the lyrics changed under us (another tab/save):
+  // we reload fresh data and tell the user their pending stamp was dropped.
+  const [reloadedNotice, setReloadedNotice] = useState(false);
 
   const sectionsWithLines = useMemo(() => deriveSections(entry), [entry]);
 
@@ -56,6 +60,7 @@ export function WorkbenchSurface({ entry, view, onViewChange, header }: Workbenc
   const activeSection = lineSelection
     ? (sectionsWithLines.find((s) => s.section.id === lineSelection.sectionId)?.section ?? null)
     : null;
+  const activeSectionLines = activeSection ? sectionLinesOf(activeSection.id) : [];
 
   /**
    * Toggle a line's membership in the selection (the whole row is a
@@ -64,6 +69,7 @@ export function WorkbenchSurface({ entry, view, onViewChange, header }: Workbenc
    * one section; clicking into another starts fresh.
    */
   function selectLine(line: LineToken, section: SectionDTO, e: { shiftKey: boolean }) {
+    setReloadedNotice(false);
     const sameSection = lineSelection?.sectionId === section.id;
 
     if (e.shiftKey && sameSection && lineAnchor != null) {
@@ -100,26 +106,44 @@ export function WorkbenchSurface({ entry, view, onViewChange, header }: Workbenc
 
   /**
    * Write the rhyme group (or clear it, when `value` is null) to every selected
-   * line, in one batch.
+   * line, in one batch. `value` is the server-validated rhyme vocabulary (the
+   * contract narrows it to `RhymeGroup | null`), so no free-text can be sent.
+   *
+   * Assigning is REPLACE-at-line (`setLineGroups`); clearing is `clearLines`. Both
+   * carry the entry's base `version`; if the lyrics changed under us the server
+   * 409s (CONFLICT) — we reload fresh data and drop the stale selection rather than
+   * retrying with data that no longer matches the text.
    */
-  async function writeLines(value: string | null) {
+  async function writeLines(value: RhymeGroup | null) {
     if (!lineSelection || lineSelection.lines.length === 0) return;
     setBusy(true);
+    setReloadedNotice(false);
     try {
-      await client.entries.setAnnotations({
-        entryId: id,
-        items: lineSelection.lines.map((l) => ({
-          startOffset: l.start,
-          endOffset: l.end,
-          value,
-        })),
-      });
+      const items = lineSelection.lines.map((l) => ({ startOffset: l.start, endOffset: l.end }));
+      if (value === null) {
+        await client.entries.clearLines({ entryId: id, version: entry.version, items });
+      } else {
+        await client.entries.setLineGroups({
+          entryId: id,
+          version: entry.version,
+          items: items.map((it) => ({ ...it, value })),
+        });
+      }
       await invalidateEntry(queryClient, id);
       // Clear the selection so the next assignment starts fresh — otherwise a
       // follow-up click would accumulate onto the lines just stamped and
       // overwrite them.
       setLineSelection(null);
       setLineAnchor(null);
+    } catch (err) {
+      if (err instanceof ORPCError && err.code === "CONFLICT") {
+        await invalidateEntry(queryClient, id);
+        setLineSelection(null);
+        setLineAnchor(null);
+        setReloadedNotice(true);
+      } else {
+        throw err;
+      }
     } finally {
       setBusy(false);
     }
@@ -130,6 +154,16 @@ export function WorkbenchSurface({ entry, view, onViewChange, header }: Workbenc
       <div className="rl-work-main">
         <div className="rl-work-inner">
           {header}
+
+          {reloadedNotice && (
+            <Notice
+              mt="4"
+              intent="warning"
+              description="The lyrics changed somewhere else, so we reloaded them. Your last change wasn't applied — reselect the lines and try again."
+            >
+              Lyrics changed — reloaded
+            </Notice>
+          )}
 
           {entry.lyrics.trim().length === 0 ? (
             <Notice
@@ -172,6 +206,7 @@ export function WorkbenchSurface({ entry, view, onViewChange, header }: Workbenc
         lineSelection={lineSelection}
         annotations={entry.annotations}
         activeSection={activeSection}
+        activeSectionLines={activeSectionLines}
         view={view}
         findRhyme={findRhyme}
         onViewChange={onViewChange}
