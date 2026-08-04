@@ -9,10 +9,15 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint --fix",
     "lint:check": "oxlint"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
   }
 }
