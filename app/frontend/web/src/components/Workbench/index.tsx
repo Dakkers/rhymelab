@@ -1,46 +1,26 @@
 import { useState } from "react";
-import {
-  Badge,
-  Box,
-  Flex,
-  Heading,
-  Notice,
-  Tabs,
-  Text,
-  ToggleGroup,
-} from "@saintly-software/baritone";
+import { Heading, Notice, Text } from "@saintly-software/baritone";
 import { Info as InfoIcon } from "lucide-react";
 import { Eyebrow } from "#/components/Eyebrow";
-import {
-  ANNOTATION_TIERS,
-  MODE_META,
-  TIER_META,
-  VIEW_MODES,
-  entryKindLabel,
-  type RhymeView,
-  type ViewMode,
-} from "@rhymelab/core";
+import { entryKindLabel, type RhymeView } from "@rhymelab/core";
 import type { EntryDetail } from "@rhymelab/api-contract";
 import { WorkbenchSurface } from "./WorkbenchSurface";
 import { deriveSections } from "./logic";
 
 interface WorkbenchProps {
   entry: EntryDetail;
-  /** Which annotation layer is active. Lives in the URL (`?mode=`). */
-  mode: ViewMode;
   /** How rhyme groups are drawn. Lives in the URL (`?view=`). */
   view: RhymeView;
-  onModeChange: (mode: ViewMode) => void;
   onViewChange: (view: RhymeView) => void;
 }
 
 /**
- * The entry page's workbench: the title/byline, the auto-detected-structure
- * notice, and the mode bar, wrapped around the editing surface. Everything below
- * the header is `WorkbenchSurface`, which owns the actual annotation state — this
- * component is just the page chrome and the URL-backed mode/view wiring.
+ * The entry page's workbench: the title/byline and the auto-detected-structure
+ * notice, wrapped around the editing surface. Everything below the header is
+ * `WorkbenchSurface`, which owns the actual annotation state — this component is
+ * just the page chrome and the URL-backed view wiring.
  */
-export function Workbench({ entry, mode, view, onModeChange, onViewChange }: WorkbenchProps) {
+export function Workbench({ entry, view, onViewChange }: WorkbenchProps) {
   const [showBanner, setShowBanner] = useState(true);
   const sectionCount = deriveSections(entry).length;
 
@@ -52,7 +32,6 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
   return (
     <WorkbenchSurface
       entry={entry}
-      mode={mode}
       view={view}
       onViewChange={onViewChange}
       header={
@@ -75,41 +54,10 @@ export function Workbench({ entry, mode, view, onModeChange, onViewChange }: Wor
               close={() => setShowBanner(false)}
               mt="6"
             >
-              Structure auto-detected — <strong>{sectionCount} sections</strong>. Change a section's
-              type from its header.
+              Structure auto-detected — <strong>{sectionCount} sections</strong>. Click the lines
+              that rhyme, then assign a group.
             </Notice>
           )}
-
-          {/* Annotation tier. Basic (line-level) is the everyday layer; Advanced
-              (word-level) is deferred, so it renders as a disabled tab. */}
-          <Box mt="6">
-            <Tabs
-              value="basic"
-              onChange={() => {}}
-              tabs={ANNOTATION_TIERS.map((t) => ({
-                value: t,
-                label: TIER_META[t].label,
-                disabled: !TIER_META[t].enabled,
-              }))}
-            />
-          </Box>
-
-          <div className="rl-modebar">
-            <ToggleGroup label="Mode" labelPosition="start" value={mode} onChange={onModeChange}>
-              {({ ToggleGroupItem }) => (
-                <>
-                  {VIEW_MODES.map((m) => (
-                    <ToggleGroupItem key={m} value={m}>
-                      <Flex inline align="center" gap="2" render={<span />}>
-                        <Badge shape="round" size="sm" color={MODE_META[m].color} />
-                        {MODE_META[m].label}
-                      </Flex>
-                    </ToggleGroupItem>
-                  ))}
-                </>
-              )}
-            </ToggleGroup>
-          </div>
         </>
       }
     />

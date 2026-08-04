@@ -8,7 +8,7 @@
  * the original D1 behaviour.
  */
 import { ORPCError } from "@orpc/server";
-import { normalizeText, reanchor, type AnnotationMode, type EntryKind } from "@rhymelab/core";
+import { normalizeText, reanchor, type EntryKind } from "@rhymelab/core";
 import { prisma } from "../db";
 import { authed } from "../orpc";
 import { rederiveSections } from "./sections";
@@ -82,13 +82,10 @@ export const get = authed.entries.get.handler(async ({ input }) => {
     })),
     annotations: annRows.map((a) => ({
       id: a.id,
-      mode: a.mode as AnnotationMode,
       startOffset: a.startOffset,
       endOffset: a.endOffset,
       quote: a.quote,
       value: a.value,
-      body: a.body,
-      color: a.color,
       detached: a.detached,
     })),
     createdAt: row.createdAt.getTime(),

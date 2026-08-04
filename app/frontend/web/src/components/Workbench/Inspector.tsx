@@ -1,27 +1,25 @@
 import { Badge, Divider, Flex, Text, ToggleGroup } from "@saintly-software/baritone";
 import { Eyebrow } from "#/components/Eyebrow";
 import {
-  MODE_META,
+  RHYME_ACCENT,
   RHYME_GROUPS,
   RHYME_GROUP_COLORS,
+  RHYME_HELPER,
   type RhymeGroup,
   type RhymeView,
-  type ViewMode,
 } from "@rhymelab/core";
 import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
 import { commonRhymeGroup, groupCountsForSection, type LineSelection } from "./logic";
 
 interface InspectorProps {
-  mode: ViewMode;
   lineSelection: LineSelection | null;
   annotations: AnnotationDTO[];
   activeSection: SectionDTO | null;
   view: RhymeView;
   findRhyme: (start: number, end: number) => AnnotationDTO | null;
   onViewChange: (v: RhymeView) => void;
-  /** Write the rhyme group (value) / clear it (null) on the selected lines. The
-   *  `body` arm is kept for the generic annotation shape but is always null now. */
-  onWriteLines: (value: string | null, body: string | null) => void;
+  /** Write the rhyme group (value) / clear it (null) on the selected lines. */
+  onWriteLines: (value: string | null) => void;
   busy: boolean;
 }
 
@@ -29,8 +27,7 @@ interface InspectorProps {
 const LINE_PREVIEW = 6;
 
 export function Inspector(props: InspectorProps) {
-  const { mode, activeSection } = props;
-  const meta = MODE_META[mode];
+  const { activeSection } = props;
 
   return (
     <aside className="rl-work-aside">
@@ -44,21 +41,17 @@ export function Inspector(props: InspectorProps) {
       <Divider my="4" />
 
       <Flex align="center" gap="2">
-        <Badge shape="round" size="sm" color={meta.color} />
+        <Badge shape="round" size="sm" color={RHYME_ACCENT} />
         <Text weight="bold" saliency="high">
-          {meta.label}
+          Rhyme scheme
         </Text>
       </Flex>
       <Text as="p" size="sm" saliency="low" mt="2">
-        {meta.helper}
+        {RHYME_HELPER}
       </Text>
 
-      {mode !== "read" && (
-        <>
-          <Divider my="4" />
-          <LinePanel {...props} />
-        </>
-      )}
+      <Divider my="4" />
+      <LinePanel {...props} />
     </aside>
   );
 }
@@ -69,7 +62,8 @@ export function Inspector(props: InspectorProps) {
  */
 function LinePanel(props: InspectorProps) {
   const lines = props.lineSelection?.lines ?? [];
-  // Reset any local draft (the note field) when the set of selected lines changes.
+  // Re-key the rhyme control when the set of selected lines changes, so it
+  // re-reads which group (if any) those lines share.
   const selectionKey = `${props.lineSelection?.sectionId ?? ""}:${lines.map((l) => l.index).join(",")}`;
 
   return (
@@ -132,7 +126,7 @@ function RhymeControl(props: InspectorProps) {
 
   // A clearable group: re-pressing the active group takes it back off (onChange
   // fires with null), which the line writer treats as "clear these lines".
-  const assign = (group: RhymeGroup | null) => props.onWriteLines(group, null);
+  const assign = (group: RhymeGroup | null) => props.onWriteLines(group);
 
   return (
     <Flex direction="column" gap="4">

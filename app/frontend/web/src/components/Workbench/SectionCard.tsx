@@ -1,6 +1,6 @@
 import { Badge, Button, Checkbox, Text } from "@saintly-software/baritone";
 import { Eyebrow } from "#/components/Eyebrow";
-import { RHYME_GROUP_COLORS, type RhymeGroup, type RhymeView, type ViewMode } from "@rhymelab/core";
+import { RHYME_GROUP_COLORS, type RhymeGroup, type RhymeView } from "@rhymelab/core";
 import type { LineToken } from "@rhymelab/core";
 import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
 import { colorForAnnotation, type LineSelection } from "./logic";
@@ -8,7 +8,6 @@ import { colorForAnnotation, type LineSelection } from "./logic";
 interface SectionCardProps {
   section: SectionDTO;
   lines: LineToken[];
-  mode: ViewMode;
   view: RhymeView;
   lineSelection: LineSelection | null;
   editing: boolean;
@@ -19,10 +18,7 @@ interface SectionCardProps {
 }
 
 export function SectionCard(props: SectionCardProps) {
-  const { section, lines, mode, editing } = props;
-  // Every mode except the plain reading view annotates whole lines: the line is
-  // the click target (a checkbox row) and, when tinted, the coloured band.
-  const lineLevel = mode !== "read";
+  const { section, lines, editing } = props;
 
   return (
     <section className="rl-section-card" data-editing={editing ? "true" : undefined}>
@@ -35,33 +31,27 @@ export function SectionCard(props: SectionCardProps) {
             <Badge shape="square" size="sm" intent="primary" saliency="high" text="Editing" />
           )}
         </span>
-        {lineLevel && (
-          <Button
-            appearance="text"
-            variant="sm"
-            intent="primary"
-            onClick={() => props.onSelectAllLines(section)}
-            disabled={props.busy}
-          >
-            Select all lines
-          </Button>
-        )}
+        <Button
+          appearance="text"
+          variant="sm"
+          intent="primary"
+          onClick={() => props.onSelectAllLines(section)}
+          disabled={props.busy}
+        >
+          Select all lines
+        </Button>
       </header>
 
       {/* The lyric body itself: serif, one size up from body copy, and set loose
-          enough that the per-line badges have room to sit beside it. */}
+          enough that the per-line badges have room to sit beside it. Each line is
+          a selectable checkbox row; grouping them and naming the group by the
+          section makes assistive tech announce "Section 1, group" around the set. */}
       <Text font="serif" size="xl" lineHeight="lyric">
-        {lineLevel ? (
-          // Group the section's line-checkboxes and name the group by the section,
-          // so assistive tech announces "Section 1, group" around the set.
-          <div role="group" aria-label={section.label}>
-            {lines.map((line) => (
-              <Line key={line.index} line={line} {...props} />
-            ))}
-          </div>
-        ) : (
-          lines.map((line) => <ReadLine key={line.index} line={line} />)
-        )}
+        <div role="group" aria-label={section.label}>
+          {lines.map((line) => (
+            <Line key={line.index} line={line} {...props} />
+          ))}
+        </div>
       </Text>
     </section>
   );
@@ -111,12 +101,6 @@ function Line(props: SectionCardProps & { line: LineToken }) {
       <LineBadge line={line} view={view} findRhyme={props.findRhyme} />
     </div>
   );
-}
-
-/** A line in the plain reading view — no selection, no annotation. */
-function ReadLine({ line }: { line: LineToken }) {
-  if (line.blank) return <div className="rl-line rl-line--blank" />;
-  return <div className="rl-line">{line.text}</div>;
 }
 
 /** The group letter shown at a rhyme line's right edge — display only; the row (a

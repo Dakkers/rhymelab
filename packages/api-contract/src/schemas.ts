@@ -9,7 +9,7 @@
  * strings into `null` for the optional text fields.
  */
 import { z } from "zod";
-import { ANNOTATION_MODES, ENTRY_KINDS } from "@rhymelab/core";
+import { ENTRY_KINDS } from "@rhymelab/core";
 
 const id = z.int().positive();
 
@@ -88,16 +88,14 @@ export const saveLyricsInput = z.object({ id, lyrics });
 /**
  * Create/update/clear one annotation for a span. The server recomputes `quote`
  * from the entry's lyrics at these offsets (never trusting a client-sent quote).
- * When both `value` and `body` come back `null`, the annotation is cleared.
+ * A `null` `value` clears the annotation at that span.
  */
 export const setAnnotationInput = z
   .object({
     entryId: id,
-    mode: z.enum(ANNOTATION_MODES),
     startOffset: z.int().min(0),
     endOffset: z.int().min(0),
     value: optionalText(120),
-    body: optionalText(4000),
   })
   .refine((v) => v.endOffset > v.startOffset, {
     message: "Selection is empty",
@@ -105,14 +103,13 @@ export const setAnnotationInput = z
   });
 
 /**
- * Batch form of `setAnnotation`: apply one `mode`'s annotations to several spans
- * at once — e.g. assign a rhyme group to a set of selected lines. Each item is
- * upserted-or-cleared exactly like the single form (per-item `value`/`body`
- * null clears that span); the backend runs the whole batch in one transaction.
+ * Batch form of `setAnnotation`: assign (or clear) a rhyme group across several
+ * spans at once — e.g. a set of selected lines. Each item is upserted-or-cleared
+ * exactly like the single form (a per-item `null` `value` clears that span); the
+ * backend runs the whole batch in one transaction.
  */
 export const setAnnotationsInput = z.object({
   entryId: id,
-  mode: z.enum(ANNOTATION_MODES),
   items: z
     .array(
       z
@@ -120,7 +117,6 @@ export const setAnnotationsInput = z.object({
           startOffset: z.int().min(0),
           endOffset: z.int().min(0),
           value: optionalText(120),
-          body: optionalText(4000),
         })
         .refine((v) => v.endOffset > v.startOffset, {
           message: "Selection is empty",

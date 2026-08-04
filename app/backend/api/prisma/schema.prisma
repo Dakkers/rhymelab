@@ -79,15 +79,12 @@ model Section {
 model Annotation {
   id          Int       @id @default(autoincrement())
   entryId     Int       @map("entry_id")
-  /// One of ANNOTATION_MODES.
-  mode        String
   startOffset Int       @map("start_offset")
   endOffset   Int       @map("end_offset")
   /// Exact `lyrics.slice(start, end)` at write time — used to re-anchor.
   quote       String
+  /// The rhyme group (A–F / X), or null once cleared.
   value       String?
-  body        String?
-  color       String?
   /// True when a lyrics edit orphaned this annotation (kept, but off the text).
   detached    Boolean   @default(false)
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -97,6 +94,5 @@ model Annotation {
   entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@index([entryId])
-  @@index([entryId, mode])
   @@map("annotations")
 }

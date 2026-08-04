@@ -32,7 +32,7 @@ function MissingEntry() {
 
 function EntryPage() {
   const { entryId } = Route.useParams();
-  const { mode, view } = Route.useSearch();
+  const { view } = Route.useSearch();
   const navigate = Route.useNavigate();
   const { data: entry } = useSuspenseQuery(q.entries.detail(entryId));
 
@@ -41,11 +41,9 @@ function EntryPage() {
   return (
     <Workbench
       entry={entry}
-      mode={mode}
       view={view}
-      // `replace` so toggling layers doesn't stack up history entries — the URL
+      // `replace` so toggling the view doesn't stack up history entries — the URL
       // is here to be shared and reloaded, not to be walked back through.
-      onModeChange={(next) => navigate({ search: (s) => ({ ...s, mode: next }), replace: true })}
       onViewChange={(next) => navigate({ search: (s) => ({ ...s, view: next }), replace: true })}
     />
   );

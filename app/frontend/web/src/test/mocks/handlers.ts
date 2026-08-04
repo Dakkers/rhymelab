@@ -10,7 +10,6 @@
 import { implement, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { http, passthrough } from "msw";
-import { type AnnotationMode } from "@rhymelab/core";
 import {
   contract,
   type EntryDetail,
@@ -88,7 +87,6 @@ interface StoreItem {
   startOffset: number;
   endOffset: number;
   value: string | null;
-  body: string | null;
 }
 
 /**
@@ -98,44 +96,32 @@ interface StoreItem {
  */
 function applyToStore(
   entry: EntryDetail,
-  mode: AnnotationMode,
   item: StoreItem,
 ): { cleared: boolean; id: number | null } {
   const quote = entry.lyrics.slice(item.startOffset, item.endOffset);
   const existing = entry.annotations.findIndex(
-    (a) =>
-      !a.detached &&
-      a.mode === mode &&
-      a.startOffset === item.startOffset &&
-      a.endOffset === item.endOffset,
+    (a) => !a.detached && a.startOffset === item.startOffset && a.endOffset === item.endOffset,
   );
 
-  // Both value and body null → clear whatever is at this exact span+mode.
-  if (item.value === null && item.body === null) {
+  // A null value clears whatever is at this exact span.
+  if (item.value === null) {
     if (existing >= 0) entry.annotations.splice(existing, 1);
     return { cleared: true, id: null };
   }
 
-  // Mirror the backend: rhyme-scheme stores no `color` (it paints from its
-  // group), so this is always null now the tinted modes are gone.
-  const color = null;
-
   if (existing >= 0) {
     const keep = entry.annotations[existing]!;
-    Object.assign(keep, { value: item.value, body: item.body, quote, color, detached: false });
+    Object.assign(keep, { value: item.value, quote, detached: false });
     return { cleared: false, id: keep.id };
   }
 
   const id = nextAnnotationId(entry);
   entry.annotations.push({
     id,
-    mode,
     startOffset: item.startOffset,
     endOffset: item.endOffset,
     quote,
     value: item.value,
-    body: item.body,
-    color,
     detached: false,
   });
   return { cleared: false, id };
@@ -155,14 +141,14 @@ const router = {
     list: os.entries.list.handler(() => [...store.entries.values()].map(toSummary)),
     get: os.entries.get.handler(({ input }) => store.entries.get(input.id) ?? null),
 
-    // Upsert-or-clear one annotation for a (mode, span), mutating the stored
-    // entry in place so the client's post-write `entries.get` invalidation reads
-    // it back. A faithful-but-minimal port of the backend `setAnnotation`.
+    // Upsert-or-clear one annotation for a span, mutating the stored entry in
+    // place so the client's post-write `entries.get` invalidation reads it back.
+    // A faithful-but-minimal port of the backend `setAnnotation`.
     setAnnotation: os.entries.setAnnotation.handler(({ input }) => {
       onSetAnnotation?.(input);
       const entry = store.entries.get(input.entryId);
       if (!entry) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
-      const { cleared, id } = applyToStore(entry, input.mode, input);
+      const { cleared, id } = applyToStore(entry, input);
       return { ok: true as const, cleared, id };
     }),
 
@@ -172,7 +158,7 @@ const router = {
       onSetAnnotations?.(input);
       const entry = store.entries.get(input.entryId);
       if (!entry) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
-      const results = input.items.map((item) => applyToStore(entry, input.mode, item));
+      const results = input.items.map((item) => applyToStore(entry, item));
       return { ok: true as const, results };
     }),
   },

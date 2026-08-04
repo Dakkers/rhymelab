@@ -13,18 +13,15 @@ import { seedEntry } from "#/test/mocks/handlers";
 
 /**
  * Mounts the surface on its own, deliberately without the page chrome the route
- * wraps it in (no title, no mode picker, no structure notice). It subscribes to
- * the same entry query the real page does, so a write's `invalidateEntry` flows
- * back through here and re-renders the surface — exactly as it would in the app.
- *
- * The mode is hard-coded (`rhyme-scheme`): the picker that would change it lives
- * in the chrome we're leaving out, so the surface is pinned to one layer.
+ * wraps it in (no title, no structure notice). It subscribes to the same entry
+ * query the real page does, so a write's `invalidateEntry` flows back through
+ * here and re-renders the surface — exactly as it would in the app.
  */
 function Harness({ entryId }: { entryId: number }) {
   const [view, setView] = useState<RhymeView>("colours");
   const { data: entry } = useSuspenseQuery(q.entries.detail(entryId));
   if (!entry) return null;
-  return <WorkbenchSurface entry={entry} mode="rhyme-scheme" view={view} onViewChange={setView} />;
+  return <WorkbenchSurface entry={entry} view={view} onViewChange={setView} />;
 }
 
 /**

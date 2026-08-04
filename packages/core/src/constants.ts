@@ -29,88 +29,26 @@ export function entryKindLabel(kind: EntryKind): string {
  */
 
 /* ------------------------------------------------------------------ */
-/* Analysis modes                                                      */
+/* Rhyme scheme                                                        */
 /* ------------------------------------------------------------------ */
 
-/**
- * The analytical lenses that store annotations. Narrowed to `rhyme-scheme` only
- * while the app hardens the rhyme workflow — the other lenses (rhyme-type, sound,
- * theme, device, note) were removed and live in git history (see the note in the
- * workbench README / the commit that deleted them) for when they return.
- * `read` (in `VIEW_MODES`) is the plain reading view and stores nothing.
+/*
+ * The app does one thing: line-level rhyme-scheme annotation. There is no mode
+ * selector and no reading view any more — the workbench is always the rhyme
+ * annotator — and the multi-mode / word-level-tier machinery (ANNOTATION_MODES,
+ * VIEW_MODES, MODE_META, the Basic/Advanced tiers) was removed. An annotation is
+ * simply a line span carrying a rhyme group; the other lenses (sound, theme,
+ * device, note) live in git history for if they ever return.
  */
-export const ANNOTATION_MODES = ["rhyme-scheme"] as const;
-export type AnnotationMode = (typeof ANNOTATION_MODES)[number];
 
-/** Every mode shown in the mode bar, including the read-only `read` view. */
-export const VIEW_MODES = ["read", ...ANNOTATION_MODES] as const;
-export type ViewMode = (typeof VIEW_MODES)[number];
-
-/** How rhyme groups are drawn over the lyrics: tinted words, or A/B/C letters. */
+/** How rhyme groups are drawn over the lyrics: tinted lines, or A/B/C letters. */
 export const RHYME_VIEWS = ["colours", "letters"] as const;
 export type RhymeView = (typeof RHYME_VIEWS)[number];
 
-/* ------------------------------------------------------------------ */
-/* Annotation tiers                                                    */
-/* ------------------------------------------------------------------ */
-
-/**
- * The two granularities the workbench annotates at. `basic` works line-by-line
- * (every mode selects whole lines); `advanced` is the future word-level layer —
- * the same modes over individual words — and is deferred, so it renders as a
- * disabled tier for now.
- */
-export const ANNOTATION_TIERS = ["basic", "advanced"] as const;
-export type AnnotationTier = (typeof ANNOTATION_TIERS)[number];
-
-export interface TierMeta {
-  tier: AnnotationTier;
-  label: string;
-  /** One-line description of what the tier annotates. */
-  helper: string;
-  /** Whether the tier is selectable yet. `advanced` is deferred. */
-  enabled: boolean;
-}
-
-export const TIER_META: Record<AnnotationTier, TierMeta> = {
-  basic: {
-    tier: "basic",
-    label: "Basic",
-    helper: "Annotate whole lines.",
-    enabled: true,
-  },
-  advanced: {
-    tier: "advanced",
-    label: "Advanced",
-    helper: "Annotate individual words. Coming soon.",
-    enabled: false,
-  },
-};
-
-export interface ModeMeta {
-  mode: ViewMode;
-  label: string;
-  /** The dot/glyph colour in the mode bar and the panel heading. */
-  color: string;
-  /** One-line instruction shown at the top of the right panel. */
-  helper: string;
-}
-
-export const MODE_META: Record<ViewMode, ModeMeta> = {
-  read: {
-    mode: "read",
-    label: "Read",
-    color: "#9A948A",
-    helper: "A clean reading view. Switch modes to start annotating.",
-  },
-  "rhyme-scheme": {
-    mode: "rhyme-scheme",
-    label: "Rhyme scheme",
-    color: "#EC5C79",
-    helper:
-      "Check the lines that share a rhyme — click anywhere on a line — then assign a group. ⇧-click for a range. X marks a line that doesn't rhyme.",
-  },
-};
+/** The accent colour + one-line instruction for the rhyme-scheme panel. */
+export const RHYME_ACCENT = "#EC5C79";
+export const RHYME_HELPER =
+  "Check the lines that share a rhyme — click anywhere on a line — then assign a group. ⇧-click for a range. X marks a line that doesn't rhyme.";
 
 /* ------------------------------------------------------------------ */
 /* Rhyme scheme — the A–F / X groups                                */

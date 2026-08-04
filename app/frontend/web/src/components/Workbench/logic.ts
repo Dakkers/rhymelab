@@ -10,7 +10,6 @@ import {
   parseLines,
   type LineToken,
   type RhymeGroup,
-  type ViewMode,
 } from "@rhymelab/core";
 import type { AnnotationDTO, EntryDetail, SectionDTO } from "@rhymelab/api-contract";
 
@@ -67,7 +66,7 @@ export function deriveSections(entry: EntryDetail): SectionWithLines[] {
   }));
 }
 
-/** A per-mode finder over a line span (see `makeWordFinder`). */
+/** A finder over a line span (see `makeLineFinder`). */
 type LineFinder = (start: number, end: number) => AnnotationDTO | null;
 
 /**
@@ -121,17 +120,15 @@ const covers = (a: AnnotationDTO, start: number, end: number) =>
   !a.detached && a.startOffset <= start && a.endOffset >= end;
 
 /**
- * For one mode, map each covered character-range to its annotation, so a word
- * token can look up whether it's highlighted. Returns a finder over word spans.
+ * Map each covered character-range to its annotation, so a line can look up
+ * whether it's highlighted. Returns a finder over line spans.
  */
-export function makeWordFinder(annotations: AnnotationDTO[], mode: ViewMode) {
-  if (mode === "read") return () => null;
-  const inMode = annotations.filter((a) => a.mode === mode);
-  // Prefer the *tightest* covering annotation — so an overlapping word + phrase
+export function makeLineFinder(annotations: AnnotationDTO[]) {
+  // Prefer the *tightest* covering annotation — so an overlapping line + phrase
   // paint the colour the panel reports as active, not whichever was created first.
   return (start: number, end: number): AnnotationDTO | null => {
     let best: AnnotationDTO | null = null;
-    for (const a of inMode) {
+    for (const a of annotations) {
       if (!covers(a, start, end)) continue;
       if (!best || a.endOffset - a.startOffset < best.endOffset - best.startOffset) best = a;
     }
@@ -147,7 +144,6 @@ export function groupCountsForSection(
   const counts: Record<RhymeGroup, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0 };
   for (const a of annotations) {
     if (
-      a.mode === "rhyme-scheme" &&
       !a.detached &&
       a.value &&
       a.startOffset >= section.startOffset &&

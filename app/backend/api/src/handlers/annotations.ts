@@ -5,7 +5,6 @@
  * trusting the client — lyrics text stays authoritative.
  */
 import { ORPCError } from "@orpc/server";
-import { type AnnotationMode } from "@rhymelab/core";
 import type { Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 import { authed } from "../orpc";
@@ -15,22 +14,20 @@ interface AnnotationSpan {
   startOffset: number;
   endOffset: number;
   value: string | null;
-  body: string | null;
 }
 
 /**
- * Upsert (or clear) a single annotation for `(mode, span)` against `db` — either
+ * Upsert (or clear) the rhyme-group annotation for `span` against `db` — either
  * the base client or a transaction client, so the batch form can run many of
- * these atomically. Clearing — both `value` and `body` null — soft-deletes any
- * existing annotation there. Otherwise the annotation at that exact span+mode is
- * updated in place, or created. Callers must have validated the offsets against
- * `lyrics` first (see `loadEntryForSpans`).
+ * these atomically. A `null` `value` soft-deletes any existing annotation there;
+ * otherwise the annotation at that exact span is updated in place, or created.
+ * Callers must have validated the offsets against `lyrics` first (see
+ * `loadEntryForSpans`).
  */
 async function applyAnnotation(
   db: Prisma.TransactionClient,
   entryId: number,
   lyrics: string,
-  mode: AnnotationMode,
   span: AnnotationSpan,
   now: Date,
 ): Promise<{ cleared: boolean; id: number | null }> {
@@ -39,15 +36,13 @@ async function applyAnnotation(
   const existing = await db.annotation.findMany({
     where: {
       entryId,
-      mode,
       startOffset: span.startOffset,
       endOffset: span.endOffset,
       deletedAt: null,
     },
   });
 
-  const cleared = span.value === null && span.body === null;
-  if (cleared) {
+  if (span.value === null) {
     if (existing.length) {
       await db.annotation.updateMany({
         where: { id: { in: existing.map((e) => e.id) } },
@@ -57,16 +52,11 @@ async function applyAnnotation(
     return { cleared: true, id: null };
   }
 
-  // `color` was the per-theme hue; rhyme-scheme (the only mode now) colours from
-  // its group, so nothing is stored here. The column stays for when tinted modes
-  // return — see the removed `theme` mode in git history.
-  const color = null;
-
   if (existing.length) {
     const keep = existing[0]!;
     await db.annotation.update({
       where: { id: keep.id },
-      data: { value: span.value, body: span.body, quote, color, detached: false, updatedAt: now },
+      data: { value: span.value, quote, detached: false, updatedAt: now },
     });
     // Defensive: collapse any accidental duplicates at this exact span.
     const extras = existing.slice(1).map((e) => e.id);
@@ -82,13 +72,10 @@ async function applyAnnotation(
   const inserted = await db.annotation.create({
     data: {
       entryId,
-      mode,
       startOffset: span.startOffset,
       endOffset: span.endOffset,
       quote,
       value: span.value,
-      body: span.body,
-      color,
       createdAt: now,
       updatedAt: now,
     },
@@ -111,21 +98,14 @@ async function loadEntryForSpans(entryId: number, maxEndOffset: number) {
 export const setAnnotation = authed.entries.setAnnotation.handler(async ({ input }) => {
   const now = new Date();
   const entry = await loadEntryForSpans(input.entryId, input.endOffset);
-  const { cleared, id } = await applyAnnotation(
-    prisma,
-    input.entryId,
-    entry.lyrics,
-    input.mode,
-    input,
-    now,
-  );
+  const { cleared, id } = await applyAnnotation(prisma, input.entryId, entry.lyrics, input, now);
   return { ok: true as const, cleared, id };
 });
 
 /**
- * Batch upsert-or-clear: apply one mode's annotations to many spans in a single
- * transaction (e.g. assign a rhyme group to several selected lines at once).
- * `results` line up with `input.items`, in order.
+ * Batch upsert-or-clear: assign a rhyme group to many spans in a single
+ * transaction (e.g. several selected lines at once). `results` line up with
+ * `input.items`, in order.
  */
 export const setAnnotations = authed.entries.setAnnotations.handler(async ({ input }) => {
   const now = new Date();
@@ -135,7 +115,7 @@ export const setAnnotations = authed.entries.setAnnotations.handler(async ({ inp
   const results = await prisma.$transaction(async (tx) => {
     const out: Array<{ cleared: boolean; id: number | null }> = [];
     for (const item of input.items) {
-      out.push(await applyAnnotation(tx, input.entryId, entry.lyrics, input.mode, item, now));
+      out.push(await applyAnnotation(tx, input.entryId, entry.lyrics, item, now));
     }
     return out;
   });

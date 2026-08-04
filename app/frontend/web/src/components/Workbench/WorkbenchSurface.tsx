@@ -2,25 +2,22 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "@tanstack/react-router";
 import { Box, Notice } from "@saintly-software/baritone";
-import { type AnnotationMode, type LineToken, type RhymeView, type ViewMode } from "@rhymelab/core";
+import { type LineToken, type RhymeView } from "@rhymelab/core";
 import type { EntryDetail, SectionDTO } from "@rhymelab/api-contract";
 import { client } from "#/lib/orpc";
 import { invalidateEntry } from "#/lib/queries";
 import { Inspector } from "./Inspector";
 import { SectionCard } from "./SectionCard";
-import { deriveSections, makeWordFinder, type LineSelection, type LineSpan } from "./logic";
+import { deriveSections, makeLineFinder, type LineSelection, type LineSpan } from "./logic";
 
 interface WorkbenchSurfaceProps {
   entry: EntryDetail;
-  /** Which annotation layer is active. The picker that changes it lives in the
-   *  page chrome (`header`); the surface just renders in the mode it's handed. */
-  mode: ViewMode;
   /** How rhyme groups are drawn. */
   view: RhymeView;
   onViewChange: (view: RhymeView) => void;
-  /** Page chrome rendered above the sections (title, mode bar, notices). The
-   *  surface itself renders none of it, so a test can mount just the editing
-   *  surface by leaving this out. */
+  /** Page chrome rendered above the sections (title, notices). The surface itself
+   *  renders none of it, so a test can mount just the editing surface by leaving
+   *  this out. */
   header?: ReactNode;
 }
 
@@ -34,20 +31,14 @@ const toLineSpan = (l: LineToken): LineSpan => ({
 /**
  * The workbench editing surface: the section cards on the left and the inspector
  * on the right, plus all the selection/annotation state that binds them. It owns
- * no page chrome (title, byline, mode picker, structure notice) — that's passed
- * in via `header` — so it can be mounted on its own with a fixed `mode`.
+ * no page chrome (title, byline, structure notice) — that's passed in via
+ * `header` — so it can be mounted on its own.
  */
-export function WorkbenchSurface({
-  entry,
-  mode,
-  view,
-  onViewChange,
-  header,
-}: WorkbenchSurfaceProps) {
+export function WorkbenchSurface({ entry, view, onViewChange, header }: WorkbenchSurfaceProps) {
   const id = entry.id;
   const queryClient = useQueryClient();
-  // Every Basic mode is line-level and multi-select: the surface tracks a set of
-  // lines within one section (a selection never crosses a section boundary).
+  // Annotation is line-level and multi-select: the surface tracks a set of lines
+  // within one section (a selection never crosses a section boundary).
   // `lineAnchor` is the fixed end of a ⇧-click range.
   const [lineSelection, setLineSelection] = useState<LineSelection | null>(null);
   const [lineAnchor, setLineAnchor] = useState<number | null>(null);
@@ -55,20 +46,16 @@ export function WorkbenchSurface({
 
   const sectionsWithLines = useMemo(() => deriveSections(entry), [entry]);
 
-  const findRhyme = useMemo(
-    () => makeWordFinder(entry.annotations, "rhyme-scheme"),
-    [entry.annotations],
-  );
+  const findRhyme = useMemo(() => makeLineFinder(entry.annotations), [entry.annotations]);
 
   const sectionLinesOf = (sectionId: number): LineToken[] =>
     sectionsWithLines.find((s) => s.section.id === sectionId)?.lines ?? [];
 
-  // The "current section" the inspector reports on. Every Basic mode is
-  // line-level, so it keys off the line selection; `read` reports nothing.
-  const activeSection =
-    mode !== "read" && lineSelection
-      ? (sectionsWithLines.find((s) => s.section.id === lineSelection.sectionId)?.section ?? null)
-      : null;
+  // The "current section" the inspector reports on — the one holding the line
+  // selection.
+  const activeSection = lineSelection
+    ? (sectionsWithLines.find((s) => s.section.id === lineSelection.sectionId)?.section ?? null)
+    : null;
 
   /**
    * Toggle a line's membership in the selection (the whole row is a
@@ -112,23 +99,19 @@ export function WorkbenchSurface({
   }
 
   /**
-   * Write (or clear, when both `value` and `body` are null) the active mode to
-   * every selected line, in one batch. This is the single line-level writer for
-   * all Basic modes — a rhyme group, a device/type/sound value, a theme name, or
-   * a note body all flow through here, differing only in which field they fill.
+   * Write the rhyme group (or clear it, when `value` is null) to every selected
+   * line, in one batch.
    */
-  async function writeLines(value: string | null, body: string | null) {
-    if (mode === "read" || !lineSelection || lineSelection.lines.length === 0) return;
+  async function writeLines(value: string | null) {
+    if (!lineSelection || lineSelection.lines.length === 0) return;
     setBusy(true);
     try {
       await client.entries.setAnnotations({
         entryId: id,
-        mode: mode as AnnotationMode,
         items: lineSelection.lines.map((l) => ({
           startOffset: l.start,
           endOffset: l.end,
           value,
-          body,
         })),
       });
       await invalidateEntry(queryClient, id);
@@ -171,7 +154,6 @@ export function WorkbenchSurface({
                   key={section.id}
                   section={section}
                   lines={sectionLines}
-                  mode={mode}
                   view={view}
                   lineSelection={lineSelection}
                   editing={activeSection?.id === section.id}
@@ -187,7 +169,6 @@ export function WorkbenchSurface({
       </div>
 
       <Inspector
-        mode={mode}
         lineSelection={lineSelection}
         annotations={entry.annotations}
         activeSection={activeSection}

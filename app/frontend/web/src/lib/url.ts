@@ -10,12 +10,12 @@
  * - **Segments fail closed.** `parse` returning `false` tells the router the
  *   route doesn't match, so `/entries/abc` renders the app's 404 rather than a
  *   page that has to guard a malformed id on every render.
- * - **Search fails open.** A hand-edited `?mode=nonsense` falls back to the
+ * - **Search fails open.** A hand-edited `?view=nonsense` falls back to the
  *   default via `.catch()` instead of throwing an error boundary at someone who
  *   only mistyped a query string.
  */
 import { z } from "zod";
-import { RHYME_VIEWS, VIEW_MODES, type RhymeView, type ViewMode } from "@rhymelab/core";
+import { RHYME_VIEWS, type RhymeView } from "@rhymelab/core";
 
 /* ------------------------------------------------------------------ */
 /* Path segments                                                       */
@@ -45,25 +45,20 @@ export const entryIdParams = {
 /* Search params                                                       */
 /* ------------------------------------------------------------------ */
 
-/** The workbench opens on the rhyme layer, drawn in colour. */
+/** The workbench draws rhyme groups in colour by default. */
 export const WORKBENCH_SEARCH_DEFAULTS = {
-  mode: "rhyme-scheme",
   view: "colours",
-} satisfies { mode: ViewMode; view: RhymeView };
+} satisfies { view: RhymeView };
 
 /**
- * `/entries/:entryId?mode=&view=` — which annotation layer the workbench shows
- * and how rhyme groups are drawn. In the URL so a view is linkable and survives
- * a reload; both keys are stripped from the URL when they hold their default
- * (see the route's `search.middlewares`), keeping a plain `/entries/12` clean.
+ * `/entries/:entryId?view=` — how rhyme groups are drawn (tinted lines vs A/B/C
+ * letters). In the URL so a view is linkable and survives a reload; the key is
+ * stripped when it holds its default (see the route's `search.middlewares`),
+ * keeping a plain `/entries/12` clean.
  */
 export const workbenchSearch = z.object({
   // `.default` fills in a key that isn't there (and keeps it optional for
   // `<Link>`); `.catch` absorbs one that is there but nonsense.
-  mode: z
-    .enum(VIEW_MODES)
-    .default(WORKBENCH_SEARCH_DEFAULTS.mode)
-    .catch(WORKBENCH_SEARCH_DEFAULTS.mode),
   view: z
     .enum(RHYME_VIEWS)
     .default(WORKBENCH_SEARCH_DEFAULTS.view)
