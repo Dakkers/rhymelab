@@ -4,11 +4,15 @@
  * The invariant that shapes these handlers: **lyrics text is authoritative**,
  * and sections + annotations anchor to character offsets in it. On every lyrics
  * change we re-derive sections (see `rederiveSections`) and re-anchor
- * annotations. Writes are sequential (not wrapped in a transaction) — matching
- * the original D1 behaviour.
+ * annotations. Every such multi-row change runs in ONE transaction opened with
+ * the per-entry row lock (`SELECT … FOR UPDATE`), so a concurrent save can't
+ * interleave and leave sections/annotations disagreeing with the stored lyrics
+ * (invariant 3). Offsets are always computed in JS, never SQL string functions
+ * (invariant 5).
  */
 import { ORPCError } from "@orpc/server";
-import { normalizeText, reanchor, type EntryKind } from "@rhymelab/core";
+import { normalizeText, reanchor, type EntryKind, type RhymeGroup } from "@rhymelab/core";
+import { Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 import { authed } from "../orpc";
 import { rederiveSections } from "./sections";
@@ -22,10 +26,11 @@ export const list = authed.entries.list.handler(async () => {
     prisma.entry.findMany({ where: { deletedAt: null }, orderBy: { updatedAt: "desc" } }),
     prisma.entryTag.findMany(),
     // Detached annotations are hidden everywhere in the workbench, so the library
-    // badge counts only the ones the user can actually see.
+    // badge counts only the ones the user can actually see. (Annotations no longer
+    // soft-delete — a cleared one is hard-deleted — so there's no tombstone filter.)
     prisma.annotation.groupBy({
       by: ["entryId"],
-      where: { deletedAt: null, detached: false },
+      where: { detached: false },
       _count: { _all: true },
     }),
   ]);
@@ -60,7 +65,9 @@ export const get = authed.entries.get.handler(async ({ input }) => {
   const [tagRows, sectionRows, annRows] = await Promise.all([
     prisma.entryTag.findMany({ where: { entryId: input.id } }),
     prisma.section.findMany({ where: { entryId: input.id }, orderBy: { orderIndex: "asc" } }),
-    prisma.annotation.findMany({ where: { entryId: input.id, deletedAt: null } }),
+    // Ordered by id so rendering/report priority is deterministic (D-7: on a span
+    // tie the higher id wins, which a stable id order lets the client resolve).
+    prisma.annotation.findMany({ where: { entryId: input.id }, orderBy: { id: "asc" } }),
   ]);
 
   return {
@@ -72,6 +79,7 @@ export const get = authed.entries.get.handler(async ({ input }) => {
     year: row.year,
     notes: row.notes,
     lyrics: row.lyrics,
+    version: row.version,
     tags: tagRows.map((t) => t.name).sort((a, b) => a.localeCompare(b)),
     sections: sectionRows.map((s) => ({
       id: s.id,
@@ -85,7 +93,8 @@ export const get = authed.entries.get.handler(async ({ input }) => {
       startOffset: a.startOffset,
       endOffset: a.endOffset,
       quote: a.quote,
-      value: a.value,
+      // Server-validated on write; always a rhyme group (A–F / X) now.
+      value: a.value as RhymeGroup,
       detached: a.detached,
     })),
     createdAt: row.createdAt.getTime(),
@@ -101,31 +110,38 @@ export const create = authed.entries.create.handler(async ({ input }) => {
   const now = new Date();
   const lyrics = normalizeText(input.lyrics ?? "");
 
-  const row = await prisma.entry.create({
-    data: {
-      title: input.title,
-      kind: input.kind,
-      artist: input.artist,
-      collection: input.collection,
-      year: input.year,
-      notes: input.notes,
-      lyrics,
-      createdAt: now,
-      updatedAt: now,
-    },
-    select: { id: true },
+  // One transaction — no row lock needed (the id is fresh, so no concurrent
+  // save can target it), but the entry, its tags, and its derived sections must
+  // still land atomically.
+  const id = await prisma.$transaction(async (tx) => {
+    const row = await tx.entry.create({
+      data: {
+        title: input.title,
+        kind: input.kind,
+        artist: input.artist,
+        collection: input.collection,
+        year: input.year,
+        notes: input.notes,
+        lyrics,
+        createdAt: now,
+        updatedAt: now,
+      },
+      select: { id: true },
+    });
+
+    if (input.tags.length) {
+      await tx.entryTag.createMany({
+        data: input.tags.map((name) => ({ entryId: row.id, name })),
+      });
+    }
+    if (lyrics.length) {
+      await rederiveSections(tx, row.id, lyrics, now);
+    }
+
+    return row.id;
   });
 
-  if (input.tags.length) {
-    await prisma.entryTag.createMany({
-      data: input.tags.map((name) => ({ entryId: row.id, name })),
-    });
-  }
-  if (lyrics.length) {
-    await rederiveSections(row.id, lyrics, now);
-  }
-
-  return { id: row.id };
+  return { id };
 });
 
 export const update = authed.entries.update.handler(async ({ input }) => {
@@ -157,42 +173,69 @@ export const update = authed.entries.update.handler(async ({ input }) => {
 
 export const saveLyrics = authed.entries.saveLyrics.handler(async ({ input }) => {
   const now = new Date();
-
-  const entry = await prisma.entry.findFirst({ where: { id: input.id, deletedAt: null } });
-  if (!entry) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
-
   const nextText = normalizeText(input.lyrics);
 
-  // Re-anchor every annotation against the new text. Previously-detached ones are
-  // included so they can *re-attach* if their quote reappears; we report only the
-  // count that this save newly orphaned (was attached, now detached).
-  const anns = await prisma.annotation.findMany({
-    where: { entryId: input.id, deletedAt: null },
-  });
-  let newlyDetached = 0;
-  for (const a of anns) {
-    const res = reanchor(a.quote, a.startOffset, nextText);
-    if (res.detached && !a.detached) newlyDetached++;
-    await prisma.annotation.update({
-      where: { id: a.id },
-      data: {
+  const result = await prisma.$transaction(async (tx) => {
+    // Take the per-entry row lock and validate existence + version inside it — a
+    // plain read has a TOCTOU window against a concurrent save (invariant 3).
+    // Everything below then commits or aborts as one unit.
+    const locked = await tx.$queryRaw<Array<{ version: number }>>`
+      SELECT version FROM entries WHERE id = ${input.id} AND deleted_at IS NULL FOR UPDATE`;
+    if (locked.length === 0) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
+    if (locked[0]!.version !== input.version) {
+      throw new ORPCError("CONFLICT", { message: "Lyrics changed — reload and try again" });
+    }
+    const nextVersion = locked[0]!.version + 1;
+
+    // Re-anchor every annotation against the new text. Previously-detached ones
+    // are included so they can *re-attach* if their quote reappears; we report
+    // only the count that this save newly orphaned (was attached, now detached).
+    // Offsets are recomputed in JS (invariant 5) and applied as one batched UPDATE.
+    const anns = await tx.annotation.findMany({ where: { entryId: input.id } });
+    let detachedCount = 0;
+    const updates = anns.map((a) => {
+      const res = reanchor(a.quote, a.startOffset, nextText);
+      if (res.detached && !a.detached) detachedCount++;
+      return {
+        id: a.id,
         startOffset: res.startOffset,
         endOffset: res.endOffset,
         detached: res.detached,
-        updatedAt: now,
-      },
+      };
     });
-  }
+    if (updates.length) {
+      // A single UPDATE … FROM (VALUES …) applies every row's new offsets in one
+      // statement. Each tuple's values are cast so Postgres infers the VALUES
+      // column types from the bound parameters.
+      const tuples = Prisma.join(
+        updates.map(
+          (u) =>
+            Prisma.sql`(${u.id}::int, ${u.startOffset}::int, ${u.endOffset}::int, ${u.detached}::boolean)`,
+        ),
+      );
+      await tx.$executeRaw`
+        UPDATE annotations AS a
+        SET start_offset = v.start_offset,
+            end_offset   = v.end_offset,
+            detached     = v.detached,
+            updated_at   = ${now}
+        FROM (VALUES ${tuples}) AS v(id, start_offset, end_offset, detached)
+        WHERE a.id = v.id`;
+    }
 
-  // Re-derive sections from the new lyrics text (positional labels).
-  await rederiveSections(input.id, nextText, now);
+    // Re-derive sections from the new lyrics text (positional labels).
+    await rederiveSections(tx, input.id, nextText, now);
 
-  await prisma.entry.update({
-    where: { id: input.id },
-    data: { lyrics: nextText, updatedAt: now },
+    // Bump the version so any annotation write racing on the old lyrics 409s (D-9).
+    await tx.entry.update({
+      where: { id: input.id },
+      data: { lyrics: nextText, version: nextVersion, updatedAt: now },
+    });
+
+    return { detached: detachedCount, version: nextVersion };
   });
 
-  return { ok: true as const, detached: newlyDetached };
+  return { ok: true as const, detached: result.detached, version: result.version };
 });
 
 export const del = authed.entries.delete.handler(async ({ input }) => {

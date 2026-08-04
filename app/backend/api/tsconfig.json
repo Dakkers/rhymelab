@@ -4,6 +4,6 @@
     "types": ["node"],
     "lib": ["es2023"]
   },
-  "include": ["src/**/*.ts", "prisma.config.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "prisma.config.ts"],
   "exclude": ["src/_generated/**", "dist", "node_modules"]
 }

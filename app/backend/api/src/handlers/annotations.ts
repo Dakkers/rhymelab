@@ -1,129 +1,121 @@
 /**
- * Annotation mutations.
+ * Annotation mutations (semantics v2).
  *
- * On every write `quote` is recomputed from the stored lyrics rather than
- * trusting the client — lyrics text stays authoritative.
+ * Two intent-explicit ops replace the old span-upsert: `setLineGroups` (assign a
+ * rhyme group to whole lines, REPLACE-at-line + X-exclusive — D-4/D-5) and
+ * `clearLines` (delete the group on whole lines). Both run in ONE transaction
+ * opened with the entry row lock, check the client's base `version` (409 on a
+ * stale lyrics view — D-9/invariant 3), then apply a plan computed by the shared
+ * pure core (`@rhymelab/core`) so the backend and the MSW mock never drift (D-22).
+ * `quote` is recomputed from the stored lyrics inside the plan — never trusted
+ * from the client. `deleteAnnotation` targets a stable row id and is version-exempt.
  */
 import { ORPCError } from "@orpc/server";
-import type { Prisma } from "../_generated/prisma/client";
+import {
+  NotALineSpanError,
+  planClearLines,
+  planSetLineGroups,
+  type AnnotationWritePlan,
+  type ExistingAnnotation,
+} from "@rhymelab/core";
+import { Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 import { authed } from "../orpc";
 
-/** One span's desired state — the payload shared by the single and batch forms. */
-interface AnnotationSpan {
-  startOffset: number;
-  endOffset: number;
-  value: string | null;
-}
-
 /**
- * Upsert (or clear) the rhyme-group annotation for `span` against `db` — either
- * the base client or a transaction client, so the batch form can run many of
- * these atomically. A `null` `value` soft-deletes any existing annotation there;
- * otherwise the annotation at that exact span is updated in place, or created.
- * Callers must have validated the offsets against `lyrics` first (see
- * `loadEntryForSpans`).
+ * Lock the entry row and assert the client's base `version` still matches. A
+ * plain read has a TOCTOU window against a concurrent save (invariant 3), so the
+ * lock and the check live in the same transaction as the write that follows.
  */
-async function applyAnnotation(
-  db: Prisma.TransactionClient,
+async function lockAndCheckVersion(
+  tx: Prisma.TransactionClient,
   entryId: number,
-  lyrics: string,
-  span: AnnotationSpan,
-  now: Date,
-): Promise<{ cleared: boolean; id: number | null }> {
-  const quote = lyrics.slice(span.startOffset, span.endOffset);
-
-  const existing = await db.annotation.findMany({
-    where: {
-      entryId,
-      startOffset: span.startOffset,
-      endOffset: span.endOffset,
-      deletedAt: null,
-    },
-  });
-
-  if (span.value === null) {
-    if (existing.length) {
-      await db.annotation.updateMany({
-        where: { id: { in: existing.map((e) => e.id) } },
-        data: { deletedAt: now },
-      });
-    }
-    return { cleared: true, id: null };
+  version: number,
+): Promise<{ lyrics: string }> {
+  const rows = await tx.$queryRaw<Array<{ lyrics: string; version: number }>>`
+    SELECT lyrics, version FROM entries WHERE id = ${entryId} AND deleted_at IS NULL FOR UPDATE`;
+  if (rows.length === 0) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
+  if (rows[0]!.version !== version) {
+    throw new ORPCError("CONFLICT", { message: "Lyrics changed — reload and try again" });
   }
-
-  if (existing.length) {
-    const keep = existing[0]!;
-    await db.annotation.update({
-      where: { id: keep.id },
-      data: { value: span.value, quote, detached: false, updatedAt: now },
-    });
-    // Defensive: collapse any accidental duplicates at this exact span.
-    const extras = existing.slice(1).map((e) => e.id);
-    if (extras.length) {
-      await db.annotation.updateMany({
-        where: { id: { in: extras } },
-        data: { deletedAt: now },
-      });
-    }
-    return { cleared: false, id: keep.id };
-  }
-
-  const inserted = await db.annotation.create({
-    data: {
-      entryId,
-      startOffset: span.startOffset,
-      endOffset: span.endOffset,
-      quote,
-      value: span.value,
-      createdAt: now,
-      updatedAt: now,
-    },
-    select: { id: true },
-  });
-
-  return { cleared: false, id: inserted.id };
+  return { lyrics: rows[0]!.lyrics };
 }
 
-/** Load the live entry and assert every span fits its lyrics, or throw. */
-async function loadEntryForSpans(entryId: number, maxEndOffset: number) {
-  const entry = await prisma.entry.findFirst({ where: { id: entryId, deletedAt: null } });
-  if (!entry) throw new ORPCError("NOT_FOUND", { message: "Entry not found" });
-  if (maxEndOffset > entry.lyrics.length) {
-    throw new ORPCError("BAD_REQUEST", { message: "Selection out of range" });
+/** Map a core line-span validation failure to a 400; rethrow anything else. */
+function as400(err: unknown): never {
+  if (err instanceof NotALineSpanError) {
+    throw new ORPCError("BAD_REQUEST", { message: "Each selection must be a whole line" });
   }
-  return entry;
+  throw err;
 }
 
-export const setAnnotation = authed.entries.setAnnotation.handler(async ({ input }) => {
-  const now = new Date();
-  const entry = await loadEntryForSpans(input.entryId, input.endOffset);
-  const { cleared, id } = await applyAnnotation(prisma, input.entryId, entry.lyrics, input, now);
-  return { ok: true as const, cleared, id };
+export const setLineGroups = authed.entries.setLineGroups.handler(async ({ input }) => {
+  await prisma.$transaction(async (tx) => {
+    const { lyrics } = await lockAndCheckVersion(tx, input.entryId, input.version);
+    const existing = (await tx.annotation.findMany({
+      where: { entryId: input.entryId },
+    })) as ExistingAnnotation[];
+
+    let plan: AnnotationWritePlan;
+    try {
+      plan = planSetLineGroups(lyrics, existing, input.items);
+    } catch (err) {
+      as400(err);
+    }
+
+    if (plan.deleteIds.length) {
+      await tx.annotation.deleteMany({ where: { id: { in: plan.deleteIds } } });
+    }
+    if (plan.inserts.length) {
+      const now = new Date();
+      await tx.annotation.createMany({
+        data: plan.inserts.map((i) => ({
+          entryId: input.entryId,
+          startOffset: i.startOffset,
+          endOffset: i.endOffset,
+          quote: i.quote,
+          value: i.value,
+          createdAt: now,
+          updatedAt: now,
+        })),
+      });
+    }
+  });
+
+  return { ok: true as const };
 });
 
-/**
- * Batch upsert-or-clear: assign a rhyme group to many spans in a single
- * transaction (e.g. several selected lines at once). `results` line up with
- * `input.items`, in order.
- */
-export const setAnnotations = authed.entries.setAnnotations.handler(async ({ input }) => {
-  const now = new Date();
-  const maxEnd = input.items.reduce((m, it) => Math.max(m, it.endOffset), 0);
-  const entry = await loadEntryForSpans(input.entryId, maxEnd);
+export const clearLines = authed.entries.clearLines.handler(async ({ input }) => {
+  await prisma.$transaction(async (tx) => {
+    const { lyrics } = await lockAndCheckVersion(tx, input.entryId, input.version);
+    const existing = (await tx.annotation.findMany({
+      where: { entryId: input.entryId },
+    })) as ExistingAnnotation[];
 
-  const results = await prisma.$transaction(async (tx) => {
-    const out: Array<{ cleared: boolean; id: number | null }> = [];
-    for (const item of input.items) {
-      out.push(await applyAnnotation(tx, input.entryId, entry.lyrics, item, now));
+    let plan: { deleteIds: number[] };
+    try {
+      plan = planClearLines(lyrics, existing, input.items);
+    } catch (err) {
+      as400(err);
     }
-    return out;
+
+    if (plan.deleteIds.length) {
+      await tx.annotation.deleteMany({ where: { id: { in: plan.deleteIds } } });
+    }
   });
 
-  return { ok: true as const, results };
+  return { ok: true as const };
 });
 
 export const deleteAnnotation = authed.entries.deleteAnnotation.handler(async ({ input }) => {
-  await prisma.annotation.updateMany({ where: { id: input.id }, data: { deletedAt: new Date() } });
+  try {
+    await prisma.annotation.delete({ where: { id: input.id } });
+  } catch (err) {
+    // Deleting an already-gone row is a success (idempotent, version-exempt).
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+      return { ok: true as const };
+    }
+    throw err;
+  }
   return { ok: true as const };
 });

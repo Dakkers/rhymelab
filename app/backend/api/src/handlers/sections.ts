@@ -7,14 +7,22 @@
  * re-derivation is a pure function of the text — nothing is carried over.
  */
 import { defaultSectionLabel, detectSections } from "@rhymelab/core";
-import { prisma } from "../db";
+import type { Prisma } from "../_generated/prisma/client";
 
 /**
  * Replace an entry's sections to match `text`. Each blank-line-delimited block
- * becomes one positionally-labelled section.
+ * becomes one positionally-labelled section. Runs against the caller's `db` —
+ * always a transaction client, since a lyrics change must re-derive sections and
+ * re-anchor annotations atomically (invariant 3: every multi-row mutation is one
+ * transaction under the entry lock).
  */
-export async function rederiveSections(entryId: number, text: string, now: Date): Promise<void> {
-  await prisma.section.deleteMany({ where: { entryId } });
+export async function rederiveSections(
+  db: Prisma.TransactionClient,
+  entryId: number,
+  text: string,
+  now: Date,
+): Promise<void> {
+  await db.section.deleteMany({ where: { entryId } });
   const detected = detectSections(text);
   if (detected.length === 0) return;
 
@@ -27,5 +35,5 @@ export async function rederiveSections(entryId: number, text: string, now: Date)
     createdAt: now,
     updatedAt: now,
   }));
-  await prisma.section.createMany({ data: values });
+  await db.section.createMany({ data: values });
 }

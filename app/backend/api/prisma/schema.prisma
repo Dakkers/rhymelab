@@ -3,13 +3,14 @@
 // annotations anchor to character offsets into that text (see @rhymelab/core's
 // anchor + lyrics helpers).
 //
-// Enum-like columns (kind, section type, annotation mode) are plain `String` —
-// their vocabularies contain hyphens (`pre-chorus`, `rhyme-structure`) which are
-// invalid Prisma enum identifiers. The zod contract in @rhymelab/api-contract is
-// the validator (contract-first), so the DB constraint isn't load-bearing.
+// Enum-like columns (`kind`, annotation `value`) are plain `String`. The zod
+// contract in @rhymelab/api-contract is the validator (contract-first), so the
+// DB constraint isn't load-bearing.
 //
 // Entries soft-delete (deletedAt); sections and annotations cascade with their
-// entry (sections are re-derived on every lyrics save anyway).
+// entry (sections are re-derived on every lyrics save anyway). Annotations DO
+// NOT soft-delete — a cleared annotation is hard-deleted, and a lyrics edit that
+// orphans one *detaches* it (kept, off the text) rather than deleting it (D-3).
 
 generator client {
   provider            = "prisma-client"
@@ -37,6 +38,9 @@ model Entry {
   notes      String?
   /// The canonical lyrics text. Blank lines separate sections.
   lyrics     String    @default("")
+  /// Optimistic-concurrency counter. Bumped on every lyrics save; annotation
+  /// writes carry the client's base version and 409 on mismatch (D-9).
+  version    Int       @default(0)
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @default(now()) @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
@@ -77,19 +81,19 @@ model Section {
 }
 
 model Annotation {
-  id          Int       @id @default(autoincrement())
-  entryId     Int       @map("entry_id")
-  startOffset Int       @map("start_offset")
-  endOffset   Int       @map("end_offset")
+  id          Int      @id @default(autoincrement())
+  entryId     Int      @map("entry_id")
+  startOffset Int      @map("start_offset")
+  endOffset   Int      @map("end_offset")
   /// Exact `lyrics.slice(start, end)` at write time — used to re-anchor.
   quote       String
-  /// The rhyme group (A–F / X), or null once cleared.
-  value       String?
+  /// The rhyme group (A–F / X). NOT NULL: a cleared annotation is hard-deleted,
+  /// never a null-value tombstone (D-3). Server-validated against RHYME_GROUPS.
+  value       String
   /// True when a lyrics edit orphaned this annotation (kept, but off the text).
-  detached    Boolean   @default(false)
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  detached    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
 
   entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
