@@ -1,145 +1,177 @@
 import { describe, expect, it } from "vitest";
 import {
-  NotALineSpanError,
-  isLineSpan,
-  nonBlankLineSpans,
+  InvalidLineAddressError,
+  makeWriteContext,
   planClearLines,
   planSetLineGroups,
   type ExistingAnnotation,
+  type WriteSection,
 } from "./annotations";
 
-// A tiny two-section lyric. Offsets (line : [start,end)):
-//   "one"   0..3      "\n"  3
-//   "two"   4..7      "\n"  7
-//   ""      8         "\n"  8  (blank)
-//   "three" 9..14
+// A tiny two-section lyric. Sections (by blank-line split):
+//   section 1: "one" (line 0), "two" (line 1)   — offsets [0, 7)
+//   section 2: "three" (line 0)                 — offsets [9, 14)
 const LYRICS = "one\ntwo\n\nthree";
+const SECTIONS: WriteSection[] = [
+  { id: 1, startOffset: 0, endOffset: 7, canonicalSectionId: null },
+  { id: 2, startOffset: 9, endOffset: 14, canonicalSectionId: null },
+];
+const ctx = makeWriteContext(LYRICS, SECTIONS);
 
 function ann(overrides: Partial<ExistingAnnotation> & { id: number }): ExistingAnnotation {
-  return { startOffset: 0, endOffset: 3, value: "A", detached: false, ...overrides };
+  return {
+    sectionId: 1,
+    lineInSection: 0,
+    startChar: null,
+    endChar: null,
+    value: "A",
+    detached: false,
+    ...overrides,
+  };
 }
 
-describe("line-span helpers", () => {
-  it("nonBlankLineSpans skips blank lines", () => {
-    expect(nonBlankLineSpans(LYRICS)).toEqual([
-      { startOffset: 0, endOffset: 3 },
-      { startOffset: 4, endOffset: 7 },
-      { startOffset: 9, endOffset: 14 },
-    ]);
+describe("makeWriteContext", () => {
+  it("lineText resolves a section's non-blank lines, null past the end", () => {
+    expect(ctx.lineText(1, 0)).toBe("one");
+    expect(ctx.lineText(1, 1)).toBe("two");
+    expect(ctx.lineText(2, 0)).toBe("three");
+    expect(ctx.lineText(1, 2)).toBeNull(); // past the section
+    expect(ctx.lineText(99, 0)).toBeNull(); // no such section
   });
 
-  it("isLineSpan is exact — sub-line and cross-line spans are not line spans", () => {
-    expect(isLineSpan(LYRICS, 0, 3)).toBe(true); // "one"
-    expect(isLineSpan(LYRICS, 9, 14)).toBe(true); // "three"
-    expect(isLineSpan(LYRICS, 0, 2)).toBe(false); // "on" (sub-line)
-    expect(isLineSpan(LYRICS, 0, 7)).toBe(false); // "one\ntwo" (crosses)
-    expect(isLineSpan(LYRICS, 8, 8)).toBe(false); // the blank line
+  it("redirect follows a linked section's canonical one hop", () => {
+    const linked = makeWriteContext(LYRICS, [
+      { id: 1, startOffset: 0, endOffset: 7, canonicalSectionId: null },
+      { id: 2, startOffset: 9, endOffset: 14, canonicalSectionId: 1 },
+    ]);
+    expect(linked.redirect(2)).toBe(1);
+    expect(linked.redirect(1)).toBe(1);
   });
 });
 
 describe("planSetLineGroups — replace-at-line (D-4)", () => {
   it("replaces the existing group on a line (no stacking)", () => {
-    const existing = [ann({ id: 1, startOffset: 0, endOffset: 3, value: "A" })];
-    const plan = planSetLineGroups(LYRICS, existing, [
-      { startOffset: 0, endOffset: 3, value: "B" },
-    ]);
+    const plan = planSetLineGroups(
+      ctx,
+      [ann({ id: 1, value: "A" })],
+      [{ sectionId: 1, lineInSection: 0, value: "B" }],
+    );
     expect(plan.deleteIds).toEqual([1]);
-    expect(plan.inserts).toEqual([{ startOffset: 0, endOffset: 3, value: "B", quote: "one" }]);
+    expect(plan.inserts).toEqual([
+      { sectionId: 1, lineInSection: 0, startChar: null, endChar: null, value: "B", quote: "one" },
+    ]);
   });
 
   it("inserts on an empty line", () => {
-    const plan = planSetLineGroups(LYRICS, [], [{ startOffset: 4, endOffset: 7, value: "A" }]);
+    const plan = planSetLineGroups(ctx, [], [{ sectionId: 1, lineInSection: 1, value: "A" }]);
     expect(plan.deleteIds).toEqual([]);
-    expect(plan.inserts).toEqual([{ startOffset: 4, endOffset: 7, value: "A", quote: "two" }]);
+    expect(plan.inserts).toEqual([
+      { sectionId: 1, lineInSection: 1, startChar: null, endChar: null, value: "A", quote: "two" },
+    ]);
   });
 
   it("is idempotent — re-stamping the same group is a no-op (D-6)", () => {
-    const existing = [ann({ id: 1, startOffset: 0, endOffset: 3, value: "A" })];
-    const plan = planSetLineGroups(LYRICS, existing, [
-      { startOffset: 0, endOffset: 3, value: "A" },
-    ]);
+    const plan = planSetLineGroups(
+      ctx,
+      [ann({ id: 1, value: "A" })],
+      [{ sectionId: 1, lineInSection: 0, value: "A" }],
+    );
     expect(plan.deleteIds).toEqual([]);
     expect(plan.inserts).toEqual([]);
   });
 
-  it("rejects a non-line span", () => {
+  it("rejects an address past the section's lines", () => {
     expect(() =>
-      planSetLineGroups(LYRICS, [], [{ startOffset: 0, endOffset: 2, value: "A" }]),
-    ).toThrow(NotALineSpanError);
+      planSetLineGroups(ctx, [], [{ sectionId: 1, lineInSection: 5, value: "A" }]),
+    ).toThrow(InvalidLineAddressError);
   });
 
   it("last write wins when a batch stamps the same line twice", () => {
     const plan = planSetLineGroups(
-      LYRICS,
+      ctx,
       [],
       [
-        { startOffset: 0, endOffset: 3, value: "A" },
-        { startOffset: 0, endOffset: 3, value: "C" },
+        { sectionId: 1, lineInSection: 0, value: "A" },
+        { sectionId: 1, lineInSection: 0, value: "C" },
       ],
     );
-    // The first insert had no id, so nothing to delete; only the last row remains.
     expect(plan.deleteIds).toEqual([]);
-    expect(plan.inserts).toEqual([{ startOffset: 0, endOffset: 3, value: "C", quote: "one" }]);
+    expect(plan.inserts).toEqual([
+      { sectionId: 1, lineInSection: 0, startChar: null, endChar: null, value: "C", quote: "one" },
+    ]);
+  });
+
+  it("redirects a write on a linked duplicate to its canonical (§5.3)", () => {
+    // Two identical sections; section 2 is a duplicate of section 1.
+    const dupLyrics = "aa\nbb\n\naa\nbb";
+    const dupSections: WriteSection[] = [
+      { id: 1, startOffset: 0, endOffset: 5, canonicalSectionId: null },
+      { id: 2, startOffset: 7, endOffset: 12, canonicalSectionId: 1 },
+    ];
+    const dupCtx = makeWriteContext(dupLyrics, dupSections);
+    const plan = planSetLineGroups(dupCtx, [], [{ sectionId: 2, lineInSection: 0, value: "A" }]);
+    // The write lands on the canonical (section 1), not the linked duplicate.
+    expect(plan.inserts).toEqual([
+      { sectionId: 1, lineInSection: 0, startChar: null, endChar: null, value: "A", quote: "aa" },
+    ]);
   });
 });
 
 describe("planSetLineGroups — X-exclusivity (D-5)", () => {
   it("writing X clears every row on the line (incl. a sub-line emphasis row)", () => {
     const existing = [
-      ann({ id: 1, startOffset: 0, endOffset: 3, value: "A" }), // whole line
-      ann({ id: 2, startOffset: 0, endOffset: 2, value: "A" }), // sub-line emphasis
+      ann({ id: 1, value: "A" }), // whole line
+      ann({ id: 2, value: "A", startChar: 0, endChar: 2 }), // sub-line emphasis
     ];
-    const plan = planSetLineGroups(LYRICS, existing, [
-      { startOffset: 0, endOffset: 3, value: "X" },
-    ]);
+    const plan = planSetLineGroups(ctx, existing, [{ sectionId: 1, lineInSection: 0, value: "X" }]);
     expect(plan.deleteIds.sort()).toEqual([1, 2]);
-    expect(plan.inserts).toEqual([{ startOffset: 0, endOffset: 3, value: "X", quote: "one" }]);
+    expect(plan.inserts).toEqual([
+      { sectionId: 1, lineInSection: 0, startChar: null, endChar: null, value: "X", quote: "one" },
+    ]);
   });
 
   it("writing a letter removes the line's X row", () => {
-    const existing = [ann({ id: 7, startOffset: 4, endOffset: 7, value: "X" })];
-    const plan = planSetLineGroups(LYRICS, existing, [
-      { startOffset: 4, endOffset: 7, value: "A" },
-    ]);
+    const existing = [ann({ id: 7, sectionId: 1, lineInSection: 1, value: "X" })];
+    const plan = planSetLineGroups(ctx, existing, [{ sectionId: 1, lineInSection: 1, value: "A" }]);
     expect(plan.deleteIds).toEqual([7]);
-    expect(plan.inserts).toEqual([{ startOffset: 4, endOffset: 7, value: "A", quote: "two" }]);
+    expect(plan.inserts).toEqual([
+      { sectionId: 1, lineInSection: 1, startChar: null, endChar: null, value: "A", quote: "two" },
+    ]);
   });
 
   it("re-stamping X on an already-X line is idempotent", () => {
-    const existing = [ann({ id: 7, startOffset: 4, endOffset: 7, value: "X" })];
-    const plan = planSetLineGroups(LYRICS, existing, [
-      { startOffset: 4, endOffset: 7, value: "X" },
-    ]);
+    const existing = [ann({ id: 7, sectionId: 1, lineInSection: 1, value: "X" })];
+    const plan = planSetLineGroups(ctx, existing, [{ sectionId: 1, lineInSection: 1, value: "X" }]);
     expect(plan.deleteIds).toEqual([]);
     expect(plan.inserts).toEqual([]);
   });
 });
 
 describe("planSetLineGroups — detached rows are inert", () => {
-  it("never deletes a detached row, even at the same span", () => {
-    const existing = [ann({ id: 1, startOffset: 0, endOffset: 3, value: "A", detached: true })];
-    const plan = planSetLineGroups(LYRICS, existing, [
-      { startOffset: 0, endOffset: 3, value: "B" },
-    ]);
+  it("never deletes a detached row, even at the same line", () => {
+    const existing = [ann({ id: 1, value: "A", detached: true })];
+    const plan = planSetLineGroups(ctx, existing, [{ sectionId: 1, lineInSection: 0, value: "B" }]);
     expect(plan.deleteIds).toEqual([]); // the detached row is untouched
-    expect(plan.inserts).toEqual([{ startOffset: 0, endOffset: 3, value: "B", quote: "one" }]);
+    expect(plan.inserts).toEqual([
+      { sectionId: 1, lineInSection: 0, startChar: null, endChar: null, value: "B", quote: "one" },
+    ]);
   });
 });
 
 describe("planClearLines (D-3)", () => {
-  it("deletes only whole-line rows at the given line spans", () => {
+  it("deletes only whole-line rows at the given line address", () => {
     const existing = [
-      ann({ id: 1, startOffset: 0, endOffset: 3, value: "A" }), // on target line
-      ann({ id: 2, startOffset: 0, endOffset: 2, value: "A" }), // sub-line — left alone
-      ann({ id: 3, startOffset: 4, endOffset: 7, value: "B" }), // other line
+      ann({ id: 1, value: "A" }), // whole line on target
+      ann({ id: 2, value: "A", startChar: 0, endChar: 2 }), // sub-line — left alone
+      ann({ id: 3, sectionId: 1, lineInSection: 1, value: "B" }), // other line
     ];
-    const plan = planClearLines(LYRICS, existing, [{ startOffset: 0, endOffset: 3 }]);
+    const plan = planClearLines(ctx, existing, [{ sectionId: 1, lineInSection: 0 }]);
     expect(plan.deleteIds).toEqual([1]);
   });
 
-  it("rejects a non-line span", () => {
-    expect(() => planClearLines(LYRICS, [], [{ startOffset: 0, endOffset: 2 }])).toThrow(
-      NotALineSpanError,
+  it("rejects an address past the section's lines", () => {
+    expect(() => planClearLines(ctx, [], [{ sectionId: 1, lineInSection: 9 }])).toThrow(
+      InvalidLineAddressError,
     );
   });
 });

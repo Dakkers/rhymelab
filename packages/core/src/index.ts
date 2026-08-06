@@ -9,3 +9,4 @@ export * from "./lyrics";
 export * from "./anchor";
 export * from "./annotations";
 export * from "./reconcile";
+export * from "./integrity";

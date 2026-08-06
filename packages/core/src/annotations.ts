@@ -1,39 +1,48 @@
 /**
  * The pure line-annotation write semantics — shared verbatim by the backend and
  * the MSW mock so they never drift (D-22). Everything here is a function of the
- * lyrics text plus the rows already stored; the caller applies the returned plan
- * to its own store (Prisma rows, or the in-memory test store).
+ * entry's sections/lyrics plus the rows already stored; the caller applies the
+ * returned plan to its own store (Prisma rows, or the in-memory test store).
  *
- * The model (Phase 1): an annotation is a whole-line span carrying a rhyme group.
- * Writes are REPLACE-at-line (D-4) with X-exclusivity (D-5) and idempotent dedupe
- * (D-6). Sub-line ("emphasis") rows can exist in the DB (legacy re-attachment) but
- * are never *written* by these ops; the plan treats them only as things an X or a
- * letter clears off a line.
+ * The model (Phase 2): an annotation is addressed by `(sectionId, lineInSection)`
+ * plus an optional sub-line char range. Writes are REPLACE-at-line (D-4) with
+ * X-exclusivity (D-5), idempotent dedupe (D-6), and a write-redirect (§5.3): a
+ * write addressed to a linked duplicate resolves one hop to its canonical, so
+ * every copy shares the one canonical's rows. Sub-line ("emphasis") rows can exist
+ * in the DB (reconciler re-attachment) but are never *written* by these ops; the
+ * plan treats them only as things an X or a letter clears off a line.
  */
 import { parseLines } from "./lyrics";
 import { RHYME_GROUPS, type RhymeGroup } from "./constants";
 
-/** A half-open character span `[startOffset, endOffset)` into the lyrics. */
-export interface Span {
-  startOffset: number;
-  endOffset: number;
+/** A whole-line address: the section and the 0-based line within it. */
+export interface LineAddress {
+  sectionId: number;
+  lineInSection: number;
 }
 
 /** A stored annotation row, reduced to what the write planner needs. */
-export interface ExistingAnnotation extends Span {
+export interface ExistingAnnotation {
   id: number;
+  sectionId: number | null;
+  lineInSection: number | null;
+  /** null = whole line; otherwise a sub-line char range within the line. */
+  startChar: number | null;
+  endChar: number | null;
   value: string;
   /** Detached rows are off the text — never matched or deleted by a write. */
   detached: boolean;
 }
 
-/** One line-group write: assign `value` to the whole line at this span. */
-export interface LineGroupItem extends Span {
+/** One line-group write: assign `value` to the whole line at this address. */
+export interface LineGroupItem extends LineAddress {
   value: RhymeGroup;
 }
 
-/** A row the plan wants created. `quote` is sliced from the current lyrics. */
-export interface AnnotationInsert extends Span {
+/** A row the plan wants created. `quote` is the whole-line text from the lyrics. */
+export interface AnnotationInsert extends LineAddress {
+  startChar: number | null;
+  endChar: number | null;
   value: RhymeGroup;
   quote: string;
 }
@@ -45,26 +54,52 @@ export interface AnnotationWritePlan {
 }
 
 /**
- * Thrown when a write targets a span that is not exactly one non-blank line. The
- * caller maps it to a 400 — the client should only ever send line spans.
+ * Thrown when a write targets an address that isn't a real non-blank line of the
+ * current lyrics (bad section id, or a line index past the section). The caller
+ * maps it to a 400 — the client should only ever send valid line addresses.
  */
-export class NotALineSpanError extends Error {
-  constructor(public readonly span: Span) {
-    super(`Span [${span.startOffset}, ${span.endOffset}) is not a whole non-blank line`);
-    this.name = "NotALineSpanError";
+export class InvalidLineAddressError extends Error {
+  constructor(public readonly address: LineAddress) {
+    super(`(${address.sectionId}, ${address.lineInSection}) is not a non-blank line`);
+    this.name = "InvalidLineAddressError";
   }
 }
 
-/** The `[start, end)` spans of the non-blank lines of `text`. */
-export function nonBlankLineSpans(text: string): Span[] {
-  return parseLines(text)
-    .filter((l) => !l.blank)
-    .map((l) => ({ startOffset: l.start, endOffset: l.end }));
+/** A section as the write planner sees it — offsets + its duplicate link. */
+export interface WriteSection {
+  id: number;
+  startOffset: number;
+  endOffset: number;
+  canonicalSectionId: number | null;
 }
 
-/** Is `[start, end)` exactly one non-blank line's span in `text`? */
-export function isLineSpan(text: string, start: number, end: number): boolean {
-  return nonBlankLineSpans(text).some((s) => s.startOffset === start && s.endOffset === end);
+/** Resolves addresses against the stored lyrics/sections (built once per write). */
+export interface WriteContext {
+  /** Redirect a write on a linked section to its canonical (one hop — I2). */
+  redirect(sectionId: number): number;
+  /** The whole-line text at `(sectionId, lineInSection)`, or null if invalid. */
+  lineText(sectionId: number, lineInSection: number): string | null;
+}
+
+/**
+ * Build a {@link WriteContext} from the stored lyrics + sections. `redirect`
+ * follows a section's `canonicalSectionId` one hop (I2 guarantees that suffices);
+ * `lineText` slices the section's non-blank lines from the lyrics.
+ */
+export function makeWriteContext(lyrics: string, sections: WriteSection[]): WriteContext {
+  const byId = new Map(sections.map((s) => [s.id, s]));
+  const lines = parseLines(lyrics);
+  const sectionLines = (sectionId: number): string[] => {
+    const s = byId.get(sectionId);
+    if (!s) return [];
+    return lines
+      .filter((l) => !l.blank && l.start >= s.startOffset && l.end <= s.endOffset)
+      .map((l) => l.text);
+  };
+  return {
+    redirect: (sectionId) => byId.get(sectionId)?.canonicalSectionId ?? sectionId,
+    lineText: (sectionId, lineInSection) => sectionLines(sectionId)[lineInSection] ?? null,
+  };
 }
 
 /** Is this a valid rhyme group (A–F / X)? */
@@ -72,91 +107,100 @@ export function isRhymeGroup(value: string): value is RhymeGroup {
   return (RHYME_GROUPS as readonly string[]).includes(value);
 }
 
-const sameSpan = (a: Span, b: Span) =>
-  a.startOffset === b.startOffset && a.endOffset === b.endOffset;
-
-/** Is `row` within the line span `line` (its span nested inside, incl. equal)? */
-const withinLine = (row: Span, line: Span) =>
-  row.startOffset >= line.startOffset && row.endOffset <= line.endOffset;
+/** Same whole-line address (both whole-line, same section + line). */
+const sameLine = (r: { sectionId: number | null; lineInSection: number | null }, a: LineAddress) =>
+  r.sectionId === a.sectionId && r.lineInSection === a.lineInSection;
 
 /**
  * A working row while planning: an existing row (has `id`) or one this batch just
  * inserted (no `id`, so removing it costs no delete).
  */
-interface WorkingRow extends Span {
+interface WorkingRow {
   id: number | null;
+  sectionId: number;
+  lineInSection: number;
+  startChar: number | null;
   value: string;
 }
 
 /**
  * Plan a `setLineGroups` batch: REPLACE each targeted line with its new group.
  *
- * Per item (line span `L`, group `V`), the rows removed from `L` are:
- * - REPLACE-at-line (D-4): every row whose span == `L`.
- * - X-exclusivity (D-5): if `V` is `X`, ALSO every row *within* `L` (any span) —
- *   an X clears the whole line; if `V` is a letter, ALSO any `X` row within `L` —
- *   a letter removes the line's "doesn't rhyme" mark.
- * Then one `(L, V)` row is inserted. Idempotent (D-6): if `L` already holds
- * exactly that single `(L, V)` row and nothing else needs clearing, the item is a
- * no-op (no churn of ids/timestamps).
+ * Each item's section id is first redirected to its canonical (§5.3) so a write on
+ * a linked duplicate lands on the shared rows. Per item (line `L`, group `V`) the
+ * rows removed from `L` are:
+ * - REPLACE-at-line (D-4): every whole-line row at `L`.
+ * - X-exclusivity (D-5): if `V` is `X`, ALSO every sub-line row at `L` — an X clears
+ *   the whole line; if `V` is a letter, ALSO an `X` row at `L`.
+ * Then one whole-line `(L, V)` row is inserted. Idempotent (D-6): a line already
+ * holding exactly that single `(L, V)` row is a no-op.
  *
- * Items apply in order against a shared working set, so a later item sees an
- * earlier one's effect (a batch that stamps the same line twice → last wins).
- * Throws {@link NotALineSpanError} if any item's span isn't a whole non-blank line.
+ * Items apply in order against a shared working set (a batch that stamps the same
+ * line twice → last wins). Throws {@link InvalidLineAddressError} if an address
+ * isn't a real non-blank line.
  */
 export function planSetLineGroups(
-  lyrics: string,
+  ctx: WriteContext,
   existing: ExistingAnnotation[],
   items: LineGroupItem[],
 ): AnnotationWritePlan {
-  const lineSpans = nonBlankLineSpans(lyrics);
-  const isLine = (s: Span) => lineSpans.some((l) => sameSpan(l, s));
-
   // Only live (attached) rows participate; detached rows are off the text.
   const working: WorkingRow[] = existing
-    .filter((r) => !r.detached)
-    .map((r) => ({ id: r.id, startOffset: r.startOffset, endOffset: r.endOffset, value: r.value }));
+    .filter((r) => !r.detached && r.sectionId !== null && r.lineInSection !== null)
+    .map((r) => ({
+      id: r.id,
+      sectionId: r.sectionId as number,
+      lineInSection: r.lineInSection as number,
+      startChar: r.startChar,
+      value: r.value,
+    }));
 
   const deleteIds = new Set<number>();
 
   for (const item of items) {
-    const line: Span = { startOffset: item.startOffset, endOffset: item.endOffset };
-    if (!isLine(line)) throw new NotALineSpanError(line);
+    const sectionId = ctx.redirect(item.sectionId);
+    const line: LineAddress = { sectionId, lineInSection: item.lineInSection };
+    const text = ctx.lineText(sectionId, item.lineInSection);
+    if (text === null) throw new InvalidLineAddressError(line);
     const value = item.value;
 
     // Rows this write clears off the line.
     const toRemove = working.filter((r) => {
-      if (sameSpan(r, line)) return true; // replace-at-line
-      if (!withinLine(r, line)) return false;
-      if (value === "X") return true; // X clears the whole line
+      if (!sameLine(r, line)) return false;
+      if (r.startChar === null) return true; // whole-line row → replace-at-line
+      if (value === "X") return true; // X clears the whole line (incl. sub-line rows)
       return r.value === "X"; // a letter clears the line's X (incl. a sub-line X)
     });
 
-    // Idempotent: the line already holds exactly the row we'd write, nothing else.
-    if (toRemove.length === 1 && sameSpan(toRemove[0]!, line) && toRemove[0]!.value === value) {
+    // Idempotent: the line already holds exactly the whole-line row we'd write.
+    if (toRemove.length === 1 && toRemove[0]!.startChar === null && toRemove[0]!.value === value) {
       continue;
     }
 
-    for (const r of toRemove) {
-      if (r.id !== null) deleteIds.add(r.id); // only persisted rows need a delete
-    }
+    for (const r of toRemove) if (r.id !== null) deleteIds.add(r.id);
     const removed = new Set(toRemove);
     for (let i = working.length - 1; i >= 0; i--) {
       if (removed.has(working[i]!)) working.splice(i, 1);
     }
-    working.push({ id: null, startOffset: line.startOffset, endOffset: line.endOffset, value });
+    working.push({
+      id: null,
+      sectionId,
+      lineInSection: item.lineInSection,
+      startChar: null,
+      value,
+    });
   }
 
-  // Inserts are exactly the rows this batch added that still survive — so a line
-  // stamped twice in one batch yields one insert, not a stack (its first insert
-  // was spliced out above). id === null ⟺ added here, so `value` is a RhymeGroup.
+  // Inserts are exactly the whole-line rows this batch added that still survive.
   const inserts: AnnotationInsert[] = working
     .filter((r) => r.id === null)
     .map((r) => ({
-      startOffset: r.startOffset,
-      endOffset: r.endOffset,
+      sectionId: r.sectionId,
+      lineInSection: r.lineInSection,
+      startChar: null,
+      endChar: null,
       value: r.value as RhymeGroup,
-      quote: lyrics.slice(r.startOffset, r.endOffset),
+      quote: ctx.lineText(r.sectionId, r.lineInSection) ?? "",
     }));
 
   return { deleteIds: [...deleteIds], inserts };
@@ -164,20 +208,24 @@ export function planSetLineGroups(
 
 /**
  * Plan a `clearLines` batch: hard-delete the whole-line rows at each given line
- * span (user-explicit clear, D-3). Sub-line rows are left alone. Throws
- * {@link NotALineSpanError} if a span isn't a whole non-blank line.
+ * address (user-explicit clear, D-3), after redirecting to the canonical. Sub-line
+ * rows are left alone. Throws {@link InvalidLineAddressError} if an address isn't a
+ * real non-blank line.
  */
 export function planClearLines(
-  lyrics: string,
+  ctx: WriteContext,
   existing: ExistingAnnotation[],
-  items: Span[],
+  items: LineAddress[],
 ): { deleteIds: number[] } {
-  const isLine = (s: Span) => isLineSpan(lyrics, s.startOffset, s.endOffset);
   const deleteIds = new Set<number>();
   for (const item of items) {
-    if (!isLine(item)) throw new NotALineSpanError(item);
+    const sectionId = ctx.redirect(item.sectionId);
+    const line: LineAddress = { sectionId, lineInSection: item.lineInSection };
+    if (ctx.lineText(sectionId, item.lineInSection) === null) {
+      throw new InvalidLineAddressError(line);
+    }
     for (const r of existing) {
-      if (!r.detached && sameSpan(r, item)) deleteIds.add(r.id);
+      if (!r.detached && r.startChar === null && sameLine(r, line)) deleteIds.add(r.id);
     }
   }
   return { deleteIds: [...deleteIds] };
