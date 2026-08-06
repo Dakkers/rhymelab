@@ -54,3 +54,7 @@ playwright-report/
 # Scratch space — tracked as an empty dir via .gitkeep
 .dummy/*
 !.dummy/.gitkeep
+
+# Out-of-band DB backups (e.g. the pre-migration annotations dump). Never commit
+# real data; keep the local copy until the migration it guards is retired.
+.backups/

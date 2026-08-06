@@ -36,6 +36,10 @@ function makeSectionedEntry(overrides: Partial<EntryDetail> = {}): EntryDetail {
     label: defaultSectionLabel(s.orderIndex + 1),
     startOffset: s.startOffset,
     endOffset: s.endOffset,
+    // Standalone sections (no duplicate links) — the recorded flow annotates each
+    // repeated chorus independently, as it did before Phase 2's link projection.
+    canonicalSectionId: null,
+    manualUnlink: false,
   }));
   return { ...entry, sections };
 }

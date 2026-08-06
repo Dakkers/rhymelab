@@ -9,7 +9,7 @@
  * strings into `null` for the optional text fields.
  */
 import { z } from "zod";
-import { ENTRY_KINDS } from "@rhymelab/core";
+import { ENTRY_KINDS, RHYME_GROUPS } from "@rhymelab/core";
 
 const id = z.int().positive();
 
@@ -38,6 +38,9 @@ function dedupeTags(tags: string[]): string[] {
   }
   return out;
 }
+
+/** Optimistic-concurrency base version the client last saw (D-9). */
+const version = z.int().min(0);
 
 const title = z.string().trim().min(1, "Title is required").max(200);
 const kind = z.enum(ENTRY_KINDS);
@@ -79,55 +82,58 @@ const entryMeta = {
 
 export const createEntryInput = z.object({ ...entryMeta, lyrics });
 export const updateEntryInput = z.object({ id, ...entryMeta });
-export const saveLyricsInput = z.object({ id, lyrics });
+export const saveLyricsInput = z.object({ id, version, lyrics });
 
 /* ------------------------------------------------------------------ */
 /* Annotation mutations                                                */
 /* ------------------------------------------------------------------ */
 
-/**
- * Create/update/clear one annotation for a span. The server recomputes `quote`
- * from the entry's lyrics at these offsets (never trusting a client-sent quote).
- * A `null` `value` clears the annotation at that span.
- */
-export const setAnnotationInput = z
-  .object({
-    entryId: id,
-    startOffset: z.int().min(0),
-    endOffset: z.int().min(0),
-    value: optionalText(120),
-  })
-  .refine((v) => v.endOffset > v.startOffset, {
-    message: "Selection is empty",
-    path: ["endOffset"],
-  });
+// A whole-line address: the section id + the 0-based line within it. The server
+// resolves the write-redirect (linked → canonical) and validates the line exists.
+const lineAddressFields = { sectionId: id, lineInSection: z.int().min(0) };
 
 /**
- * Batch form of `setAnnotation`: assign (or clear) a rhyme group across several
- * spans at once — e.g. a set of selected lines. Each item is upserted-or-cleared
- * exactly like the single form (a per-item `null` `value` clears that span); the
- * backend runs the whole batch in one transaction.
+ * Assign a rhyme group to whole lines — REPLACE-at-line, not additive (D-4). Each
+ * item addresses a non-blank line by `(sectionId, lineInSection)`; the server
+ * resolves the duplicate redirect and 400s on an invalid address. Carries the base
+ * `version`; a lyrics change since the client loaded → 409 (D-9). `value` is the
+ * A–F / X vocabulary, no free text (P13); clearing is a separate op (`clearLines`).
  */
-export const setAnnotationsInput = z.object({
+export const setLineGroupsInput = z.object({
   entryId: id,
+  version,
   items: z
-    .array(
-      z
-        .object({
-          startOffset: z.int().min(0),
-          endOffset: z.int().min(0),
-          value: optionalText(120),
-        })
-        .refine((v) => v.endOffset > v.startOffset, {
-          message: "Selection is empty",
-          path: ["endOffset"],
-        }),
-    )
-    .min(1, "No spans given")
+    .array(z.object({ ...lineAddressFields, value: z.enum(RHYME_GROUPS) }))
+    .min(1, "No lines given")
     .max(500),
 });
 
+/** Clear (hard-delete) the rhyme group on whole lines. User-explicit (D-3). */
+export const clearLinesInput = z.object({
+  entryId: id,
+  version,
+  items: z
+    .array(z.object({ ...lineAddressFields }))
+    .min(1, "No lines given")
+    .max(500),
+});
+
+/** Delete one annotation row by id. Version-exempt — targets a stable id (D-9). */
 export const deleteAnnotationInput = z.object({ id });
+
+/**
+ * Unlink a duplicate section so it can be annotated on its own (§5.3): the server
+ * copies the canonical's rows down, sets `manualUnlink`, and clears the pointer.
+ * Carries `version` (a lyrics change since load → 409, D-9).
+ */
+export const unlinkSectionInput = z.object({ entryId: id, version, sectionId: id });
+
+/**
+ * Relink a manually-unlinked section back to its duplicate group (§5.3). This
+ * DELETES the section's own rows (it will render the canonical's again) — the
+ * client must confirm first. Carries `version` (409 on a stale lyrics view).
+ */
+export const relinkSectionInput = z.object({ entryId: id, version, sectionId: id });
 
 /* ------------------------------------------------------------------ */
 /* Inferred types                                                      */
@@ -136,5 +142,7 @@ export const deleteAnnotationInput = z.object({ id });
 export type CreateEntryInput = z.infer<typeof createEntryInput>;
 export type UpdateEntryInput = z.infer<typeof updateEntryInput>;
 export type SaveLyricsInput = z.infer<typeof saveLyricsInput>;
-export type SetAnnotationInput = z.infer<typeof setAnnotationInput>;
-export type SetAnnotationsInput = z.infer<typeof setAnnotationsInput>;
+export type SetLineGroupsInput = z.infer<typeof setLineGroupsInput>;
+export type ClearLinesInput = z.infer<typeof clearLinesInput>;
+export type UnlinkSectionInput = z.infer<typeof unlinkSectionInput>;
+export type RelinkSectionInput = z.infer<typeof relinkSectionInput>;

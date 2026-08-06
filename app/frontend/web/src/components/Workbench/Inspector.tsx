@@ -8,18 +8,24 @@ import {
   type RhymeGroup,
   type RhymeView,
 } from "@rhymelab/core";
-import type { AnnotationDTO, SectionDTO } from "@rhymelab/api-contract";
-import { commonRhymeGroup, groupCountsForSection, type LineSelection } from "./logic";
+import type { SectionDTO } from "@rhymelab/api-contract";
+import {
+  commonRhymeGroup,
+  groupCountsForSection,
+  type LineSelection,
+  type RhymeFinder,
+} from "./logic";
 
 interface InspectorProps {
   lineSelection: LineSelection | null;
-  annotations: AnnotationDTO[];
   activeSection: SectionDTO | null;
+  /** The active section's non-blank line count — drives the group counts (D-8). */
+  activeSectionLineCount: number;
   view: RhymeView;
-  findRhyme: (start: number, end: number) => AnnotationDTO | null;
+  findRhyme: RhymeFinder;
   onViewChange: (v: RhymeView) => void;
   /** Write the rhyme group (value) / clear it (null) on the selected lines. */
-  onWriteLines: (value: string | null) => void;
+  onWriteLines: (value: RhymeGroup | null) => void;
   busy: boolean;
 }
 
@@ -117,12 +123,12 @@ function LinePanel(props: InspectorProps) {
 /** Rhyme-scheme control: the A–F/X group grid, the colours/letters view toggle,
  *  and the legend. The group is written to every selected line. */
 function RhymeControl(props: InspectorProps) {
-  const { activeSection, annotations, view } = props;
+  const { view } = props;
   const lines = props.lineSelection?.lines ?? [];
-  const active = commonRhymeGroup(props.findRhyme, lines);
-  const counts = activeSection
-    ? groupCountsForSection(annotations, activeSection)
-    : ({ A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0 } as Record<RhymeGroup, number>);
+  const sectionId = props.lineSelection?.sectionId ?? props.activeSection?.id ?? -1;
+  const active = commonRhymeGroup(props.findRhyme, sectionId, lines);
+  // Whole-line counts for the active section (empty lines ⇒ all zeros).
+  const counts = groupCountsForSection(props.findRhyme, sectionId, props.activeSectionLineCount);
 
   // A clearable group: re-pressing the active group takes it back off (onChange
   // fires with null), which the line writer treats as "clear these lines".

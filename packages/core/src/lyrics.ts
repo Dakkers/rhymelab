@@ -139,17 +139,36 @@ export function linesInRange(lines: LineToken[], start: number, end: number): Li
 }
 
 /**
- * Normalise pasted text: unify newlines, strip trailing spaces per line, and
- * cap runs of blank lines to a single blank so section detection is stable.
- * Never touches offsets the caller has already computed — run this *before*
- * storing, then compute everything from the normalised string.
+ * NBSP and the fixed-width Unicode space separators that paste in from Word,
+ * PDFs, and typeset sources. Folded to a plain ASCII space so a line pasted with
+ * fancy spacing is byte-identical to the same line typed plainly — the basis of
+ * the identity duplicate-detection (no fuzzy matching, and nothing case- or
+ * apostrophe-changing: those would read as rewriting the user's text). Excludes
+ * U+2028/U+2029, which are *line* separators folded to `\n` below.
+ */
+const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
+
+/**
+ * Normalise pasted text: NFC-compose, fold exotic spaces, unify newlines, strip
+ * trailing spaces per line, and cap runs of blank lines to a single blank so
+ * section detection is stable. Never touches offsets the caller has already
+ * computed — run this *before* storing, then compute everything from the
+ * normalised string.
  */
 export function normalizeText(text: string): string {
+  // NFC-compose first so canonically-equivalent text stores as identical bytes
+  // (an accented letter as one code point, not letter + combining mark) — the
+  // basis for byte-equality duplicate detection and for stable `quote` matching
+  // when a later save renormalises text written before this ran.
+  const composed = text.normalize("NFC");
+  // Fold NBSP / fixed-width spaces to a plain space *before* the trailing-space
+  // strip and word splitting, so trailing exotic spaces are trimmed too.
+  const spaced = composed.replace(UNICODE_SPACES, " ");
   // Fold every newline convention to `\n` — including the Unicode line/paragraph
   // separators (U+2028/U+2029) and NEL (U+0085) that paste from Word, PDFs, and
   // some JSON sources, which `\s`-based word splitting would otherwise treat as
   // in-word whitespace and collapse two visual lines into one.
-  const unified = text.replace(/\r\n?|\u2028|\u2029|\u0085/g, "\n");
+  const unified = spaced.replace(/\r\n?|\u2028|\u2029|\u0085/g, "\n");
   const lines = unified.split("\n").map((l) => l.replace(/[ \t]+$/g, ""));
   // Collapse 2+ consecutive blank lines to one.
   const out: string[] = [];

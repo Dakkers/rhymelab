@@ -5,7 +5,7 @@
  * code is untouched. The inferred types are the app's canonical data types.
  */
 import { z } from "zod";
-import { ENTRY_KINDS } from "@rhymelab/core";
+import { ENTRY_KINDS, RHYME_GROUPS } from "@rhymelab/core";
 
 export const EntrySummarySchema = z.object({
   id: z.number(),
@@ -24,19 +24,29 @@ export type EntrySummary = z.infer<typeof EntrySummarySchema>;
 export const SectionDTOSchema = z.object({
   id: z.number(),
   orderIndex: z.number(),
+  /** Positional "Section N" — derived from orderIndex server-side (D-16). */
   label: z.string(),
   startOffset: z.number(),
   endOffset: z.number(),
+  /** The section this one duplicates, or null when standalone/canonical (D-18). */
+  canonicalSectionId: z.number().nullable(),
+  /** True ⟺ user-unlinked/diverged — exempt from auto-linking (D-12). */
+  manualUnlink: z.boolean(),
 });
 export type SectionDTO = z.infer<typeof SectionDTOSchema>;
 
 export const AnnotationDTOSchema = z.object({
   id: z.number(),
-  startOffset: z.number(),
-  endOffset: z.number(),
+  /** The section this annotation is addressed against. null ⟺ orphaned (D-2). */
+  sectionId: z.number().nullable(),
+  /** 0-based line within the section. null when detached/orphaned. */
+  lineInSection: z.number().nullable(),
+  /** Sub-line char range within the line; both null ⟺ a whole-line annotation. */
+  startChar: z.number().nullable(),
+  endChar: z.number().nullable(),
   quote: z.string(),
-  /** The rhyme group (A–F / X), or null once cleared. */
-  value: z.string().nullable(),
+  /** The rhyme group (A–F / X). Always present — a cleared annotation is deleted. */
+  value: z.enum(RHYME_GROUPS),
   detached: z.boolean(),
 });
 export type AnnotationDTO = z.infer<typeof AnnotationDTOSchema>;
@@ -50,6 +60,8 @@ export const EntryDetailSchema = z.object({
   year: z.number().nullable(),
   notes: z.string().nullable(),
   lyrics: z.string(),
+  /** Optimistic-concurrency version — echo it back on lyrics/annotation writes. */
+  version: z.number(),
   tags: z.array(z.string()),
   sections: z.array(SectionDTOSchema),
   annotations: z.array(AnnotationDTOSchema),

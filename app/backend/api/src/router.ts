@@ -6,13 +6,20 @@
  * The handlers themselves live under `./handlers`, grouped by domain; this file
  * only assembles them into the router shape the contract expects. The invariant
  * that shapes them is unchanged: **lyrics text is authoritative**, and sections +
- * annotations anchor to character offsets in it (see `./handlers/entries` and
- * `./handlers/sections`).
+ * annotations are addressed against it — the pure `reconcile` (in `@rhymelab/core`)
+ * derives every section/annotation change on a lyrics save (see `./handlers/entries`
+ * and `./handlers/apply-plan`).
  */
 import { os } from "./orpc";
 import { login, logout, me } from "./handlers/auth";
 import { create, del, get, list, saveLyrics, update } from "./handlers/entries";
-import { deleteAnnotation, setAnnotation, setAnnotations } from "./handlers/annotations";
+import {
+  clearLines,
+  deleteAnnotation,
+  relinkSection,
+  setLineGroups,
+  unlinkSection,
+} from "./handlers/annotations";
 
 export const router = os.router({
   auth: { login, logout, me },
@@ -23,8 +30,10 @@ export const router = os.router({
     update,
     saveLyrics,
     delete: del,
-    setAnnotation,
-    setAnnotations,
+    setLineGroups,
+    clearLines,
     deleteAnnotation,
+    unlinkSection,
+    relinkSection,
   },
 });
