@@ -51,6 +51,8 @@ export function makeSection(overrides: Partial<SectionDTO> = {}): SectionDTO {
     label: "Section 1",
     startOffset: 0,
     endOffset: 0,
+    canonicalSectionId: null,
+    manualUnlink: false,
     ...overrides,
   };
 }
@@ -58,8 +60,10 @@ export function makeSection(overrides: Partial<SectionDTO> = {}): SectionDTO {
 export function makeAnnotation(overrides: Partial<AnnotationDTO> = {}): AnnotationDTO {
   return {
     id: 1,
-    startOffset: 0,
-    endOffset: 0,
+    sectionId: 1,
+    lineInSection: 0,
+    startChar: null,
+    endChar: null,
     quote: "",
     value: "A",
     detached: false,

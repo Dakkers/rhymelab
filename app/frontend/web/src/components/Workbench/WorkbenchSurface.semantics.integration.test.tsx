@@ -36,6 +36,8 @@ function makeControlledEntry(overrides: Partial<EntryDetail> = {}): EntryDetail 
     label: defaultSectionLabel(s.orderIndex + 1),
     startOffset: s.startOffset,
     endOffset: s.endOffset,
+    canonicalSectionId: null,
+    manualUnlink: false,
   }));
   return { ...entry, sections };
 }
