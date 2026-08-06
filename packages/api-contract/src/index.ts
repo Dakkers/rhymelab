@@ -23,6 +23,8 @@ export const contract = {
     setLineGroups: entries.setLineGroups,
     clearLines: entries.clearLines,
     deleteAnnotation: entries.deleteAnnotation,
+    unlinkSection: entries.unlinkSection,
+    relinkSection: entries.relinkSection,
   },
 };
 
@@ -46,12 +48,16 @@ export {
   clearLinesInput,
   createEntryInput,
   deleteAnnotationInput,
+  relinkSectionInput,
   saveLyricsInput,
   setLineGroupsInput,
+  unlinkSectionInput,
   updateEntryInput,
   type ClearLinesInput,
   type CreateEntryInput,
+  type RelinkSectionInput,
   type SaveLyricsInput,
   type SetLineGroupsInput,
+  type UnlinkSectionInput,
   type UpdateEntryInput,
 } from "./schemas";

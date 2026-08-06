@@ -24,16 +24,26 @@ export type EntrySummary = z.infer<typeof EntrySummarySchema>;
 export const SectionDTOSchema = z.object({
   id: z.number(),
   orderIndex: z.number(),
+  /** Positional "Section N" — derived from orderIndex server-side (D-16). */
   label: z.string(),
   startOffset: z.number(),
   endOffset: z.number(),
+  /** The section this one duplicates, or null when standalone/canonical (D-18). */
+  canonicalSectionId: z.number().nullable(),
+  /** True ⟺ user-unlinked/diverged — exempt from auto-linking (D-12). */
+  manualUnlink: z.boolean(),
 });
 export type SectionDTO = z.infer<typeof SectionDTOSchema>;
 
 export const AnnotationDTOSchema = z.object({
   id: z.number(),
-  startOffset: z.number(),
-  endOffset: z.number(),
+  /** The section this annotation is addressed against. null ⟺ orphaned (D-2). */
+  sectionId: z.number().nullable(),
+  /** 0-based line within the section. null when detached/orphaned. */
+  lineInSection: z.number().nullable(),
+  /** Sub-line char range within the line; both null ⟺ a whole-line annotation. */
+  startChar: z.number().nullable(),
+  endChar: z.number().nullable(),
   quote: z.string(),
   /** The rhyme group (A–F / X). Always present — a cleared annotation is deleted. */
   value: z.enum(RHYME_GROUPS),

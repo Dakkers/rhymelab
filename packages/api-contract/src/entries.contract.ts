@@ -10,8 +10,10 @@ import {
   clearLinesInput,
   createEntryInput,
   deleteAnnotationInput,
+  relinkSectionInput,
   saveLyricsInput,
   setLineGroupsInput,
+  unlinkSectionInput,
   updateEntryInput,
 } from "./schemas";
 import { EntryDetailSchema, EntrySummarySchema } from "./dtos";
@@ -35,3 +37,8 @@ export const del = oc.input(byId).output(ok);
 export const setLineGroups = oc.input(setLineGroupsInput).output(ok);
 export const clearLines = oc.input(clearLinesInput).output(ok);
 export const deleteAnnotation = oc.input(deleteAnnotationInput).output(ok);
+
+/* Duplicate lifecycle (§5.3). Both carry `version` (409 on a stale lyrics view);
+   relink deletes the section's own rows, so the client confirms first. */
+export const unlinkSection = oc.input(unlinkSectionInput).output(ok);
+export const relinkSection = oc.input(relinkSectionInput).output(ok);

@@ -88,26 +88,22 @@ export const saveLyricsInput = z.object({ id, version, lyrics });
 /* Annotation mutations                                                */
 /* ------------------------------------------------------------------ */
 
-// One whole-line span. Its line-exactness is re-checked server-side against the
-// current lyrics; here we only guarantee a non-empty, non-negative span.
-const spanFields = { startOffset: z.int().min(0), endOffset: z.int().min(0) };
-const nonEmptySpan = (v: { startOffset: number; endOffset: number }) => v.endOffset > v.startOffset;
-const emptySpanMsg = { message: "Selection is empty", path: ["endOffset"] };
+// A whole-line address: the section id + the 0-based line within it. The server
+// resolves the write-redirect (linked → canonical) and validates the line exists.
+const lineAddressFields = { sectionId: id, lineInSection: z.int().min(0) };
 
 /**
  * Assign a rhyme group to whole lines — REPLACE-at-line, not additive (D-4). Each
- * item's span must be exactly one non-blank line of the current lyrics (the server
- * re-derives lines and 400s otherwise). Carries the base `version`; a lyrics change
- * since the client loaded → 409 (D-9). `value` is the A–F / X vocabulary, no free
- * text (P13); clearing is a separate op (`clearLines`), so there is no null value.
+ * item addresses a non-blank line by `(sectionId, lineInSection)`; the server
+ * resolves the duplicate redirect and 400s on an invalid address. Carries the base
+ * `version`; a lyrics change since the client loaded → 409 (D-9). `value` is the
+ * A–F / X vocabulary, no free text (P13); clearing is a separate op (`clearLines`).
  */
 export const setLineGroupsInput = z.object({
   entryId: id,
   version,
   items: z
-    .array(
-      z.object({ ...spanFields, value: z.enum(RHYME_GROUPS) }).refine(nonEmptySpan, emptySpanMsg),
-    )
+    .array(z.object({ ...lineAddressFields, value: z.enum(RHYME_GROUPS) }))
     .min(1, "No lines given")
     .max(500),
 });
@@ -117,13 +113,27 @@ export const clearLinesInput = z.object({
   entryId: id,
   version,
   items: z
-    .array(z.object({ ...spanFields }).refine(nonEmptySpan, emptySpanMsg))
+    .array(z.object({ ...lineAddressFields }))
     .min(1, "No lines given")
     .max(500),
 });
 
 /** Delete one annotation row by id. Version-exempt — targets a stable id (D-9). */
 export const deleteAnnotationInput = z.object({ id });
+
+/**
+ * Unlink a duplicate section so it can be annotated on its own (§5.3): the server
+ * copies the canonical's rows down, sets `manualUnlink`, and clears the pointer.
+ * Carries `version` (a lyrics change since load → 409, D-9).
+ */
+export const unlinkSectionInput = z.object({ entryId: id, version, sectionId: id });
+
+/**
+ * Relink a manually-unlinked section back to its duplicate group (§5.3). This
+ * DELETES the section's own rows (it will render the canonical's again) — the
+ * client must confirm first. Carries `version` (409 on a stale lyrics view).
+ */
+export const relinkSectionInput = z.object({ entryId: id, version, sectionId: id });
 
 /* ------------------------------------------------------------------ */
 /* Inferred types                                                      */
@@ -134,3 +144,5 @@ export type UpdateEntryInput = z.infer<typeof updateEntryInput>;
 export type SaveLyricsInput = z.infer<typeof saveLyricsInput>;
 export type SetLineGroupsInput = z.infer<typeof setLineGroupsInput>;
 export type ClearLinesInput = z.infer<typeof clearLinesInput>;
+export type UnlinkSectionInput = z.infer<typeof unlinkSectionInput>;
+export type RelinkSectionInput = z.infer<typeof relinkSectionInput>;
