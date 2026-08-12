@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedHomeIndexRouteImport } from './routes/_authenticated/home/index'
+import { Route as AuthenticatedLibraryIndexRouteImport } from './routes/_authenticated/library/index'
 import { Route as AuthLoginIndexRouteImport } from './routes/auth/login/index'
 import { Route as AuthLogoutIndexRouteImport } from './routes/auth/logout/index'
 
@@ -29,6 +30,12 @@ const AuthenticatedHomeIndexRoute = AuthenticatedHomeIndexRouteImport.update({
   path: '/home/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLibraryIndexRoute =
+  AuthenticatedLibraryIndexRouteImport.update({
+    id: '/library/',
+    path: '/library/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthLoginIndexRoute = AuthLoginIndexRouteImport.update({
   id: '/auth/login/',
   path: '/auth/login/',
@@ -43,12 +50,14 @@ const AuthLogoutIndexRoute = AuthLogoutIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/home/': typeof AuthenticatedHomeIndexRoute
+  '/library/': typeof AuthenticatedLibraryIndexRoute
   '/auth/login/': typeof AuthLoginIndexRoute
   '/auth/logout/': typeof AuthLogoutIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/home': typeof AuthenticatedHomeIndexRoute
+  '/library': typeof AuthenticatedLibraryIndexRoute
   '/auth/login': typeof AuthLoginIndexRoute
   '/auth/logout': typeof AuthLogoutIndexRoute
 }
@@ -57,19 +66,21 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/home/': typeof AuthenticatedHomeIndexRoute
+  '/_authenticated/library/': typeof AuthenticatedLibraryIndexRoute
   '/auth/login/': typeof AuthLoginIndexRoute
   '/auth/logout/': typeof AuthLogoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/home/' | '/auth/login/' | '/auth/logout/'
+  fullPaths: '/' | '/home/' | '/library/' | '/auth/login/' | '/auth/logout/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/home' | '/auth/login' | '/auth/logout'
+  to: '/' | '/home' | '/library' | '/auth/login' | '/auth/logout'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/_authenticated/home/'
+    | '/_authenticated/library/'
     | '/auth/login/'
     | '/auth/logout/'
   fileRoutesById: FileRoutesById
@@ -104,6 +115,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHomeIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/library/': {
+      id: '/_authenticated/library/'
+      path: '/library'
+      fullPath: '/library/'
+      preLoaderRoute: typeof AuthenticatedLibraryIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/auth/login/': {
       id: '/auth/login/'
       path: '/auth/login'
@@ -123,10 +141,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedHomeIndexRoute: typeof AuthenticatedHomeIndexRoute
+  AuthenticatedLibraryIndexRoute: typeof AuthenticatedLibraryIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHomeIndexRoute: AuthenticatedHomeIndexRoute,
+  AuthenticatedLibraryIndexRoute: AuthenticatedLibraryIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

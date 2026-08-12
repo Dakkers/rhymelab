@@ -9,7 +9,7 @@ export const Route = createFileRoute("/auth/login/")({
   // Already signed in? Skip the form.
   beforeLoad: async () => {
     const { authed } = await client.auth.me();
-    if (authed) throw redirect({ to: "/home" });
+    if (authed) throw redirect({ to: "/library" });
   },
   component: LoginPage,
 });
@@ -32,7 +32,7 @@ function LoginPage() {
         // Anything cached was read as the signed-out user; drop it so the next
         // session doesn't hydrate from a stale cache.
         queryClient.clear();
-        await navigate({ to: "/home" });
+        await navigate({ to: "/library" });
       } else {
         setFailed(true);
         setBusy(false);

@@ -18,8 +18,8 @@ function HomePage() {
         Home
       </Heading>
       <Text saliency="low">
-        The workbench is being rebuilt. Nothing to see here yet — this is the
-        signed-in shell the new UX will hang off of.
+        The workbench is being rebuilt. Nothing to see here yet — this is the signed-in shell the
+        new UX will hang off of.
       </Text>
     </Flex>
   );
