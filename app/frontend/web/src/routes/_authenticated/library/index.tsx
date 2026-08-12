@@ -22,9 +22,7 @@ function LibraryPage() {
   return (
     <Page
       title="Library"
-      subtitle={
-        entries.length > 0 ? pluralize(entries.length, "saved piece") : undefined
-      }
+      subtitle={entries.length > 0 ? pluralize(entries.length, "saved piece") : undefined}
     >
       {entries.length === 0 ? (
         <Text saliency="low">
