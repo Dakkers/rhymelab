@@ -25,10 +25,13 @@
     "lint": "pnpm -r lint",
     "lint:check": "pnpm -r lint:check",
     "changeset": "changeset",
-    "changeset:version": "changeset version"
+    "changeset:version": "changeset version",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@changesets/cli": "2.31.1",
+    "husky": "9.1.7",
+    "lint-staged": "17.3.0",
     "oxfmt": "0.50.0",
     "oxlint": "1.64.0",
     "typescript": "6.0.3"
