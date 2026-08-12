@@ -14,7 +14,7 @@ import { Text, type TextProps } from "@saintly-software/baritone";
 export function NavBar() {
   return (
     <header className="rl-navbar">
-      <RouterLink to="/library" className="rl-brand" aria-label="RhymeLab — go to library">
+      <RouterLink to="/home" className="rl-brand" aria-label="RhymeLab — go home">
         <span className="rl-brand-dot" aria-hidden />
         <BrandName style={{ color: "var(--rl-navbar-ink)" }} />
         <AlphaChip
@@ -23,9 +23,6 @@ export function NavBar() {
       </RouterLink>
 
       <nav className="rl-nav">
-        <RouterLink to="/library">
-          <NavLabel>Library</NavLabel>
-        </RouterLink>
         {/* preload=false so a hover-preload of the logout route doesn't sign out. */}
         <RouterLink to="/auth/logout" preload={false}>
           <NavLabel>Log out</NavLabel>

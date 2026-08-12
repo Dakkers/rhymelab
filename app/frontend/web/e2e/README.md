@@ -52,7 +52,7 @@ auth wall:
 pnpm --filter @rhymelab/web exec playwright codegen \
   --target playwright-test \
   --load-storage app/frontend/web/e2e/.auth/state.json \
-  http://localhost:3000/library
+  http://localhost:3000/home
 ```
 
 Click through the app, then copy the generated code out. Raw codegen output is

@@ -4,10 +4,10 @@ import { AlphaChip, BrandName } from "#/components/NavBar";
 import { client } from "#/lib/orpc";
 
 export const Route = createFileRoute("/")({
-  // Signed in already? Straight to the library.
+  // Signed in already? Straight to the app.
   beforeLoad: async () => {
     const { authed } = await client.auth.me();
-    if (authed) throw redirect({ to: "/library" });
+    if (authed) throw redirect({ to: "/home" });
   },
   component: LandingPage,
 });
@@ -35,7 +35,7 @@ function LandingPage() {
           and notes, laid over the words themselves.
         </Text>
 
-        <Link appearance="button" href="/library">
+        <Link appearance="button" href="/home">
           Enter the lab
         </Link>
       </Flex>

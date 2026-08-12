@@ -9,7 +9,7 @@ export const Route = createFileRoute("/auth/login/")({
   // Already signed in? Skip the form.
   beforeLoad: async () => {
     const { authed } = await client.auth.me();
-    if (authed) throw redirect({ to: "/library" });
+    if (authed) throw redirect({ to: "/home" });
   },
   component: LoginPage,
 });
@@ -32,7 +32,7 @@ function LoginPage() {
         // Anything cached was read as the signed-out user; drop it so the next
         // session doesn't hydrate from a stale cache.
         queryClient.clear();
-        await navigate({ to: "/library" });
+        await navigate({ to: "/home" });
       } else {
         setFailed(true);
         setBusy(false);
@@ -56,7 +56,7 @@ function LoginPage() {
               Welcome back
             </Heading>
             <Text size="sm" saliency="low">
-              Enter the password to open your library.
+              Enter the password to open the app.
             </Text>
           </Flex>
           <TextInput

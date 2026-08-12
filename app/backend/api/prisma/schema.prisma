@@ -1,16 +1,9 @@
-// RhymeLab's data model, ported from the original Drizzle/D1 (SQLite) schema to
-// Postgres. Lyrics are the source of truth as plain text; sections and
-// annotations anchor to character offsets into that text (see @rhymelab/core's
-// anchor + lyrics helpers).
+// RhymeLab's data model.
 //
-// Enum-like columns (`kind`, annotation `value`) are plain `String`. The zod
-// contract in @rhymelab/api-contract is the validator (contract-first), so the
-// DB constraint isn't load-bearing.
-//
-// Entries soft-delete (deletedAt); sections and annotations cascade with their
-// entry (sections are re-derived on every lyrics save anyway). Annotations DO
-// NOT soft-delete — a cleared annotation is hard-deleted, and a lyrics edit that
-// orphans one *detaches* it (kept, off the text) rather than deleting it (D-3).
+// The product tables (entries / sections / annotations) were removed while the
+// UX — and with it the data model — is redesigned from the ground up. Only the
+// Prisma/Postgres plumbing is kept: add the new models here, then run
+// `pnpm db:migrate` to regenerate the client and the migration.
 
 generator client {
   provider            = "prisma-client"
@@ -21,106 +14,4 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-}
-
-model Entry {
-  id         Int       @id @default(autoincrement())
-  title      String
-  /// 'song' | 'poem'
-  kind       String
-  /// Artist (song) or author (poem).
-  artist     String?
-  /// Album (song) or collection/book (poem).
-  collection String?
-  /// Release / writing year.
-  year       Int?
-  /// Free-text description or working notes about the whole entry.
-  notes      String?
-  /// The canonical lyrics text. Blank lines separate sections.
-  lyrics     String    @default("")
-  /// Optimistic-concurrency counter. Bumped on every lyrics save; annotation
-  /// writes carry the client's base version and 409 on mismatch (D-9).
-  version    Int       @default(0)
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @default(now()) @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
-
-  tags        EntryTag[]
-  sections    Section[]
-  annotations Annotation[]
-
-  @@index([kind])
-  @@map("entries")
-}
-
-model EntryTag {
-  entryId Int    @map("entry_id")
-  name    String
-  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
-
-  @@id([entryId, name])
-  @@map("entry_tags")
-}
-
-model Section {
-  id          Int     @id @default(autoincrement())
-  entryId     Int     @map("entry_id")
-  /// 0-based position in the lyrics.
-  orderIndex  Int     @map("order_index")
-  startOffset Int     @map("start_offset")
-  endOffset   Int     @map("end_offset")
-  /// The section this one is a byte-equal duplicate of (D-10). NULL ⟺ standalone
-  /// or itself the canonical. Flattened (I2) — a target's own pointer is NULL.
-  canonicalSectionId Int? @map("canonical_section_id")
-  /// "Exempt from auto-linking" (D-12): set by a user unlink or automatically on
-  /// divergence, cleared only by an explicit user relink.
-  manualUnlink Boolean  @default(false) @map("manual_unlink")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @map("updated_at")
-  // label: DROPPED (D-16) — the server derives "Section ${orderIndex + 1}" into the DTO.
-
-  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  // Same-entry duplicate self-relation via the compound key (D-15). Restrict is the
-  // loud backstop: the reconciler re-points/orphans before any section delete.
-  canonical   Section?     @relation("Duplicates", fields: [entryId, canonicalSectionId], references: [entryId, id], onDelete: Restrict)
-  duplicates  Section[]    @relation("Duplicates")
-  annotations Annotation[]
-
-  @@unique([entryId, id]) // FK target for the compound same-entry relations
-  @@unique([entryId, orderIndex]) // made DEFERRABLE by hand in the migration SQL (D-15)
-  @@index([entryId])
-  @@index([canonicalSectionId])
-  @@map("sections")
-}
-
-model Annotation {
-  id      Int  @id @default(autoincrement())
-  entryId Int  @map("entry_id") // KEPT (D-1): the badge count + re-attach search scope
-  /// The section this annotation is addressed against. NULL ⟺ orphaned (D-2).
-  sectionId Int? @map("section_id")
-  /// 0-based line within the section. NULL when detached/orphaned (D-2/I5).
-  lineInSection Int? @map("line_in_section")
-  /// Sub-line char range within the line; both NULL ⟺ a whole-line annotation.
-  startChar Int? @map("start_char")
-  endChar   Int? @map("end_char")
-  /// Exact covered text at last successful anchor — the staleness detector /
-  /// re-attach key (D-1). Never empty (I5).
-  quote String
-  /// The rhyme group (A–F / X). NOT NULL: a cleared annotation is hard-deleted,
-  /// never a null-value tombstone (D-3). Server-validated against RHYME_GROUPS.
-  value String
-  /// True when a lyrics edit orphaned this annotation (kept, but off the text).
-  detached  Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @map("updated_at")
-  // startOffset/endOffset: DROPPED — derived from (sectionId, lineInSection, chars).
-
-  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  // Same-entry compound relation. Restrict (D-14): the app orphans rows before a
-  // section is deleted, so this only ever fires on a bug — as a loud backstop.
-  section Section? @relation(fields: [entryId, sectionId], references: [entryId, id], onDelete: Restrict)
-
-  @@index([entryId])
-  @@index([sectionId, lineInSection])
-  @@map("annotations")
 }

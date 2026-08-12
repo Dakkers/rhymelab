@@ -5,7 +5,6 @@
  * importing any backend code.
  */
 import * as auth from "./auth.contract";
-import * as entries from "./entries.contract";
 
 export const contract = {
   auth: {
@@ -13,51 +12,6 @@ export const contract = {
     logout: auth.logout,
     me: auth.me,
   },
-  entries: {
-    list: entries.list,
-    get: entries.get,
-    create: entries.create,
-    update: entries.update,
-    saveLyrics: entries.saveLyrics,
-    delete: entries.del,
-    setLineGroups: entries.setLineGroups,
-    clearLines: entries.clearLines,
-    deleteAnnotation: entries.deleteAnnotation,
-    unlinkSection: entries.unlinkSection,
-    relinkSection: entries.relinkSection,
-  },
 };
 
 export type Contract = typeof contract;
-
-/* Canonical DTO schemas + inferred types. */
-export {
-  AnnotationDTOSchema,
-  EntryDetailSchema,
-  EntrySummarySchema,
-  SectionDTOSchema,
-  type AnnotationDTO,
-  type EntryDetail,
-  type EntrySummary,
-  type SectionDTO,
-} from "./dtos";
-
-/* Input schemas + inferred input types (forms may reuse them). */
-export {
-  byId,
-  clearLinesInput,
-  createEntryInput,
-  deleteAnnotationInput,
-  relinkSectionInput,
-  saveLyricsInput,
-  setLineGroupsInput,
-  unlinkSectionInput,
-  updateEntryInput,
-  type ClearLinesInput,
-  type CreateEntryInput,
-  type RelinkSectionInput,
-  type SaveLyricsInput,
-  type SetLineGroupsInput,
-  type UnlinkSectionInput,
-  type UpdateEntryInput,
-} from "./schemas";
