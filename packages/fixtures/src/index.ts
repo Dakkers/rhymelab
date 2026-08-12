@@ -24,19 +24,19 @@ const DEFAULT_SEED = 20260812;
 function makeEntry(rank: number): EntrySummary {
   // zod-schema-faker chooses the arm and produces a schema-valid skeleton.
   const skeleton = fake(EntrySummarySchema);
-  const title = faker.music.songName();
   const shared = {
-    // Suffix keeps ids unique even if two generated titles collide.
-    id: `${faker.helpers.slugify(title).toLowerCase()}-${faker.string.alphanumeric({ length: 4, casing: "lower" })}`,
-    title,
+    id: faker.string.uuid(),
+    title: faker.music.songName(),
     author: faker.person.fullName(),
     year: faker.number.int({ min: 1990, max: 2025 }),
     excerpt: `${faker.lorem.words({ min: 5, max: 9 })} / ${faker.lorem.words({ min: 5, max: 9 })}`,
     lineCount: faker.number.int({ min: 8, max: 80 }),
     wordCount: faker.number.int({ min: 60, max: 600 }),
-    createdAt: EPOCH - faker.number.int({ min: 40, max: 240 }) * DAY,
+    createdAt: new Date(EPOCH - faker.number.int({ min: 40, max: 240 }) * DAY).toISOString(),
     // Spread edits out by rank so the seeded list has a clear newest-first order.
-    updatedAt: EPOCH - rank * DAY - faker.number.int({ min: 0, max: 20 }) * HOUR,
+    updatedAt: new Date(
+      EPOCH - rank * DAY - faker.number.int({ min: 0, max: 20 }) * HOUR,
+    ).toISOString(),
   };
 
   // Honour the arm zod-schema-faker picked so both kinds show up.
@@ -50,8 +50,13 @@ function makeEntry(rank: number): EntrySummary {
  * `seed` to get a different-but-reproducible set (e.g. so the mock and the API
  * stub don't serve identical rows).
  */
-export function fakeEntries(count = 6, { seed = DEFAULT_SEED }: { seed?: number } = {}): EntrySummary[] {
+export function fakeEntries(
+  count = 6,
+  { seed = DEFAULT_SEED }: { seed?: number } = {},
+): EntrySummary[] {
   setFaker(faker);
   seedFaker(seed);
-  return Array.from({ length: count }, (_, i) => makeEntry(i)).sort((a, b) => b.updatedAt - a.updatedAt);
+  return Array.from({ length: count }, (_, i) => makeEntry(i)).sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+  );
 }

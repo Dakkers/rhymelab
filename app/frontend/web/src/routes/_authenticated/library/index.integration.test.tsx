@@ -13,7 +13,9 @@ import { store } from "#/test/mocks/handlers";
 import { Route } from "./index";
 
 /** The order the Library should render: newest-edited first. */
-const newestFirst = [...store.entries].sort((a, b) => b.updatedAt - a.updatedAt);
+const newestFirst = [...store.entries].sort(
+  (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+);
 
 test("renders every saved entry as a card, newest-edited first", async () => {
   renderRoute(Route, { path: "/library", initialEntries: ["/library"] });
@@ -42,7 +44,7 @@ test("each card shows its kind, byline, and stats", async () => {
     const text = card.textContent ?? "";
 
     expect(within(card).getByText(entry.kind === "lyrics" ? "Lyrics" : "Poem")).toBeInTheDocument();
-    expect(text).toContain(String(entry.year));
+    if (entry.year !== undefined) expect(text).toContain(String(entry.year));
     expect(text).toContain(String(entry.lineCount));
     expect(text).toContain(String(entry.wordCount));
 

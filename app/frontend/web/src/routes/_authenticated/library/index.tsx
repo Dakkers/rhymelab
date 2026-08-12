@@ -78,10 +78,9 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
  */
 function byline(entry: EntrySummary): string {
   const parts =
-    entry.kind === "lyrics"
-      ? [entry.artist, entry.album, String(entry.year)]
-      : [entry.author, String(entry.year)];
-  return parts.join(" · ");
+    entry.kind === "lyrics" ? [entry.artist, entry.album, entry.year] : [entry.author, entry.year];
+  // `year` is optional, so drop it (and any other gap) rather than print "undefined".
+  return parts.filter((part) => part !== undefined).join(" · ");
 }
 
 /** A row of low-saliency metadata, dot-separated and wrapping on narrow cards. */
@@ -107,7 +106,7 @@ function MetaRow({ children }: { children: ReactNode }) {
  * Relative edited-time, gated behind a mount check: `since` reads the wall clock,
  * so rendering it during SSR would mismatch the client's first paint.
  */
-function Updated({ at }: { at: number }) {
+function Updated({ at }: { at: string }) {
   const mounted = useMounted();
   return (
     <Text size="sm" saliency="low">

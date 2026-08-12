@@ -12,19 +12,19 @@ import { z } from "zod";
 
 /** Fields every saved piece carries, whatever its kind. */
 const EntryBaseSchema = z.object({
-  id: z.string(),
-  title: z.string(),
+  id: z.uuid(),
+  title: z.string().trim().min(1),
   /** The writer — a poem's poet, or a song's lyricist. */
-  author: z.string(),
-  /** Publication / release year. */
-  year: z.number().int(),
+  author: z.string().trim(),
+  /** Publication / release year, when known. */
+  year: z.number().int().positive().optional(),
   /** A short preview of the opening lines, for the card body. */
-  excerpt: z.string(),
-  lineCount: z.number().int(),
-  wordCount: z.number().int(),
-  /** Epoch milliseconds. */
-  createdAt: z.number().int(),
-  updatedAt: z.number().int(),
+  excerpt: z.string().trim(),
+  lineCount: z.number().int().positive(),
+  wordCount: z.number().int().positive(),
+  /** ISO-8601 timestamps. */
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 /** A poem — carries none of the lyrics-only fields. */

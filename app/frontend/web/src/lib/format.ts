@@ -4,8 +4,8 @@
  * mismatch (see `useMounted`).
  */
 
-export function since(ms: number): string {
-  const diff = Date.now() - ms;
+export function since(iso: string): string {
+  const diff = Date.now() - Date.parse(iso);
   const sec = Math.round(diff / 1000);
   if (sec < 45) return "just now";
   const min = Math.round(sec / 60);

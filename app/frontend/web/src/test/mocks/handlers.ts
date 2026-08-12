@@ -49,7 +49,7 @@ const router = {
   },
   entries: {
     list: os.entries.list.handler(() =>
-      [...store.entries].sort((a, b) => b.updatedAt - a.updatedAt),
+      [...store.entries].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
     ),
   },
 };
