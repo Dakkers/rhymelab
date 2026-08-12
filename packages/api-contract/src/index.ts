@@ -20,4 +20,5 @@ export const contract = {
 
 export type Contract = typeof contract;
 
+export { EntrySummarySchema } from "./entries.contract";
 export type { EntrySummary, EntryKind } from "./entries.contract";

@@ -29,6 +29,9 @@ importers:
 
   app/backend/api:
     dependencies:
+      '@faker-js/faker':
+        specifier: 10.5.0
+        version: 10.5.0
       '@fastify/cookie':
         specifier: ^11.0.2
         version: 11.1.2
@@ -53,6 +56,9 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+      zod-schema-faker:
+        specifier: 2.1.1
+        version: 2.1.1(@faker-js/faker@10.5.0)(randexp@0.5.3)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: 22.20.1
@@ -631,6 +637,10 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@faker-js/faker@10.5.0':
+    resolution: {integrity: sha512-bsxD8WLS5lIj7aaoCx1YJkktqYj5vlBUE6HWzu2Q51ksrGJ0H737ECCKlFU7Yf8Br45z9t99frBp/J7kzbMPAg==}
+    engines: {node: ^20.19.0 || ^22.13.0 || ^23.5.0 || >=24.0.0, npm: '>=10'}
 
   '@fastify/ajv-compiler@4.0.5':
     resolution: {integrity: sha512-KoWKW+MhvfTRWL4qrhUwAAZoaChluo0m0vbiJlGMt2GXvL4LVPQEjt8kSpHI3IBq5Rez8fg+XeH3cneztq+C7A==}
@@ -2134,6 +2144,10 @@ packages:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
 
+  drange@1.1.1:
+    resolution: {integrity: sha512-pYxfDYpued//QpnLIm4Avk7rsNtAtQkUES2cwAYSvD/wd2pKD71gN2Ebj3e7klzXwjocvE8c5vx/1fxwpqmSxA==}
+    engines: {node: '>=4'}
+
   effect@3.20.0:
     resolution: {integrity: sha512-qMLfDJscrNG8p/aw+IkT9W7fgj50Z4wG5bLBy0Txsxz8iUHjDIkOgO3SV0WZfnQbNG2VJYb0b+rDLMrhM4+Krw==}
 
@@ -2885,6 +2899,10 @@ packages:
     resolution: {integrity: sha512-h36JMxKRqrAxVD8201FrCpyeNuUY9Y5zZwujr20fFO77tpUtGa6EZzfKw/3WaiBX95fq7+MpsuMLNdSnORAwSA==}
     engines: {node: '>=14.18.0'}
 
+  randexp@0.5.3:
+    resolution: {integrity: sha512-U+5l2KrcMNOUPYvazA3h5ekF80FHTUG+87SEAmHZmolh1M+i/WyTCxVzmi+tidIa1tM4BSe8g2Y/D3loWDjj+w==}
+    engines: {node: '>=4'}
+
   rc9@3.0.1:
     resolution: {integrity: sha512-gMDyleLWVE+i6Sgtc0QbbY6pEKqYs97NGi6isHQPqYlLemPoO8dxQ3uGi0f4NiP98c+jMW6cG1Kx9dDwfvqARQ==}
 
@@ -2939,6 +2957,10 @@ packages:
   resolve-from@5.0.0:
     resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
     engines: {node: '>=8'}
+
+  ret@0.2.2:
+    resolution: {integrity: sha512-M0b3YWQs7R3Z917WRQy1HHA7Ba7D8hvZg6UE5mLykJxQVE2ju0IXbGlaHPPlkY+WN7wFP+wUMXmBFA0aV6vYGQ==}
+    engines: {node: '>=4'}
 
   ret@0.5.0:
     resolution: {integrity: sha512-I1XxrZSQ+oErkRR4jYbAyEEu2I0avBvvMM5JN+6EBprOGRCs63ENqZ3vjavq8fBw2+62G5LF5XelKwuJpcvcxw==}
@@ -3439,6 +3461,14 @@ packages:
   zeptomatch@2.1.0:
     resolution: {integrity: sha512-KiGErG2J0G82LSpniV0CtIzjlJ10E04j02VOudJsPyPwNZgGnRKQy7I1R7GMyg/QswnE4l7ohSGrQbQbjXPPDA==}
 
+  zod-schema-faker@2.1.1:
+    resolution: {integrity: sha512-KQ+MvSXLk8cZcdUgEHXwszK2fqDZgiCz+apHmXBEgTWUL1WbmiDKmgKIZCUf29OMYCN8eX3DPrrrnKDQ1IMWYQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@faker-js/faker': ^10.0.0
+      randexp: ^0.5.3
+      zod: ^3.25.0 || ^4.0.0
+
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
@@ -3879,6 +3909,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.1':
     optional: true
+
+  '@faker-js/faker@10.5.0': {}
 
   '@fastify/ajv-compiler@4.0.5':
     dependencies:
@@ -5357,6 +5389,8 @@ snapshots:
 
   dotenv@17.4.2: {}
 
+  drange@1.1.1: {}
+
   effect@3.20.0:
     dependencies:
       '@standard-schema/spec': 1.1.0
@@ -6089,6 +6123,11 @@ snapshots:
 
   radash@12.1.1: {}
 
+  randexp@0.5.3:
+    dependencies:
+      drange: 1.1.1
+      ret: 0.2.2
+
   rc9@3.0.1:
     dependencies:
       defu: 6.1.7
@@ -6132,6 +6171,8 @@ snapshots:
   reselect@5.2.0: {}
 
   resolve-from@5.0.0: {}
+
+  ret@0.2.2: {}
 
   ret@0.5.0: {}
 
@@ -6550,5 +6591,11 @@ snapshots:
     dependencies:
       grammex: 3.1.13
       graphmatch: 1.1.1
+
+  zod-schema-faker@2.1.1(@faker-js/faker@10.5.0)(randexp@0.5.3)(zod@4.4.3):
+    dependencies:
+      '@faker-js/faker': 10.5.0
+      randexp: 0.5.3
+      zod: 4.4.3
 
   zod@4.4.3: {}
