@@ -1,0 +1,24 @@
+{
+  "name": "@rhymelab/fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint --fix",
+    "lint:check": "oxlint"
+  },
+  "dependencies": {
+    "@faker-js/faker": "10.5.0",
+    "@rhymelab/api-contract": "workspace:*",
+    "zod": "4.4.3",
+    "zod-schema-faker": "2.1.1"
+  }
+}

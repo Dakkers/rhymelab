@@ -29,9 +29,6 @@ importers:
 
   app/backend/api:
     dependencies:
-      '@faker-js/faker':
-        specifier: 10.5.0
-        version: 10.5.0
       '@fastify/cookie':
         specifier: ^11.0.2
         version: 11.1.2
@@ -50,15 +47,15 @@ importers:
       '@rhymelab/api-contract':
         specifier: workspace:*
         version: link:../../../packages/api-contract
+      '@rhymelab/fixtures':
+        specifier: workspace:*
+        version: link:../../../packages/fixtures
       fastify:
         specifier: ^5.6.0
         version: 5.10.0
       zod:
         specifier: 4.4.3
         version: 4.4.3
-      zod-schema-faker:
-        specifier: 2.1.1
-        version: 2.1.1(@faker-js/faker@10.5.0)(randexp@0.5.3)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: 22.20.1
@@ -145,6 +142,9 @@ importers:
       '@playwright/test':
         specifier: 1.62.0
         version: 1.62.0
+      '@rhymelab/fixtures':
+        specifier: workspace:*
+        version: link:../../../packages/fixtures
       '@tanstack/router-cli':
         specifier: 1.167.18
         version: 1.167.18
@@ -223,6 +223,21 @@ importers:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@22.20.1)(@vitest/browser-playwright@4.1.10)(msw@2.15.0(@types/node@22.20.1)(typescript@6.0.3))(vite@8.1.4(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/fixtures:
+    dependencies:
+      '@faker-js/faker':
+        specifier: 10.5.0
+        version: 10.5.0
+      '@rhymelab/api-contract':
+        specifier: workspace:*
+        version: link:../api-contract
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+      zod-schema-faker:
+        specifier: 2.1.1
+        version: 2.1.1(@faker-js/faker@10.5.0)(randexp@0.5.3)(zod@4.4.3)
 
 packages:
 

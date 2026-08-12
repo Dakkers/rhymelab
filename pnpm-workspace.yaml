@@ -4,6 +4,7 @@ packages:
   - app/backend/api
   - packages/core
   - packages/api-contract
+  - packages/fixtures
 
 # ─── Supply-chain hardening ──────────────────────────────────────────────────
 # Carried over from the original single-package setup. These make `pnpm install`

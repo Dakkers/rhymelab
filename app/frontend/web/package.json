@@ -51,6 +51,7 @@
   "devDependencies": {
     "@orpc/server": "1.14.5",
     "@playwright/test": "1.62.0",
+    "@rhymelab/fixtures": "workspace:*",
     "@tanstack/router-cli": "1.167.18",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "7.0.0",
