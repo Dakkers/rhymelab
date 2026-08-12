@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({
   // Signed in already? Straight to the app.
   beforeLoad: async () => {
     const { authed } = await client.auth.me();
-    if (authed) throw redirect({ to: "/home" });
+    if (authed) throw redirect({ to: "/library" });
   },
   component: LandingPage,
 });
@@ -35,7 +35,7 @@ function LandingPage() {
           and notes, laid over the words themselves.
         </Text>
 
-        <Link appearance="button" href="/home">
+        <Link appearance="button" href="/library">
           Enter the lab
         </Link>
       </Flex>

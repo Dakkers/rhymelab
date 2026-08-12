@@ -14,7 +14,7 @@ import { Text, type TextProps } from "@saintly-software/baritone";
 export function NavBar() {
   return (
     <header className="rl-navbar">
-      <RouterLink to="/home" className="rl-brand" aria-label="RhymeLab — go home">
+      <RouterLink to="/library" className="rl-brand" aria-label="RhymeLab — go home">
         <span className="rl-brand-dot" aria-hidden />
         <BrandName style={{ color: "var(--rl-navbar-ink)" }} />
         <AlphaChip
