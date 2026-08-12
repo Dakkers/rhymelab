@@ -5,6 +5,7 @@
  * importing any backend code.
  */
 import * as auth from "./auth.contract";
+import * as entries from "./entries.contract";
 
 export const contract = {
   auth: {
@@ -12,6 +13,11 @@ export const contract = {
     logout: auth.logout,
     me: auth.me,
   },
+  entries: {
+    list: entries.list,
+  },
 };
 
 export type Contract = typeof contract;
+
+export type { EntrySummary, EntryKind } from "./entries.contract";

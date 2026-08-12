@@ -1,18 +1,19 @@
 import { Fragment, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Badge, Card, CardList, Flex, Text } from "@saintly-software/baritone";
+import type { EntrySummary } from "@rhymelab/api-contract";
 import { Page } from "../../../components/Page";
-import { listEntries, type EntrySummary } from "../../../lib/entries";
+import { client } from "../../../lib/orpc";
 import { pluralize, since } from "../../../lib/format";
 import { useMounted } from "../../../lib/hooks";
 
 /**
  * The Library is the signed-in default landing page: the list of lyrics and
- * poems the user has saved. Data is stubbed (`listEntries`) until the entries
- * surface lands in the shared oRPC contract — swap the loader body then.
+ * poems the user has saved. The loader pulls them over oRPC (`entries.list`);
+ * the handler returns them newest-edited first.
  */
 export const Route = createFileRoute("/_authenticated/library/")({
-  loader: () => listEntries(),
+  loader: () => client.entries.list(),
   component: LibraryPage,
 });
 

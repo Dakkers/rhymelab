@@ -1,10 +1,9 @@
 /**
  * Library route — renders the signed-in user's saved entries.
  *
- * The route's loader reads the stubbed `listEntries()` directly (no HTTP), so
- * this mounts the real route via `renderRoute` and asserts the stub rows land as
- * a list of cards. Swap these expectations for MSW-backed ones when the entries
- * procedure joins the contract.
+ * The route's loader calls `client.entries.list()` over oRPC, answered here by
+ * the MSW mock (`test/mocks/handlers.ts`). This mounts the real route via
+ * `renderRoute` and asserts the fixture rows land as a list of cards.
  */
 import { expect, test } from "vitest";
 import { screen, within } from "@testing-library/react";
