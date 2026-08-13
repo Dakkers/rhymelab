@@ -12,7 +12,7 @@ import { z } from "zod";
 
 /** Fields every saved piece carries, whatever its kind. */
 const EntryBaseSchema = z.object({
-  id: z.uuid(),
+  id: z.uuidv4(),
   title: z.string().trim().min(1),
   /** The writer — a poem's poet, or a song's lyricist. */
   author: z.string().trim(),
@@ -49,5 +49,61 @@ export const EntrySummarySchema = z.discriminatedUnion("kind", [
 export type EntrySummary = z.infer<typeof EntrySummarySchema>;
 export type EntryKind = EntrySummary["kind"];
 
+/**
+ * Derive the list-view fields (`excerpt`, `lineCount`, `wordCount`) from an
+ * entry's `body`. Kept beside the schema they populate and shared by the API
+ * handler (which derives them on read) and the web MSW mock (which mirrors it),
+ * so the two can't drift. A line is anything between newlines, blank ones
+ * included; `excerpt` previews the opening non-blank lines.
+ */
+export function deriveEntrySummaryFields(body: string): {
+  excerpt: string;
+  lineCount: number;
+  wordCount: number;
+} {
+  const lines = body.split("\n");
+  const excerpt =
+    lines
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(" / ") || body.trim();
+  return {
+    excerpt,
+    lineCount: lines.length,
+    wordCount: body.split(/\s+/).filter(Boolean).length,
+  };
+}
+
 /** List the current user's saved entries. The handler returns them newest-first. */
 export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
+
+/**
+ * Fields a client submits to save a new piece — distinct from `EntrySummarySchema`:
+ * it carries the full `body` text (the source of truth) rather than the derived
+ * `excerpt`/`lineCount`/`wordCount`, and has no `id`/timestamps yet.
+ */
+const EntryCreateBaseSchema = z.object({
+  title: z.string().trim().min(1),
+  author: z.string().trim().optional(),
+  year: z.number().int().positive().optional(),
+  /** The full saved text; `excerpt`, `lineCount`, and `wordCount` are derived from this. */
+  body: z.string().trim().min(1),
+});
+
+const PoemCreateSchema = EntryCreateBaseSchema.extend({ kind: z.literal("poem") });
+
+const LyricsCreateSchema = EntryCreateBaseSchema.extend({
+  kind: z.literal("lyrics"),
+  artist: z.string().trim().optional(),
+  album: z.string().trim().optional(),
+});
+
+export const EntryCreateInputSchema = z.discriminatedUnion("kind", [
+  PoemCreateSchema,
+  LyricsCreateSchema,
+]);
+export type EntryCreateInput = z.infer<typeof EntryCreateInputSchema>;
+
+/** Save a new piece. Returns the saved entry's summary, as `list` would render it. */
+export const create = oc.input(EntryCreateInputSchema).output(EntrySummarySchema);

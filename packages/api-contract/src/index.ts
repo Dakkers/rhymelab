@@ -15,10 +15,15 @@ export const contract = {
   },
   entries: {
     list: entries.list,
+    create: entries.create,
   },
 };
 
 export type Contract = typeof contract;
 
-export { EntrySummarySchema } from "./entries.contract";
-export type { EntrySummary, EntryKind } from "./entries.contract";
+export {
+  EntrySummarySchema,
+  EntryCreateInputSchema,
+  deriveEntrySummaryFields,
+} from "./entries.contract";
+export type { EntrySummary, EntryKind, EntryCreateInput } from "./entries.contract";

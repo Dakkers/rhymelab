@@ -7,25 +7,25 @@ import { EntryController } from "./entry";
  * the controller *builds* is what's under test, so the client is mocked and no
  * database is touched. `findMany` resolves `rows` and records its arguments.
  */
-function mockDb(rows: Entry[] = []) {
+function mockDb(rows: Entry[] = [], created: Entry = makeEntry()) {
   const findMany = vi.fn().mockResolvedValue(rows);
-  // Cast through `unknown`: the mock implements only the surface `list` uses,
-  // not the whole PrismaClient / TransactionClient.
-  const client = { entry: { findMany } } as unknown as PrismaClient & Prisma.TransactionClient;
-  return { client, findMany };
+  const create = vi.fn().mockResolvedValue(created);
+  // Cast through `unknown`: the mock implements only the surface `list`/`create`
+  // use, not the whole PrismaClient / TransactionClient.
+  const client = { entry: { findMany, create } } as unknown as PrismaClient &
+    Prisma.TransactionClient;
+  return { client, findMany, create };
 }
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
   return {
-    id: "00000000-0000-0000-0000-000000000000",
+    id: "00000000-0000-4000-8000-000000000000",
     userId: "user-1",
     kind: "poem",
     title: "A poem",
     author: "Poet",
     year: null,
-    excerpt: "…",
-    lineCount: 4,
-    wordCount: 20,
+    body: "Line one\nLine two",
     artist: null,
     album: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -91,5 +91,90 @@ describe("EntryController.list", () => {
     await new EntryController(base.client).list("user-1");
 
     expect(base.findMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EntryController.create", () => {
+  it("writes the raw fields scoped to userId, deriving nothing", async () => {
+    const { client, create } = mockDb();
+    await new EntryController(client).create({
+      userId: "user-1",
+      kind: "poem",
+      title: "A poem",
+      author: "Poet",
+      body: "First line\nSecond line\n\nThird line",
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        kind: "poem",
+        title: "A poem",
+        author: "Poet",
+        userId: "user-1",
+        body: "First line\nSecond line\n\nThird line",
+        year: null,
+      },
+    });
+  });
+
+  it("keeps a supplied year and includes lyrics-only fields for lyrics", async () => {
+    const { client, create } = mockDb();
+    await new EntryController(client).create({
+      userId: "user-1",
+      kind: "lyrics",
+      title: "A song",
+      author: "Songwriter",
+      year: 2020,
+      artist: "Band",
+      album: "Album",
+      body: "Verse one",
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        kind: "lyrics",
+        title: "A song",
+        author: "Songwriter",
+        artist: "Band",
+        album: "Album",
+        userId: "user-1",
+        body: "Verse one",
+        year: 2020,
+      },
+    });
+  });
+
+  it("defaults an omitted author to '' and leaves the lyrics fields unset", async () => {
+    const { client, create } = mockDb();
+    await new EntryController(client).create({
+      userId: "user-1",
+      kind: "lyrics",
+      title: "A song",
+      body: "one",
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        userId: "user-1",
+        kind: "lyrics",
+        title: "A song",
+        body: "one",
+        author: "",
+        year: null,
+      },
+    });
+  });
+
+  it("runs on the transaction client when one is passed", async () => {
+    const base = mockDb();
+    const tx = mockDb();
+
+    await new EntryController(base.client).create(
+      { userId: "user-1", kind: "poem", title: "T", author: "A", body: "one" },
+      tx.client,
+    );
+
+    expect(tx.create).toHaveBeenCalledTimes(1);
+    expect(base.create).not.toHaveBeenCalled();
   });
 });

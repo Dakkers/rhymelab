@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Flex, Text, TextInput, ToggleGroup } from "@saintly-software/baritone";
 import type { EntryKind } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
+import { client, orpc } from "#/lib/orpc";
 
 export const Route = createFileRoute("/_authenticated/entries/new/")({
   component: NewEntryPage,
@@ -42,14 +44,17 @@ const DEFAULTS: NewEntryForm = {
 };
 
 /**
- * Stubbed create call — stands in for the not-yet-built `entries.create`
- * procedure. Drops the UI-only `step`, coerces `year`, and narrows the
- * lyrics-only fields off `kind` so the shape matches the contract's union.
+ * Build the create payload and send it over oRPC. Drops the UI-only `step`,
+ * coerces `year`, and narrows the lyrics-only fields off `kind` so the shape
+ * matches the contract's `EntryCreateInput` union. The optional text fields
+ * (author, artist, album) go out as `undefined` when blank rather than "", so
+ * they're stored absent. The server derives excerpt / line count / word count
+ * from `body`, so none of those are sent.
  */
-async function createEntryStub({ step: _step, ...values }: NewEntryForm) {
+function createEntry({ step: _step, ...values }: NewEntryForm) {
   const base = {
     title: values.title.trim(),
-    author: values.author.trim(),
+    author: values.author.trim() || undefined,
     body: values.body,
     year: values.year.trim() ? Number(values.year) : undefined,
   };
@@ -58,22 +63,23 @@ async function createEntryStub({ step: _step, ...values }: NewEntryForm) {
       ? {
           ...base,
           kind: "lyrics" as const,
-          artist: values.artist.trim(),
-          album: values.album.trim(),
+          artist: values.artist.trim() || undefined,
+          album: values.album.trim() || undefined,
         }
       : { ...base, kind: "poem" as const };
-  // TODO: replace with `client.entries.create(payload)` once the procedure lands.
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  console.info("[stub] entries.create", payload);
+  return client.entries.create(payload);
 }
 
 function NewEntryPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const form = useForm({
     defaultValues: DEFAULTS,
     onSubmit: async ({ value }) => {
-      await createEntryStub(value);
+      await createEntry(value);
+      // Invalidate the cached entries list so the Library refetches with the new piece.
+      await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
       await navigate({ to: "/library" });
     },
   });

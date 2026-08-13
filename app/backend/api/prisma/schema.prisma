@@ -29,9 +29,10 @@ model Entry {
   author String
   year   Int?
 
-  excerpt   String
-  lineCount Int    @map("line_count")
-  wordCount Int    @map("word_count")
+  // The full text as saved. The list view's excerpt / line count / word count
+  // are derived from this on read (see the entries handler), not stored — so
+  // they can never drift from the body they summarize.
+  body String
 
   // Lyrics-only fields; null for poems.
   artist String?

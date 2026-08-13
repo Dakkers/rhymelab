@@ -3,6 +3,7 @@
  * their queries here, so the Prisma calls live in one place and can be reused
  * (and unit-tested) independently of the transport.
  */
+import type { EntryCreateInput } from "@rhymelab/api-contract";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 
@@ -33,6 +34,33 @@ export class EntryController {
     return db.entry.findMany({
       where: { ...where, userId },
       orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  /**
+   * Save a new entry. `data` is the submitted piece plus its owning `userId`.
+   * Only the raw fields are stored — the list view's excerpt / line count /
+   * word count are derived from `body` on read (see the entries handler), so
+   * there's nothing to compute here.
+   *
+   * @param data The row to write — see `EntryCreateInputSchema`, plus `userId`.
+   * @param tx   Optional transaction client to run the write on.
+   */
+  create(
+    data: EntryCreateInput & { userId: string },
+    tx?: Prisma.TransactionClient,
+  ): Promise<Entry> {
+    const db = tx ?? this.db;
+    const { year, author, ...rest } = data;
+    return db.entry.create({
+      data: {
+        ...rest,
+        // `author` is optional on input but a non-null column; `artist` / `album`
+        // are left in `rest` and flow through as `undefined` -> NULL for poems and
+        // for lyrics that omit them.
+        author: author ?? "",
+        year: year ?? null,
+      },
     });
   }
 }

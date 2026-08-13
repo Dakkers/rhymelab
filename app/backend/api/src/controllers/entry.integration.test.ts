@@ -1,15 +1,18 @@
 import { fakeEntries } from "@rhymelab/fixtures";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { freshUser, prisma } from "../test-support/integration-db";
 import { EntryController } from "./entry";
 
 /**
- * DB-backed integration tests for `EntryController.list`. Unlike the sibling
+ * DB-backed integration tests for `EntryController`. Unlike the sibling
  * `entry.test.ts` (which mocks the client and asserts the *query* built), these
  * run the real Prisma queries against the real local Postgres and assert on rows
- * actually written and read back: userId scoping, `updatedAt`-desc ordering, the
- * AND-ed `where`, userId staying authoritative, and the `tx` path.
+ * actually written and read back — for `list`: userId scoping, `updatedAt`-desc
+ * ordering, the AND-ed `where`, userId staying authoritative, and the `tx` path;
+ * for `create`: what's persisted, the DB-assigned id/timestamps, column
+ * defaults, and rollback when the transaction it's handed aborts.
  *
  * The env/DB ping/cleanup/disconnect hooks live in the shared `setupFiles`
  * handler (`../test-support/integration-setup`). Run with `pnpm test:integration`
@@ -43,9 +46,7 @@ function entryData(
     title: sampleEntry.title,
     author: sampleEntry.author,
     year: sampleEntry.year,
-    excerpt: sampleEntry.excerpt,
-    lineCount: sampleEntry.lineCount,
-    wordCount: sampleEntry.wordCount,
+    body: sampleEntry.excerpt,
     ...overrides,
   };
 }
@@ -136,5 +137,117 @@ describe("EntryController.list (DB-backed)", () => {
     const result = await controller.list(mine);
 
     expect(result).toEqual([]);
+  });
+});
+
+/** The id the DB's `@default(uuid())` assigns must be what the contract demands. */
+const uuidV4 = z.uuidv4();
+
+describe("EntryController.create (DB-backed)", () => {
+  it("persists a poem, letting the DB assign id and timestamps", async () => {
+    const user = freshUser();
+
+    const created = await controller.create({
+      userId: user,
+      kind: "poem",
+      title: "A poem",
+      author: "Poet",
+      body: "Roses are red\nViolets are blue",
+    });
+
+    expect(uuidV4.safeParse(created.id).success).toBe(true);
+    expect(created.createdAt).toBeInstanceOf(Date);
+    expect(created.updatedAt).toBeInstanceOf(Date);
+    // Omitted `year` and the poem's absent lyrics-only fields land as NULL.
+    expect(created).toMatchObject({
+      userId: user,
+      kind: "poem",
+      title: "A poem",
+      author: "Poet",
+      body: "Roses are red\nViolets are blue",
+      year: null,
+      artist: null,
+      album: null,
+    });
+
+    // It's really in the table, not just echoed back from the call.
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
+    expect(stored.body).toBe("Roses are red\nViolets are blue");
+  });
+
+  it("persists a supplied year and the lyrics-only fields", async () => {
+    const user = freshUser();
+
+    const created = await controller.create({
+      userId: user,
+      kind: "lyrics",
+      title: "A song",
+      author: "Songwriter",
+      year: 2020,
+      artist: "Band",
+      album: "Album",
+      body: "la la la",
+    });
+
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
+    expect(stored).toMatchObject({
+      kind: "lyrics",
+      year: 2020,
+      artist: "Band",
+      album: "Album",
+    });
+  });
+
+  it("stores an omitted author as '' and omitted lyrics fields as NULL", async () => {
+    const user = freshUser();
+
+    const created = await controller.create({
+      userId: user,
+      kind: "lyrics",
+      title: "Untitled",
+      body: "hums only",
+    });
+
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
+    expect(stored).toMatchObject({ author: "", artist: null, album: null });
+  });
+
+  it("scopes the saved row to its user — a later list finds exactly it", async () => {
+    const mine = freshUser();
+    const other = freshUser();
+    await controller.create({
+      userId: other,
+      kind: "poem",
+      title: "theirs",
+      author: "A",
+      body: "not mine",
+    });
+
+    const created = await controller.create({
+      userId: mine,
+      kind: "poem",
+      title: "mine",
+      author: "A",
+      body: "one",
+    });
+
+    expect(ids(await controller.list(mine))).toEqual([created.id]);
+  });
+
+  it("runs the write on the passed transaction client — a rollback persists nothing", async () => {
+    const user = freshUser();
+
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await controller.create(
+          { userId: user, kind: "poem", title: "doomed", author: "A", body: "one" },
+          tx,
+        );
+        throw new Error("abort");
+      }),
+    ).rejects.toThrow("abort");
+
+    // Had the write ignored `tx` and used the base client, this row would survive.
+    expect(await controller.list(user)).toEqual([]);
   });
 });

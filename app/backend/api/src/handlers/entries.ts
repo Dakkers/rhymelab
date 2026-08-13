@@ -1,12 +1,12 @@
 /**
- * Entries procedures. Protected (`authed.*`): only a signed-in session may list a
- * user's saved pieces.
+ * Entries procedures. Protected (`authed.*`): only a signed-in session may list or
+ * save a user's saved pieces.
  *
- * `list` reads from `EntryController` and maps each Prisma row onto the
+ * Both read from / write to `EntryController` and map Prisma rows onto the
  * contract's `EntrySummary` shape — a discriminated union on `kind`, so the
  * lyrics-only fields (`artist` / `album`) only get attached on that arm.
  */
-import type { EntrySummary } from "@rhymelab/api-contract";
+import { deriveEntrySummaryFields, type EntrySummary } from "@rhymelab/api-contract";
 import type { Entry } from "../_generated/prisma/client";
 import { entryController } from "../controllers/entry";
 import { authed } from "../orpc";
@@ -19,9 +19,7 @@ function toEntrySummary(entry: Entry): EntrySummary {
     title: entry.title,
     author: entry.author,
     year: entry.year ?? undefined,
-    excerpt: entry.excerpt,
-    lineCount: entry.lineCount,
-    wordCount: entry.wordCount,
+    ...deriveEntrySummaryFields(entry.body),
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
   };
@@ -35,4 +33,9 @@ function toEntrySummary(entry: Entry): EntrySummary {
 export const list = authed.entries.list.handler(async () => {
   const entries = await entryController.list(SINGLE_USER_ID);
   return entries.map(toEntrySummary);
+});
+
+export const create = authed.entries.create.handler(async ({ input }) => {
+  const entry = await entryController.create({ ...input, userId: SINGLE_USER_ID });
+  return toEntrySummary(entry);
 });
