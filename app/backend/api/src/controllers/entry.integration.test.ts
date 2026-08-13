@@ -1,5 +1,6 @@
 import { fakeEntries } from "@rhymelab/fixtures";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { freshUser, prisma } from "../test-support/integration-db";
 import { EntryController } from "./entry";
@@ -139,8 +140,8 @@ describe("EntryController.list (DB-backed)", () => {
   });
 });
 
-/** RFC-4122 v4, lowercase — what `@default(uuid())` assigns and the contract's `z.uuidv4()` demands. */
-const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+/** The id the DB's `@default(uuid())` assigns must be what the contract demands. */
+const uuidV4 = z.uuidv4();
 
 describe("EntryController.create (DB-backed)", () => {
   it("persists a poem, letting the DB assign id and timestamps", async () => {
@@ -154,7 +155,7 @@ describe("EntryController.create (DB-backed)", () => {
       body: "Roses are red\nViolets are blue",
     });
 
-    expect(created.id).toMatch(UUID_V4);
+    expect(uuidV4.safeParse(created.id).success).toBe(true);
     expect(created.createdAt).toBeInstanceOf(Date);
     expect(created.updatedAt).toBeInstanceOf(Date);
     // Omitted `year` and the poem's absent lyrics-only fields land as NULL.
@@ -195,6 +196,20 @@ describe("EntryController.create (DB-backed)", () => {
       artist: "Band",
       album: "Album",
     });
+  });
+
+  it("stores an omitted author as '' and omitted lyrics fields as NULL", async () => {
+    const user = freshUser();
+
+    const created = await controller.create({
+      userId: user,
+      kind: "lyrics",
+      title: "Untitled",
+      body: "hums only",
+    });
+
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
+    expect(stored).toMatchObject({ author: "", artist: null, album: null });
   });
 
   it("scopes the saved row to its user — a later list finds exactly it", async () => {

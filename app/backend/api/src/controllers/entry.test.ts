@@ -144,6 +144,27 @@ describe("EntryController.create", () => {
     });
   });
 
+  it("defaults an omitted author to '' and leaves the lyrics fields unset", async () => {
+    const { client, create } = mockDb();
+    await new EntryController(client).create({
+      userId: "user-1",
+      kind: "lyrics",
+      title: "A song",
+      body: "one",
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        userId: "user-1",
+        kind: "lyrics",
+        title: "A song",
+        body: "one",
+        author: "",
+        year: null,
+      },
+    });
+  });
+
   it("runs on the transaction client when one is passed", async () => {
     const base = mockDb();
     const tx = mockDb();

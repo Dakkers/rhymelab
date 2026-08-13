@@ -72,10 +72,12 @@ const router = {
     ),
     create: os.entries.create.handler(({ input }) => {
       const now = new Date().toISOString();
+      // The optional input fields collapse to "" on the wire shape, matching how
+      // the real API stores/returns them (author non-null; artist/album `?? ""`).
       const base = {
         id: crypto.randomUUID(),
         title: input.title,
-        author: input.author,
+        author: input.author ?? "",
         year: input.year,
         ...summarize(input.body),
         createdAt: now,
@@ -83,7 +85,12 @@ const router = {
       };
       const entry =
         input.kind === "lyrics"
-          ? { ...base, kind: "lyrics" as const, artist: input.artist, album: input.album }
+          ? {
+              ...base,
+              kind: "lyrics" as const,
+              artist: input.artist ?? "",
+              album: input.album ?? "",
+            }
           : { ...base, kind: "poem" as const };
       store.entries = [entry, ...store.entries];
       return entry;

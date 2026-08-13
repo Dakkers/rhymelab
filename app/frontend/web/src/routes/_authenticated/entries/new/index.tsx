@@ -45,13 +45,15 @@ const DEFAULTS: NewEntryForm = {
 /**
  * Build the create payload and send it over oRPC. Drops the UI-only `step`,
  * coerces `year`, and narrows the lyrics-only fields off `kind` so the shape
- * matches the contract's `EntryCreateInput` union. The server derives excerpt /
- * line count / word count from `body`, so none of those are sent.
+ * matches the contract's `EntryCreateInput` union. The optional text fields
+ * (author, artist, album) go out as `undefined` when blank rather than "", so
+ * they're stored absent. The server derives excerpt / line count / word count
+ * from `body`, so none of those are sent.
  */
 function createEntry({ step: _step, ...values }: NewEntryForm) {
   const base = {
     title: values.title.trim(),
-    author: values.author.trim(),
+    author: values.author.trim() || undefined,
     body: values.body,
     year: values.year.trim() ? Number(values.year) : undefined,
   };
@@ -60,8 +62,8 @@ function createEntry({ step: _step, ...values }: NewEntryForm) {
       ? {
           ...base,
           kind: "lyrics" as const,
-          artist: values.artist.trim(),
-          album: values.album.trim(),
+          artist: values.artist.trim() || undefined,
+          album: values.album.trim() || undefined,
         }
       : { ...base, kind: "poem" as const };
   return client.entries.create(payload);

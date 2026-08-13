@@ -59,7 +59,7 @@ export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
  */
 const EntryCreateBaseSchema = z.object({
   title: z.string().trim().min(1),
-  author: z.string().trim(),
+  author: z.string().trim().optional(),
   year: z.number().int().positive().optional(),
   /** The full saved text; `excerpt`, `lineCount`, and `wordCount` are derived from this. */
   body: z.string().trim().min(1),
@@ -69,8 +69,8 @@ const PoemCreateSchema = EntryCreateBaseSchema.extend({ kind: z.literal("poem") 
 
 const LyricsCreateSchema = EntryCreateBaseSchema.extend({
   kind: z.literal("lyrics"),
-  artist: z.string().trim().min(1),
-  album: z.string().trim().min(1),
+  artist: z.string().trim().optional(),
+  album: z.string().trim().optional(),
 });
 
 export const EntryCreateInputSchema = z.discriminatedUnion("kind", [

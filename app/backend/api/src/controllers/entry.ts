@@ -51,10 +51,14 @@ export class EntryController {
     tx?: Prisma.TransactionClient,
   ): Promise<Entry> {
     const db = tx ?? this.db;
-    const { year, ...rest } = data;
+    const { year, author, ...rest } = data;
     return db.entry.create({
       data: {
         ...rest,
+        // `author` is optional on input but a non-null column; `artist` / `album`
+        // are left in `rest` and flow through as `undefined` -> NULL for poems and
+        // for lyrics that omit them.
+        author: author ?? "",
         year: year ?? null,
       },
     });
