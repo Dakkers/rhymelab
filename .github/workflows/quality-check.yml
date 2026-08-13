@@ -65,3 +65,55 @@ jobs:
 
       - name: Unit tests
         run: pnpm test:unit
+
+  # DB-backed integration tests (api). Runs against a throwaway Postgres service
+  # container, migrated fresh each run. Separate from unit-tests so the fast,
+  # DB-free feedback isn't gated behind spinning up a database.
+  integration-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rhymelab
+          POSTGRES_PASSWORD: rhymelab
+          POSTGRES_DB: rhymelab
+        ports:
+          - 5432:5432
+        # Hold the job until Postgres accepts connections.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Points at the service above. Set in the process env so it wins over the
+      # committed .env default (dotenv doesn't override an existing variable),
+      # for both `prisma migrate deploy` and the tests.
+      DATABASE_URL: postgresql://rhymelab:rhymelab@localhost:5432/rhymelab
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @rhymelab/api db:generate
+
+      # `migrate deploy` applies the committed migrations only (no shadow DB, no
+      # prompts) — the right command for CI, unlike the `migrate dev` used locally.
+      - name: Apply migrations
+        run: pnpm --filter @rhymelab/api exec prisma migrate deploy
+
+      - name: Integration tests
+        run: pnpm test:integration
