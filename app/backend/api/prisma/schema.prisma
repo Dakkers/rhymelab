@@ -1,9 +1,9 @@
 // RhymeLab's data model.
 //
-// The product tables (entries / sections / annotations) were removed while the
-// UX — and with it the data model — is redesigned from the ground up. Only the
-// Prisma/Postgres plumbing is kept: add the new models here, then run
-// `pnpm db:migrate` to regenerate the client and the migration.
+// The product surface is being rebuilt after the UX redesign. `Entry` is the
+// first model back: a user's saved piece — the row the Library list renders.
+// Add further models here, then run `pnpm db:migrate` to regenerate the client
+// and the migration.
 
 generator client {
   provider            = "prisma-client"
@@ -14,4 +14,33 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+/// A saved piece — a poem or a song's lyrics. Shape follows the api-contract's
+/// `EntrySummarySchema`: `kind` discriminates the two, and `artist`/`album` are
+/// present only for lyrics (hence nullable). `userId` scopes every query — the
+/// app is moving toward multi-user, and entries are always listed per user.
+model Entry {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id")
+
+  kind   String // "poem" | "lyrics"
+  title  String
+  author String
+  year   Int?
+
+  excerpt   String
+  lineCount Int    @map("line_count")
+  wordCount Int    @map("word_count")
+
+  // Lyrics-only fields; null for poems.
+  artist String?
+  album  String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([kind])
+  @@map("entries")
 }
