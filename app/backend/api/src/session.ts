@@ -16,6 +16,14 @@ const DEV_APP_PASSWORD = "password";
 export const COOKIE_NAME = "rhymelab_session";
 export const COOKIE_VALUE = "authed";
 
+/**
+ * Stand-in owner id for every row written while the app is single-user. The
+ * session carries no identity yet (see `Session` in `orpc.ts`), so per-user
+ * queries scope to this constant until real accounts land — at which point
+ * this goes away in favor of an id pulled from the session.
+ */
+export const SINGLE_USER_ID = "single-user";
+
 const THIRTY_DAYS_SECONDS = 60 * 60 * 24 * 30;
 
 /** Secret that signs the session cookie. `@fastify/cookie` is registered with it. */
