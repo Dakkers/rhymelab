@@ -28,7 +28,7 @@ const mockedCreate = vi.mocked(entryController.create);
 /** A Prisma `Entry` row — `body` is the source the summary fields derive from. */
 function makeRow(overrides: Partial<Entry> = {}): Entry {
   return {
-    id: "00000000-0000-0000-0000-000000000000",
+    id: "00000000-0000-4000-8000-000000000000",
     userId: SINGLE_USER_ID,
     kind: "poem",
     title: "A poem",

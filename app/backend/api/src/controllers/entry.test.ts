@@ -19,7 +19,7 @@ function mockDb(rows: Entry[] = [], created: Entry = makeEntry()) {
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
   return {
-    id: "00000000-0000-0000-0000-000000000000",
+    id: "00000000-0000-4000-8000-000000000000",
     userId: "user-1",
     kind: "poem",
     title: "A poem",

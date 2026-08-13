@@ -12,7 +12,7 @@ import { z } from "zod";
 
 /** Fields every saved piece carries, whatever its kind. */
 const EntryBaseSchema = z.object({
-  id: z.uuid(),
+  id: z.uuidv4(),
   title: z.string().trim().min(1),
   /** The writer — a poem's poet, or a song's lyricist. */
   author: z.string().trim(),
