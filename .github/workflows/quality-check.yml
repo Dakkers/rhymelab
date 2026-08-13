@@ -38,3 +38,30 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+  # Node unit tests (core + api). Kept separate from quality-check so a test
+  # failure and a lint/type failure surface independently. Deliberately excludes
+  # the web package (browser-mode vitest, needs Playwright) and the api
+  # DB-backed integration tests (need Postgres) — those want their own jobs.
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The api unit tests import the generated Prisma client, so it must exist
+      # before vitest runs. `prisma generate` needs no database connection.
+      - name: Generate Prisma client
+        run: pnpm --filter @rhymelab/api db:generate
+
+      - name: Unit tests
+        run: pnpm test:unit
