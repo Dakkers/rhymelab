@@ -1,3 +1,4 @@
+import { fakeEntries } from "@rhymelab/fixtures";
 import { describe, expect, it } from "vitest";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { freshUser, prisma } from "../test-support/integration-db";
@@ -21,7 +22,17 @@ import { EntryController } from "./entry";
  */
 const controller = new EntryController(prisma);
 
-/** Minimal valid `Entry` row for a user; override per test. */
+// A realistic, contract-valid sample from the shared fixtures package (the same
+// source the API stub and web mock use), so the seed data tracks the real entry
+// shape instead of hand-written literals.
+const [sampleEntry] = fakeEntries(1);
+
+/**
+ * A DB row for a user, with default column values sourced from the fixtures
+ * package; override per test. Only the kind-agnostic base fields are taken — and
+ * `id`/timestamps are deliberately dropped so the database assigns them: the
+ * suite never resets, so reusing the fixture's seeded `id` would collide.
+ */
 function entryData(
   userId: string,
   overrides: Partial<Prisma.EntryCreateManyInput> = {},
@@ -29,11 +40,12 @@ function entryData(
   return {
     userId,
     kind: "poem",
-    title: "A poem",
-    author: "Poet",
-    excerpt: "…",
-    lineCount: 4,
-    wordCount: 20,
+    title: sampleEntry.title,
+    author: sampleEntry.author,
+    year: sampleEntry.year,
+    excerpt: sampleEntry.excerpt,
+    lineCount: sampleEntry.lineCount,
+    wordCount: sampleEntry.wordCount,
     ...overrides,
   };
 }
