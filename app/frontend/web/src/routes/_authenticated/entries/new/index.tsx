@@ -1,8 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { Button, Card, Flex, Text, TextInput, ToggleGroup } from "@saintly-software/baritone";
 import type { EntryKind } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
+import { client } from "#/lib/orpc";
 
 export const Route = createFileRoute("/_authenticated/entries/new/")({
   component: NewEntryPage,
@@ -42,11 +43,12 @@ const DEFAULTS: NewEntryForm = {
 };
 
 /**
- * Stubbed create call — stands in for the not-yet-built `entries.create`
- * procedure. Drops the UI-only `step`, coerces `year`, and narrows the
- * lyrics-only fields off `kind` so the shape matches the contract's union.
+ * Build the create payload and send it over oRPC. Drops the UI-only `step`,
+ * coerces `year`, and narrows the lyrics-only fields off `kind` so the shape
+ * matches the contract's `EntryCreateInput` union. The server derives excerpt /
+ * line count / word count from `body`, so none of those are sent.
  */
-async function createEntryStub({ step: _step, ...values }: NewEntryForm) {
+function createEntry({ step: _step, ...values }: NewEntryForm) {
   const base = {
     title: values.title.trim(),
     author: values.author.trim(),
@@ -62,18 +64,19 @@ async function createEntryStub({ step: _step, ...values }: NewEntryForm) {
           album: values.album.trim(),
         }
       : { ...base, kind: "poem" as const };
-  // TODO: replace with `client.entries.create(payload)` once the procedure lands.
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  console.info("[stub] entries.create", payload);
+  return client.entries.create(payload);
 }
 
 function NewEntryPage() {
   const navigate = useNavigate();
+  const router = useRouter();
 
   const form = useForm({
     defaultValues: DEFAULTS,
     onSubmit: async ({ value }) => {
-      await createEntryStub(value);
+      await createEntry(value);
+      // The Library loader caches `entries.list`; drop it so the new piece shows.
+      await router.invalidate();
       await navigate({ to: "/library" });
     },
   });

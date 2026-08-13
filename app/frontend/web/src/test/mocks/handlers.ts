@@ -7,8 +7,8 @@
  * the request to that handler, so serialisation and routing match production
  * exactly.
  *
- * `auth.me` and `entries.list` are mocked. Add procedures here as the new
- * surface — and the tests that exercise it — take shape.
+ * `auth.me`, `entries.list`, and `entries.create` are mocked. Add procedures
+ * here as the new surface — and the tests that exercise it — take shape.
  */
 import { implement } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
@@ -43,6 +43,25 @@ export function resetStore(): void {
 
 const os = implement(contract);
 
+/**
+ * Derive the list-view fields from `body`, the same way the real API handler
+ * does, so a created entry reads back the way the server would return it.
+ */
+function summarize(body: string) {
+  const lines = body.split("\n");
+  const excerpt =
+    lines
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(" / ") || body.trim();
+  return {
+    excerpt,
+    lineCount: lines.length,
+    wordCount: body.split(/\s+/).filter(Boolean).length,
+  };
+}
+
 const router = {
   auth: {
     me: os.auth.me.handler(() => ({ authed: store.authed })),
@@ -51,6 +70,24 @@ const router = {
     list: os.entries.list.handler(() =>
       [...store.entries].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
     ),
+    create: os.entries.create.handler(({ input }) => {
+      const now = new Date().toISOString();
+      const base = {
+        id: crypto.randomUUID(),
+        title: input.title,
+        author: input.author,
+        year: input.year,
+        ...summarize(input.body),
+        createdAt: now,
+        updatedAt: now,
+      };
+      const entry =
+        input.kind === "lyrics"
+          ? { ...base, kind: "lyrics" as const, artist: input.artist, album: input.album }
+          : { ...base, kind: "poem" as const };
+      store.entries = [entry, ...store.entries];
+      return entry;
+    }),
   },
 };
 
