@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Badge, Card, CardList, Flex, Text } from "@saintly-software/baritone";
+import { Badge, Card, CardList, Flex, Link, Text } from "@saintly-software/baritone";
 import type { EntrySummary } from "@rhymelab/api-contract";
 import { Page } from "../../../components/Page";
 import { client } from "../../../lib/orpc";
@@ -24,6 +24,11 @@ function LibraryPage() {
     <Page
       title="Library"
       subtitle={entries.length > 0 ? pluralize(entries.length, "saved piece") : undefined}
+      actions={
+        <Link appearance="button" href="/entries/new">
+          New entry
+        </Link>
+      }
     >
       {entries.length === 0 ? (
         <Text saliency="low">
