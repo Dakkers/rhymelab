@@ -20,6 +20,7 @@
     "db:generate": "pnpm --filter @rhymelab/api db:generate",
     "db:migrate": "pnpm --filter @rhymelab/api db:migrate",
     "db:studio": "pnpm --filter @rhymelab/api db:studio",
+    "test:unit": "pnpm --filter @rhymelab/core --filter @rhymelab/api test",
     "typecheck": "pnpm -r typecheck",
     "fmt": "pnpm -r fmt",
     "fmt:check": "pnpm -r fmt:check",
