@@ -16,6 +16,13 @@ const DEV_APP_PASSWORD = "password";
 export const COOKIE_NAME = "rhymelab_session";
 export const COOKIE_VALUE = "authed";
 
+/**
+ * The one shared identity behind the single-password session above. `Entry` rows
+ * are already scoped by `userId` in anticipation of real accounts; until then,
+ * every signed-in request writes/reads under this sentinel.
+ */
+export const ALPHA_USER_ID = "alpha-user";
+
 const THIRTY_DAYS_SECONDS = 60 * 60 * 24 * 30;
 
 /** Secret that signs the session cookie. `@fastify/cookie` is registered with it. */

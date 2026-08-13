@@ -29,6 +29,9 @@ model Entry {
   author String
   year   Int?
 
+  // Full text as saved; excerpt/lineCount/wordCount are derived from this at
+  // create time and cached so the list view doesn't need to re-derive them.
+  body      String
   excerpt   String
   lineCount Int    @map("line_count")
   wordCount Int    @map("word_count")

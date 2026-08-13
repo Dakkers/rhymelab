@@ -7,12 +7,14 @@ import { EntryController } from "./entry";
  * the controller *builds* is what's under test, so the client is mocked and no
  * database is touched. `findMany` resolves `rows` and records its arguments.
  */
-function mockDb(rows: Entry[] = []) {
+function mockDb(rows: Entry[] = [], created: Entry = makeEntry()) {
   const findMany = vi.fn().mockResolvedValue(rows);
-  // Cast through `unknown`: the mock implements only the surface `list` uses,
-  // not the whole PrismaClient / TransactionClient.
-  const client = { entry: { findMany } } as unknown as PrismaClient & Prisma.TransactionClient;
-  return { client, findMany };
+  const create = vi.fn().mockResolvedValue(created);
+  // Cast through `unknown`: the mock implements only the surface `list`/`create`
+  // use, not the whole PrismaClient / TransactionClient.
+  const client = { entry: { findMany, create } } as unknown as PrismaClient &
+    Prisma.TransactionClient;
+  return { client, findMany, create };
 }
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
@@ -23,6 +25,7 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
     title: "A poem",
     author: "Poet",
     year: null,
+    body: "Line one\nLine two",
     excerpt: "…",
     lineCount: 4,
     wordCount: 20,
@@ -91,5 +94,88 @@ describe("EntryController.list", () => {
     await new EntryController(base.client).list("user-1");
 
     expect(base.findMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EntryController.create", () => {
+  it("derives excerpt/lineCount/wordCount from body and scopes to userId", async () => {
+    const { client, create } = mockDb();
+    await new EntryController(client).create("user-1", {
+      kind: "poem",
+      title: "A poem",
+      author: "Poet",
+      body: "First line\nSecond line\n\nThird line",
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        kind: "poem",
+        title: "A poem",
+        author: "Poet",
+        userId: "user-1",
+        body: "First line\nSecond line\n\nThird line",
+        year: null,
+        excerpt: "First line / Second line",
+        lineCount: 4,
+        wordCount: 6,
+      },
+    });
+  });
+
+  it("keeps a supplied year and includes lyrics-only fields for lyrics", async () => {
+    const { client, create } = mockDb();
+    await new EntryController(client).create("user-1", {
+      kind: "lyrics",
+      title: "A song",
+      author: "Songwriter",
+      year: 2020,
+      artist: "Band",
+      album: "Album",
+      body: "Verse one",
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        kind: "lyrics",
+        title: "A song",
+        author: "Songwriter",
+        artist: "Band",
+        album: "Album",
+        userId: "user-1",
+        body: "Verse one",
+        year: 2020,
+        excerpt: "Verse one",
+        lineCount: 1,
+        wordCount: 2,
+      },
+    });
+  });
+
+  it("falls back to the raw body as excerpt when every line is blank", async () => {
+    const { client, create } = mockDb();
+    await new EntryController(client).create("user-1", {
+      kind: "poem",
+      title: "Whitespace",
+      author: "Poet",
+      body: "   ",
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ excerpt: "" }) }),
+    );
+  });
+
+  it("runs on the transaction client when one is passed", async () => {
+    const base = mockDb();
+    const tx = mockDb();
+
+    await new EntryController(base.client).create(
+      "user-1",
+      { kind: "poem", title: "T", author: "A", body: "one" },
+      tx.client,
+    );
+
+    expect(tx.create).toHaveBeenCalledTimes(1);
+    expect(base.create).not.toHaveBeenCalled();
   });
 });

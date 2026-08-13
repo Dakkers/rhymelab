@@ -3,8 +3,28 @@
  * their queries here, so the Prisma calls live in one place and can be reused
  * (and unit-tested) independently of the transport.
  */
+import type { EntryCreateInput } from "@rhymelab/api-contract";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
+
+/**
+ * Derive the list-view fields from the saved `body`. A line is anything between
+ * newlines, including blank ones — `lineCount` reflects the text as written, not
+ * just its non-empty lines. `excerpt` previews the opening non-blank lines.
+ */
+function deriveFromBody(body: string) {
+  const lines = body.split("\n");
+  const preview = lines
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" / ");
+  return {
+    excerpt: preview || body.trim(),
+    lineCount: lines.length,
+    wordCount: body.split(/\s+/).filter(Boolean).length,
+  };
+}
 
 export class EntryController {
   /**
@@ -33,6 +53,28 @@ export class EntryController {
     return db.entry.findMany({
       where: { ...where, userId },
       orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  /**
+   * Save a new entry for `userId`. `excerpt`, `lineCount`, and `wordCount` are
+   * derived from `data.body` here rather than trusted from the client.
+   *
+   * @param userId Owner the entry is saved under.
+   * @param data   The submitted piece — see `EntryCreateInputSchema`.
+   * @param tx     Optional transaction client to run the write on.
+   */
+  create(userId: string, data: EntryCreateInput, tx?: Prisma.TransactionClient): Promise<Entry> {
+    const db = tx ?? this.db;
+    const { body, year, ...rest } = data;
+    return db.entry.create({
+      data: {
+        ...rest,
+        userId,
+        body,
+        year: year ?? null,
+        ...deriveFromBody(body),
+      },
     });
   }
 }

@@ -51,3 +51,33 @@ export type EntryKind = EntrySummary["kind"];
 
 /** List the current user's saved entries. The handler returns them newest-first. */
 export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
+
+/**
+ * Fields a client submits to save a new piece — distinct from `EntrySummarySchema`:
+ * it carries the full `body` text (the source of truth) rather than the derived
+ * `excerpt`/`lineCount`/`wordCount`, and has no `id`/timestamps yet.
+ */
+const EntryCreateBaseSchema = z.object({
+  title: z.string().trim().min(1),
+  author: z.string().trim(),
+  year: z.number().int().positive().optional(),
+  /** The full saved text; `excerpt`, `lineCount`, and `wordCount` are derived from this. */
+  body: z.string().trim().min(1),
+});
+
+const PoemCreateSchema = EntryCreateBaseSchema.extend({ kind: z.literal("poem") });
+
+const LyricsCreateSchema = EntryCreateBaseSchema.extend({
+  kind: z.literal("lyrics"),
+  artist: z.string().trim().min(1),
+  album: z.string().trim().min(1),
+});
+
+export const EntryCreateInputSchema = z.discriminatedUnion("kind", [
+  PoemCreateSchema,
+  LyricsCreateSchema,
+]);
+export type EntryCreateInput = z.infer<typeof EntryCreateInputSchema>;
+
+/** Save a new piece. Returns the saved entry's summary, as `list` would render it. */
+export const create = oc.input(EntryCreateInputSchema).output(EntrySummarySchema);

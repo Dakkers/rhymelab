@@ -6,9 +6,9 @@
  */
 import { os } from "./orpc";
 import { login, logout, me } from "./handlers/auth";
-import { list as entriesList } from "./handlers/entries";
+import { create as entriesCreate, list as entriesList } from "./handlers/entries";
 
 export const router = os.router({
   auth: { login, logout, me },
-  entries: { list: entriesList },
+  entries: { list: entriesList, create: entriesCreate },
 });
