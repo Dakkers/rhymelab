@@ -1,63 +1,62 @@
 /**
  * Library route — renders the signed-in user's saved entries.
  *
- * The route's loader reads the stubbed `listEntries()` directly (no HTTP), so
- * this mounts the real route via `renderRoute` and asserts the stub rows land as
- * a list of cards. Swap these expectations for MSW-backed ones when the entries
- * procedure joins the contract.
+ * The loader calls `client.entries.list()` over oRPC, answered here by the MSW
+ * mock. The mock's rows are generated (`@rhymelab/fixtures`) rather than
+ * hand-written, so the assertions read expectations off `store.entries` instead
+ * of hard-coding titles — the test verifies the rendering, not specific fixtures.
  */
 import { expect, test } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { renderRoute } from "#/test/render-route";
+import { store } from "#/test/mocks/handlers";
 import { Route } from "./index";
 
-test("lists the user's saved entries as titled cards", async () => {
+/** The order the Library should render: newest-edited first. */
+const newestFirst = [...store.entries].sort(
+  (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+);
+
+test("renders every saved entry as a card, newest-edited first", async () => {
   renderRoute(Route, { path: "/library", initialEntries: ["/library"] });
 
-  // The page title.
   expect(await screen.findByRole("heading", { level: 1, name: "Library" })).toBeInTheDocument();
 
-  // Every stub piece shows up in the named list, one card each.
   const list = screen.getByRole("list", { name: "Saved pieces" });
-  const items = within(list).getAllByRole("listitem");
-  expect(items).toHaveLength(5);
+  expect(within(list).getAllByRole("listitem")).toHaveLength(store.entries.length);
 
-  // A lyrics row carries its title, kind, byline (artist · album · year), and
-  // stats (lines / words / writer).
-  const card = within(list).getByText("Midnight Static").closest("li")!;
-  expect(within(card).getByText("Lyrics")).toBeInTheDocument();
-  expect(within(card).getByText(/Neon Liturgy/)).toBeInTheDocument();
-  expect(within(card).getByText(/2023/)).toBeInTheDocument();
-  expect(within(card).getByText("42 lines")).toBeInTheDocument();
-  expect(within(card).getByText("287 words")).toBeInTheDocument();
-  expect(within(card).getByText("Words by Nora Vance")).toBeInTheDocument();
-});
-
-test("a poem row omits the lyrics-only byline fields", async () => {
-  renderRoute(Route, { path: "/library", initialEntries: ["/library"] });
-
-  const list = await screen.findByRole("list", { name: "Saved pieces" });
-  const card = within(list).getByText("Paper Boats").closest("li")!;
-
-  expect(within(card).getByText("Poem")).toBeInTheDocument();
-  // Byline is author · year — no album, and the writer isn't repeated in the stats.
-  expect(within(card).getByText(/Elena Marsh · 2019/)).toBeInTheDocument();
-  expect(within(card).queryByText(/Words by/)).not.toBeInTheDocument();
-});
-
-test("orders entries newest-edited first", async () => {
-  renderRoute(Route, { path: "/library", initialEntries: ["/library"] });
-
-  const list = await screen.findByRole("list", { name: "Saved pieces" });
   const headings = within(list)
     .getAllByRole("heading")
     .map((h) => h.textContent);
+  expect(headings).toEqual(newestFirst.map((entry) => entry.title));
+});
 
-  expect(headings).toEqual([
-    "Midnight Static",
-    "Paper Boats",
-    "Concrete Orchard",
-    "Low Tide Letters",
-    "Borrowed Weather",
-  ]);
+test("each card shows its kind, byline, and stats", async () => {
+  // The generated fixtures cover both arms, so both rendering paths get exercised.
+  expect(store.entries.some((entry) => entry.kind === "lyrics")).toBe(true);
+  expect(store.entries.some((entry) => entry.kind === "poem")).toBe(true);
+
+  renderRoute(Route, { path: "/library", initialEntries: ["/library"] });
+  const list = await screen.findByRole("list", { name: "Saved pieces" });
+
+  for (const entry of store.entries) {
+    const card = within(list).getByRole("heading", { name: entry.title }).closest("li")!;
+    const text = card.textContent ?? "";
+
+    expect(within(card).getByText(entry.kind === "lyrics" ? "Lyrics" : "Poem")).toBeInTheDocument();
+    if (entry.year !== undefined) expect(text).toContain(String(entry.year));
+    expect(text).toContain(String(entry.lineCount));
+    expect(text).toContain(String(entry.wordCount));
+
+    if (entry.kind === "lyrics") {
+      // Byline is artist · album · year; the writer is surfaced in the stats.
+      expect(text).toContain(entry.artist);
+      expect(text).toContain(entry.album);
+      expect(within(card).getByText(`Words by ${entry.author}`)).toBeInTheDocument();
+    } else {
+      // Byline is author · year; no album, and the writer isn't repeated.
+      expect(text).toContain(entry.author);
+      expect(within(card).queryByText(/Words by/)).not.toBeInTheDocument();
+    }
+  }
 });

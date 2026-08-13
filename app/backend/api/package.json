@@ -23,6 +23,7 @@
     "@prisma/adapter-pg": "7.8.0",
     "@prisma/client": "7.8.0",
     "@rhymelab/api-contract": "workspace:*",
+    "@rhymelab/fixtures": "workspace:*",
     "fastify": "^5.6.0",
     "zod": "4.4.3"
   },
