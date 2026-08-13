@@ -8,9 +8,10 @@ import { defineConfig } from "vitest/config";
 //
 //   - `unit`        — the mocked, database-free tests. It explicitly *excludes*
 //                     `*.integration.test.ts`, so `pnpm test` never needs Postgres.
-//   - `integration` — the DB-backed tests that hit the real local Postgres. They
-//                     load env and connect themselves (see the test file), so no
-//                     globalSetup is needed here.
+//   - `integration` — the DB-backed tests that hit the real local Postgres. Env
+//                     loading, the DB ping, and cleanup/disconnect live in the
+//                     shared `setupFiles` handler, so the test files hold
+//                     assertions only.
 //
 // `pnpm test` filters to `--project unit`; `pnpm test:integration` filters to
 // `--project integration`. Running `vitest` with no filter runs both (and thus
@@ -31,8 +32,11 @@ export default defineConfig({
         test: {
           name: "integration",
           include: ["src/**/*.integration.test.ts"],
-          // These talk to a real database; keep them serial and give the
-          // connect/ping room to breathe on a cold Postgres.
+          // Global before/after hooks (env, DB ping, cleanup, disconnect) shared
+          // by every integration test file.
+          setupFiles: ["src/test-support/integration-setup.ts"],
+          // These talk to a real database; give the connect/ping room to breathe
+          // on a cold Postgres.
           testTimeout: 20_000,
           hookTimeout: 20_000,
         },
