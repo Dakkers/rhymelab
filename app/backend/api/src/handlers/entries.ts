@@ -12,6 +12,25 @@ import { entryController } from "../controllers/entry";
 import { authed } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
+/**
+ * Derive the list-view fields from the saved `body`. A line is anything between
+ * newlines, blank ones included, so `lineCount` reflects the text as written;
+ * `excerpt` previews the opening non-blank lines.
+ */
+function deriveFromBody(body: string) {
+  const lines = body.split("\n");
+  const preview = lines
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" / ");
+  return {
+    excerpt: preview || body.trim(),
+    lineCount: lines.length,
+    wordCount: body.split(/\s+/).filter(Boolean).length,
+  };
+}
+
 /** Map a Prisma `Entry` row onto the wire shape the contract promises. */
 function toEntrySummary(entry: Entry): EntrySummary {
   const base = {
@@ -19,9 +38,7 @@ function toEntrySummary(entry: Entry): EntrySummary {
     title: entry.title,
     author: entry.author,
     year: entry.year ?? undefined,
-    excerpt: entry.excerpt,
-    lineCount: entry.lineCount,
-    wordCount: entry.wordCount,
+    ...deriveFromBody(entry.body),
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
   };

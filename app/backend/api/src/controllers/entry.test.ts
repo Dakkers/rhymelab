@@ -26,9 +26,6 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
     author: "Poet",
     year: null,
     body: "Line one\nLine two",
-    excerpt: "…",
-    lineCount: 4,
-    wordCount: 20,
     artist: null,
     album: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -98,7 +95,7 @@ describe("EntryController.list", () => {
 });
 
 describe("EntryController.create", () => {
-  it("derives excerpt/lineCount/wordCount from body and scopes to userId", async () => {
+  it("writes the raw fields scoped to userId, deriving nothing", async () => {
     const { client, create } = mockDb();
     await new EntryController(client).create("user-1", {
       kind: "poem",
@@ -115,9 +112,6 @@ describe("EntryController.create", () => {
         userId: "user-1",
         body: "First line\nSecond line\n\nThird line",
         year: null,
-        excerpt: "First line / Second line",
-        lineCount: 4,
-        wordCount: 6,
       },
     });
   });
@@ -144,25 +138,8 @@ describe("EntryController.create", () => {
         userId: "user-1",
         body: "Verse one",
         year: 2020,
-        excerpt: "Verse one",
-        lineCount: 1,
-        wordCount: 2,
       },
     });
-  });
-
-  it("falls back to the raw body as excerpt when every line is blank", async () => {
-    const { client, create } = mockDb();
-    await new EntryController(client).create("user-1", {
-      kind: "poem",
-      title: "Whitespace",
-      author: "Poet",
-      body: "   ",
-    });
-
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ excerpt: "" }) }),
-    );
   });
 
   it("runs on the transaction client when one is passed", async () => {

@@ -44,9 +44,6 @@ function entryData(
     author: sampleEntry.author,
     year: sampleEntry.year,
     body: sampleEntry.excerpt,
-    excerpt: sampleEntry.excerpt,
-    lineCount: sampleEntry.lineCount,
-    wordCount: sampleEntry.wordCount,
     ...overrides,
   };
 }
