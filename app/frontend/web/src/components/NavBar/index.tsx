@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link as RouterLink } from "@tanstack/react-router";
-import { Text, type TextProps } from "@saintly-software/baritone";
+import { Menu, Text, type TextProps } from "@saintly-software/baritone";
 
 /**
  * The black app bar. The brand sits left; the nav sits right. Rendered once by the
@@ -23,6 +23,25 @@ export function NavBar() {
       </RouterLink>
 
       <nav className="rl-nav">
+        {/* modal=false so hovering the trigger doesn't lock the rest of the page —
+            that's meant for click-opened menus, not a hover-convenience one. */}
+        <Menu
+          modal={false}
+          trigger={
+            <Menu.Trigger
+              openOnHover
+              render={
+                <button type="button">
+                  <NavLabel>Account</NavLabel>
+                </button>
+              }
+            />
+          }
+          items={[
+            { children: "Settings", render: <RouterLink to="/account/settings" /> },
+            { children: "Profile", render: <RouterLink to="/account/profile" /> },
+          ]}
+        />
         {/* preload=false so a hover-preload of the logout route doesn't sign out. */}
         <RouterLink to="/auth/logout" preload={false}>
           <NavLabel>Log out</NavLabel>

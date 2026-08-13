@@ -2,24 +2,19 @@
  * Entries procedures. Protected (`authed.*`): only a signed-in session may list or
  * save a user's saved pieces.
  *
- * `list` still serves a generated stub (`@rhymelab/fixtures`, shared with the web
- * MSW mock) over the real oRPC transport, pending a real session/user id to scope
- * it by. `create` is the first procedure backed by the real `Entry` model.
+ * Both read from / write to `EntryController` and map Prisma rows onto the
+ * contract's `EntrySummary` shape — a discriminated union on `kind`, so the
+ * lyrics-only fields (`artist` / `album`) only get attached on that arm.
  */
-import { fakeEntries } from "@rhymelab/fixtures";
+import type { EntrySummary } from "@rhymelab/api-contract";
 import type { Entry } from "../_generated/prisma/client";
 import { entryController } from "../controllers/entry";
 import { authed } from "../orpc";
-import { ALPHA_USER_ID } from "../session";
+import { SINGLE_USER_ID } from "../session";
 
-// Generated once at load so the list is stable across requests.
-const STUB_ENTRIES = fakeEntries(6);
-
-export const list = authed.entries.list.handler(async () => STUB_ENTRIES);
-
-/** Map a DB row onto the wire shape `EntrySummarySchema` expects. */
-function toSummary(entry: Entry) {
-  const shared = {
+/** Map a Prisma `Entry` row onto the wire shape the contract promises. */
+function toEntrySummary(entry: Entry): EntrySummary {
+  const base = {
     id: entry.id,
     title: entry.title,
     author: entry.author,
@@ -30,12 +25,19 @@ function toSummary(entry: Entry) {
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
   };
+
   return entry.kind === "lyrics"
-    ? { ...shared, kind: "lyrics" as const, artist: entry.artist ?? "", album: entry.album ?? "" }
-    : { ...shared, kind: "poem" as const };
+    ? { ...base, kind: "lyrics", artist: entry.artist ?? "", album: entry.album ?? "" }
+    : { ...base, kind: "poem" };
 }
 
+// No accounts yet — every entry is scoped to the single alpha user.
+export const list = authed.entries.list.handler(async () => {
+  const entries = await entryController.list(SINGLE_USER_ID);
+  return entries.map(toEntrySummary);
+});
+
 export const create = authed.entries.create.handler(async ({ input }) => {
-  const entry = await entryController.create(ALPHA_USER_ID, input);
-  return toSummary(entry);
+  const entry = await entryController.create(SINGLE_USER_ID, input);
+  return toEntrySummary(entry);
 });

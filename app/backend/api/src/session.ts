@@ -17,11 +17,12 @@ export const COOKIE_NAME = "rhymelab_session";
 export const COOKIE_VALUE = "authed";
 
 /**
- * The one shared identity behind the single-password session above. `Entry` rows
- * are already scoped by `userId` in anticipation of real accounts; until then,
- * every signed-in request writes/reads under this sentinel.
+ * Stand-in owner id for every row written while the app is single-user. The
+ * session carries no identity yet (see `Session` in `orpc.ts`), so per-user
+ * queries scope to this constant until real accounts land — at which point
+ * this goes away in favor of an id pulled from the session.
  */
-export const ALPHA_USER_ID = "alpha-user";
+export const SINGLE_USER_ID = "single-user";
 
 const THIRTY_DAYS_SECONDS = 60 * 60 * 24 * 30;
 
