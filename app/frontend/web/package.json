@@ -35,6 +35,7 @@
     "@rhymelab/api-contract": "workspace:*",
     "@rhymelab/core": "workspace:*",
     "@saintly-software/baritone": "1.0.0-alpha.4",
+    "@tanstack/react-form": "1.33.5",
     "@tanstack/react-query": "5.101.2",
     "@tanstack/react-router": "1.170.18",
     "@tanstack/react-router-ssr-query": "1.167.1",
