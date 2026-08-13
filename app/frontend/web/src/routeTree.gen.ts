@@ -15,6 +15,8 @@ import { Route as AuthenticatedHomeIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedLibraryIndexRouteImport } from './routes/_authenticated/library/index'
 import { Route as AuthLoginIndexRouteImport } from './routes/auth/login/index'
 import { Route as AuthLogoutIndexRouteImport } from './routes/auth/logout/index'
+import { Route as AuthenticatedAccountProfileIndexRouteImport } from './routes/_authenticated/account/profile/index'
+import { Route as AuthenticatedAccountSettingsIndexRouteImport } from './routes/_authenticated/account/settings/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +48,18 @@ const AuthLogoutIndexRoute = AuthLogoutIndexRouteImport.update({
   path: '/auth/logout/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAccountProfileIndexRoute =
+  AuthenticatedAccountProfileIndexRouteImport.update({
+    id: '/account/profile/',
+    path: '/account/profile/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAccountSettingsIndexRoute =
+  AuthenticatedAccountSettingsIndexRouteImport.update({
+    id: '/account/settings/',
+    path: '/account/settings/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +67,8 @@ export interface FileRoutesByFullPath {
   '/library/': typeof AuthenticatedLibraryIndexRoute
   '/auth/login/': typeof AuthLoginIndexRoute
   '/auth/logout/': typeof AuthLogoutIndexRoute
+  '/account/profile/': typeof AuthenticatedAccountProfileIndexRoute
+  '/account/settings/': typeof AuthenticatedAccountSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -60,6 +76,8 @@ export interface FileRoutesByTo {
   '/library': typeof AuthenticatedLibraryIndexRoute
   '/auth/login': typeof AuthLoginIndexRoute
   '/auth/logout': typeof AuthLogoutIndexRoute
+  '/account/profile': typeof AuthenticatedAccountProfileIndexRoute
+  '/account/settings': typeof AuthenticatedAccountSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,12 +87,28 @@ export interface FileRoutesById {
   '/_authenticated/library/': typeof AuthenticatedLibraryIndexRoute
   '/auth/login/': typeof AuthLoginIndexRoute
   '/auth/logout/': typeof AuthLogoutIndexRoute
+  '/_authenticated/account/profile/': typeof AuthenticatedAccountProfileIndexRoute
+  '/_authenticated/account/settings/': typeof AuthenticatedAccountSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/home/' | '/library/' | '/auth/login/' | '/auth/logout/'
+  fullPaths:
+    | '/'
+    | '/home/'
+    | '/library/'
+    | '/auth/login/'
+    | '/auth/logout/'
+    | '/account/profile/'
+    | '/account/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/home' | '/library' | '/auth/login' | '/auth/logout'
+  to:
+    | '/'
+    | '/home'
+    | '/library'
+    | '/auth/login'
+    | '/auth/logout'
+    | '/account/profile'
+    | '/account/settings'
   id:
     | '__root__'
     | '/'
@@ -83,6 +117,8 @@ export interface FileRouteTypes {
     | '/_authenticated/library/'
     | '/auth/login/'
     | '/auth/logout/'
+    | '/_authenticated/account/profile/'
+    | '/_authenticated/account/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -136,17 +172,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLogoutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/account/profile/': {
+      id: '/_authenticated/account/profile/'
+      path: '/account/profile'
+      fullPath: '/account/profile/'
+      preLoaderRoute: typeof AuthenticatedAccountProfileIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/account/settings/': {
+      id: '/_authenticated/account/settings/'
+      path: '/account/settings'
+      fullPath: '/account/settings/'
+      preLoaderRoute: typeof AuthenticatedAccountSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedHomeIndexRoute: typeof AuthenticatedHomeIndexRoute
   AuthenticatedLibraryIndexRoute: typeof AuthenticatedLibraryIndexRoute
+  AuthenticatedAccountProfileIndexRoute: typeof AuthenticatedAccountProfileIndexRoute
+  AuthenticatedAccountSettingsIndexRoute: typeof AuthenticatedAccountSettingsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHomeIndexRoute: AuthenticatedHomeIndexRoute,
   AuthenticatedLibraryIndexRoute: AuthenticatedLibraryIndexRoute,
+  AuthenticatedAccountProfileIndexRoute: AuthenticatedAccountProfileIndexRoute,
+  AuthenticatedAccountSettingsIndexRoute:
+    AuthenticatedAccountSettingsIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
