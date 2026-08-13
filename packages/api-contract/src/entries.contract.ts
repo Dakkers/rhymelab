@@ -49,6 +49,32 @@ export const EntrySummarySchema = z.discriminatedUnion("kind", [
 export type EntrySummary = z.infer<typeof EntrySummarySchema>;
 export type EntryKind = EntrySummary["kind"];
 
+/**
+ * Derive the list-view fields (`excerpt`, `lineCount`, `wordCount`) from an
+ * entry's `body`. Kept beside the schema they populate and shared by the API
+ * handler (which derives them on read) and the web MSW mock (which mirrors it),
+ * so the two can't drift. A line is anything between newlines, blank ones
+ * included; `excerpt` previews the opening non-blank lines.
+ */
+export function deriveEntrySummaryFields(body: string): {
+  excerpt: string;
+  lineCount: number;
+  wordCount: number;
+} {
+  const lines = body.split("\n");
+  const excerpt =
+    lines
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(" / ") || body.trim();
+  return {
+    excerpt,
+    lineCount: lines.length,
+    wordCount: body.split(/\s+/).filter(Boolean).length,
+  };
+}
+
 /** List the current user's saved entries. The handler returns them newest-first. */
 export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
 

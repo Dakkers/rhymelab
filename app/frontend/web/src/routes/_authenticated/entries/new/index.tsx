@@ -1,9 +1,10 @@
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Flex, Text, TextInput, ToggleGroup } from "@saintly-software/baritone";
 import type { EntryKind } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
-import { client } from "#/lib/orpc";
+import { client, orpc } from "#/lib/orpc";
 
 export const Route = createFileRoute("/_authenticated/entries/new/")({
   component: NewEntryPage,
@@ -71,14 +72,14 @@ function createEntry({ step: _step, ...values }: NewEntryForm) {
 
 function NewEntryPage() {
   const navigate = useNavigate();
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const form = useForm({
     defaultValues: DEFAULTS,
     onSubmit: async ({ value }) => {
       await createEntry(value);
-      // The Library loader caches `entries.list`; drop it so the new piece shows.
-      await router.invalidate();
+      // Invalidate the cached entries list so the Library refetches with the new piece.
+      await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
       await navigate({ to: "/library" });
     },
   });

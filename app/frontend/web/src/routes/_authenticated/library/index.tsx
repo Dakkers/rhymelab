@@ -1,24 +1,27 @@
 import { Fragment, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Badge, Card, CardList, Flex, Link, Text } from "@saintly-software/baritone";
 import type { EntrySummary } from "@rhymelab/api-contract";
 import { Page } from "../../../components/Page";
-import { client } from "../../../lib/orpc";
+import { orpc } from "../../../lib/orpc";
 import { pluralize, since } from "../../../lib/format";
 import { useMounted } from "../../../lib/hooks";
 
 /**
  * The Library is the signed-in default landing page: the list of lyrics and
- * poems the user has saved. The loader pulls them over oRPC (`entries.list`);
- * the handler returns them newest-edited first.
+ * poems the user has saved (over oRPC's `entries.list`, newest-edited first).
+ * Reads go through the TanStack Query cache: the loader primes it so the list is
+ * ready on first paint, and the component subscribes so an invalidation
+ * elsewhere (e.g. after creating an entry) refetches it here.
  */
 export const Route = createFileRoute("/_authenticated/library/")({
-  loader: () => client.entries.list(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(orpc.entries.list.queryOptions()),
   component: LibraryPage,
 });
 
 function LibraryPage() {
-  const entries = Route.useLoaderData();
+  const { data: entries } = useSuspenseQuery(orpc.entries.list.queryOptions());
 
   return (
     <Page

@@ -13,7 +13,7 @@
 import { implement } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { http, passthrough } from "msw";
-import { contract } from "@rhymelab/api-contract";
+import { contract, deriveEntrySummaryFields } from "@rhymelab/api-contract";
 import { fakeEntries } from "@rhymelab/fixtures";
 
 /** Base URL the oRPC client targets (see `src/lib/orpc.ts`). */
@@ -43,25 +43,6 @@ export function resetStore(): void {
 
 const os = implement(contract);
 
-/**
- * Derive the list-view fields from `body`, the same way the real API handler
- * does, so a created entry reads back the way the server would return it.
- */
-function summarize(body: string) {
-  const lines = body.split("\n");
-  const excerpt =
-    lines
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, 2)
-      .join(" / ") || body.trim();
-  return {
-    excerpt,
-    lineCount: lines.length,
-    wordCount: body.split(/\s+/).filter(Boolean).length,
-  };
-}
-
 const router = {
   auth: {
     me: os.auth.me.handler(() => ({ authed: store.authed })),
@@ -79,7 +60,7 @@ const router = {
         title: input.title,
         author: input.author ?? "",
         year: input.year,
-        ...summarize(input.body),
+        ...deriveEntrySummaryFields(input.body),
         createdAt: now,
         updatedAt: now,
       };
