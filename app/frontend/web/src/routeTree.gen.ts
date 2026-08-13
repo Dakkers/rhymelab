@@ -15,6 +15,8 @@ import { Route as AuthenticatedHomeIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedLibraryIndexRouteImport } from './routes/_authenticated/library/index'
 import { Route as AuthLoginIndexRouteImport } from './routes/auth/login/index'
 import { Route as AuthLogoutIndexRouteImport } from './routes/auth/logout/index'
+import { Route as AuthenticatedAccountProfileIndexRouteImport } from './routes/_authenticated/account/profile/index'
+import { Route as AuthenticatedAccountSettingsIndexRouteImport } from './routes/_authenticated/account/settings/index'
 import { Route as AuthenticatedEntriesNewIndexRouteImport } from './routes/_authenticated/entries/new/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +49,18 @@ const AuthLogoutIndexRoute = AuthLogoutIndexRouteImport.update({
   path: '/auth/logout/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAccountProfileIndexRoute =
+  AuthenticatedAccountProfileIndexRouteImport.update({
+    id: '/account/profile/',
+    path: '/account/profile/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAccountSettingsIndexRoute =
+  AuthenticatedAccountSettingsIndexRouteImport.update({
+    id: '/account/settings/',
+    path: '/account/settings/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEntriesNewIndexRoute =
   AuthenticatedEntriesNewIndexRouteImport.update({
     id: '/entries/new/',
@@ -60,6 +74,8 @@ export interface FileRoutesByFullPath {
   '/library/': typeof AuthenticatedLibraryIndexRoute
   '/auth/login/': typeof AuthLoginIndexRoute
   '/auth/logout/': typeof AuthLogoutIndexRoute
+  '/account/profile/': typeof AuthenticatedAccountProfileIndexRoute
+  '/account/settings/': typeof AuthenticatedAccountSettingsIndexRoute
   '/entries/new/': typeof AuthenticatedEntriesNewIndexRoute
 }
 export interface FileRoutesByTo {
@@ -68,6 +84,8 @@ export interface FileRoutesByTo {
   '/library': typeof AuthenticatedLibraryIndexRoute
   '/auth/login': typeof AuthLoginIndexRoute
   '/auth/logout': typeof AuthLogoutIndexRoute
+  '/account/profile': typeof AuthenticatedAccountProfileIndexRoute
+  '/account/settings': typeof AuthenticatedAccountSettingsIndexRoute
   '/entries/new': typeof AuthenticatedEntriesNewIndexRoute
 }
 export interface FileRoutesById {
@@ -78,6 +96,8 @@ export interface FileRoutesById {
   '/_authenticated/library/': typeof AuthenticatedLibraryIndexRoute
   '/auth/login/': typeof AuthLoginIndexRoute
   '/auth/logout/': typeof AuthLogoutIndexRoute
+  '/_authenticated/account/profile/': typeof AuthenticatedAccountProfileIndexRoute
+  '/_authenticated/account/settings/': typeof AuthenticatedAccountSettingsIndexRoute
   '/_authenticated/entries/new/': typeof AuthenticatedEntriesNewIndexRoute
 }
 export interface FileRouteTypes {
@@ -88,10 +108,19 @@ export interface FileRouteTypes {
     | '/library/'
     | '/auth/login/'
     | '/auth/logout/'
+    | '/account/profile/'
+    | '/account/settings/'
     | '/entries/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/home' | '/library' | '/auth/login' | '/auth/logout' | '/entries/new'
+    | '/'
+    | '/home'
+    | '/library'
+    | '/auth/login'
+    | '/auth/logout'
+    | '/account/profile'
+    | '/account/settings'
+    | '/entries/new'
   id:
     | '__root__'
     | '/'
@@ -100,6 +129,8 @@ export interface FileRouteTypes {
     | '/_authenticated/library/'
     | '/auth/login/'
     | '/auth/logout/'
+    | '/_authenticated/account/profile/'
+    | '/_authenticated/account/settings/'
     | '/_authenticated/entries/new/'
   fileRoutesById: FileRoutesById
 }
@@ -154,6 +185,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLogoutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/account/profile/': {
+      id: '/_authenticated/account/profile/'
+      path: '/account/profile'
+      fullPath: '/account/profile/'
+      preLoaderRoute: typeof AuthenticatedAccountProfileIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/account/settings/': {
+      id: '/_authenticated/account/settings/'
+      path: '/account/settings'
+      fullPath: '/account/settings/'
+      preLoaderRoute: typeof AuthenticatedAccountSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/entries/new/': {
       id: '/_authenticated/entries/new/'
       path: '/entries/new'
@@ -167,12 +212,17 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedHomeIndexRoute: typeof AuthenticatedHomeIndexRoute
   AuthenticatedLibraryIndexRoute: typeof AuthenticatedLibraryIndexRoute
+  AuthenticatedAccountProfileIndexRoute: typeof AuthenticatedAccountProfileIndexRoute
+  AuthenticatedAccountSettingsIndexRoute: typeof AuthenticatedAccountSettingsIndexRoute
   AuthenticatedEntriesNewIndexRoute: typeof AuthenticatedEntriesNewIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHomeIndexRoute: AuthenticatedHomeIndexRoute,
   AuthenticatedLibraryIndexRoute: AuthenticatedLibraryIndexRoute,
+  AuthenticatedAccountProfileIndexRoute: AuthenticatedAccountProfileIndexRoute,
+  AuthenticatedAccountSettingsIndexRoute:
+    AuthenticatedAccountSettingsIndexRoute,
   AuthenticatedEntriesNewIndexRoute: AuthenticatedEntriesNewIndexRoute,
 }
 
