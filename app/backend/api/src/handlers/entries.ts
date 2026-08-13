@@ -2,17 +2,37 @@
  * Entries procedures. Protected (`authed.*`): only a signed-in session may list a
  * user's saved pieces.
  *
- * The product tables (entries / sections / annotations) were stripped while the
- * data model is redesigned, so there's no `Entry` model to query yet. `list`
- * serves a generated stub (`@rhymelab/fixtures`, shared with the web MSW mock)
- * over the real oRPC transport — the wire shape and the contract are final, so
- * swapping in `prisma.entry.findMany(...)` here is the only change left once the
- * model lands.
+ * `list` reads from `EntryController` and maps each Prisma row onto the
+ * contract's `EntrySummary` shape — a discriminated union on `kind`, so the
+ * lyrics-only fields (`artist` / `album`) only get attached on that arm.
  */
-import { fakeEntries } from "@rhymelab/fixtures";
+import type { EntrySummary } from "@rhymelab/api-contract";
+import type { Entry } from "../_generated/prisma/client";
+import { entryController } from "../controllers/entry";
 import { authed } from "../orpc";
+import { SINGLE_USER_ID } from "../session";
 
-// Generated once at load so the list is stable across requests.
-const STUB_ENTRIES = fakeEntries(6);
+/** Map a Prisma `Entry` row onto the wire shape the contract promises. */
+function toEntrySummary(entry: Entry): EntrySummary {
+  const base = {
+    id: entry.id,
+    title: entry.title,
+    author: entry.author,
+    year: entry.year ?? undefined,
+    excerpt: entry.excerpt,
+    lineCount: entry.lineCount,
+    wordCount: entry.wordCount,
+    createdAt: entry.createdAt.toISOString(),
+    updatedAt: entry.updatedAt.toISOString(),
+  };
 
-export const list = authed.entries.list.handler(async () => STUB_ENTRIES);
+  return entry.kind === "lyrics"
+    ? { ...base, kind: "lyrics", artist: entry.artist ?? "", album: entry.album ?? "" }
+    : { ...base, kind: "poem" };
+}
+
+// No accounts yet — every entry is scoped to the single alpha user.
+export const list = authed.entries.list.handler(async () => {
+  const entries = await entryController.list(SINGLE_USER_ID);
+  return entries.map(toEntrySummary);
+});
