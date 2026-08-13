@@ -55,6 +55,6 @@ export const list = authed.entries.list.handler(async () => {
 });
 
 export const create = authed.entries.create.handler(async ({ input }) => {
-  const entry = await entryController.create(SINGLE_USER_ID, input);
+  const entry = await entryController.create({ ...input, userId: SINGLE_USER_ID });
   return toEntrySummary(entry);
 });

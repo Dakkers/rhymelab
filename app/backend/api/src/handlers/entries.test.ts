@@ -104,7 +104,7 @@ describe("entries.create", () => {
 
     await callCreate(input);
 
-    expect(mockedCreate).toHaveBeenCalledExactlyOnceWith(SINGLE_USER_ID, input);
+    expect(mockedCreate).toHaveBeenCalledExactlyOnceWith({ ...input, userId: SINGLE_USER_ID });
   });
 
   it("maps the saved row onto EntrySummary, deriving from body", async () => {

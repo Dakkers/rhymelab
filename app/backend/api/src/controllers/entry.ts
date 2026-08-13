@@ -38,21 +38,23 @@ export class EntryController {
   }
 
   /**
-   * Save a new entry for `userId`. Only the raw fields are stored — the list
-   * view's excerpt / line count / word count are derived from `body` on read
-   * (see the entries handler), so there's nothing to compute here.
+   * Save a new entry. `data` is the submitted piece plus its owning `userId`.
+   * Only the raw fields are stored — the list view's excerpt / line count /
+   * word count are derived from `body` on read (see the entries handler), so
+   * there's nothing to compute here.
    *
-   * @param userId Owner the entry is saved under.
-   * @param data   The submitted piece — see `EntryCreateInputSchema`.
-   * @param tx     Optional transaction client to run the write on.
+   * @param data The row to write — see `EntryCreateInputSchema`, plus `userId`.
+   * @param tx   Optional transaction client to run the write on.
    */
-  create(userId: string, data: EntryCreateInput, tx?: Prisma.TransactionClient): Promise<Entry> {
+  create(
+    data: EntryCreateInput & { userId: string },
+    tx?: Prisma.TransactionClient,
+  ): Promise<Entry> {
     const db = tx ?? this.db;
     const { year, ...rest } = data;
     return db.entry.create({
       data: {
         ...rest,
-        userId,
         year: year ?? null,
       },
     });

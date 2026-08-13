@@ -97,7 +97,8 @@ describe("EntryController.list", () => {
 describe("EntryController.create", () => {
   it("writes the raw fields scoped to userId, deriving nothing", async () => {
     const { client, create } = mockDb();
-    await new EntryController(client).create("user-1", {
+    await new EntryController(client).create({
+      userId: "user-1",
       kind: "poem",
       title: "A poem",
       author: "Poet",
@@ -118,7 +119,8 @@ describe("EntryController.create", () => {
 
   it("keeps a supplied year and includes lyrics-only fields for lyrics", async () => {
     const { client, create } = mockDb();
-    await new EntryController(client).create("user-1", {
+    await new EntryController(client).create({
+      userId: "user-1",
       kind: "lyrics",
       title: "A song",
       author: "Songwriter",
@@ -147,8 +149,7 @@ describe("EntryController.create", () => {
     const tx = mockDb();
 
     await new EntryController(base.client).create(
-      "user-1",
-      { kind: "poem", title: "T", author: "A", body: "one" },
+      { userId: "user-1", kind: "poem", title: "T", author: "A", body: "one" },
       tx.client,
     );
 
