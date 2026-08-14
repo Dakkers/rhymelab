@@ -27,6 +27,13 @@ export type EntryForLibrary = Pick<
   | "updatedAt"
 >;
 
+/**
+ * A row as `getDetails` returns it — `EntryForLibrary` plus `userId`, since
+ * `getDetails` doesn't scope its query by owner: the caller reads `userId`
+ * back to establish ownership itself.
+ */
+export type EntryDetails = EntryForLibrary & Pick<Entry, "userId">;
+
 export class EntryController {
   /**
    * @param db The base Prisma client. Defaults to the shared singleton; inject a
@@ -60,6 +67,34 @@ export class EntryController {
         album: true,
         createdAt: true,
         updatedAt: true,
+      },
+    });
+  }
+
+  /**
+   * Fetch a single entry by id, unscoped by owner — the caller is responsible
+   * for checking the returned row's `userId` (or otherwise establishing the
+   * accessor has permission to it) before handing it back over the wire.
+   *
+   * @param id  The entry's id.
+   * @param tx  Optional transaction client to run the query on.
+   */
+  async getDetails(id: string, tx?: Prisma.TransactionClient): Promise<EntryDetails | null> {
+    const db = tx ?? this.db;
+    return db.entry.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
       },
     });
   }

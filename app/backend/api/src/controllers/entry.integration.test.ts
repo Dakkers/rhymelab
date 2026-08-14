@@ -94,6 +94,30 @@ describe("EntryController.listForLibrary (DB-backed)", () => {
   });
 });
 
+describe("EntryController.getDetails (DB-backed)", () => {
+  it("returns the entry by id, with userId included for the caller to check ownership", async () => {
+    const user = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(user, { title: "mine" }) });
+
+    const found = await controller.getDetails(entry.id);
+
+    expect(found).toMatchObject({ id: entry.id, title: "mine", userId: user });
+  });
+
+  it("returns another user's entry too — getDetails doesn't scope by owner", async () => {
+    const owner = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(owner, { title: "theirs" }) });
+
+    const found = await controller.getDetails(entry.id);
+
+    expect(found).toMatchObject({ id: entry.id, userId: owner });
+  });
+
+  it("returns null for an id that doesn't exist", async () => {
+    expect(await controller.getDetails("00000000-0000-4000-8000-000000000000")).toBeNull();
+  });
+});
+
 /** The id the DB's `@default(uuid())` assigns must be what the contract demands. */
 const uuidV4 = z.uuidv4();
 

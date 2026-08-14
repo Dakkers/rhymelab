@@ -7,14 +7,15 @@ import { EntryController } from "./entry";
  * the controller *builds* is what's under test, so the client is mocked and no
  * database is touched. `findMany` resolves `rows` and records its arguments.
  */
-function mockDb(rows: Entry[] = [], created: Entry = makeEntry()) {
+function mockDb(rows: Entry[] = [], created: Entry = makeEntry(), found: Entry | null = null) {
   const findMany = vi.fn().mockResolvedValue(rows);
   const create = vi.fn().mockResolvedValue(created);
-  // Cast through `unknown`: the mock implements only the surface `list`/`create`
-  // use, not the whole PrismaClient / TransactionClient.
-  const client = { entry: { findMany, create } } as unknown as PrismaClient &
+  const findUnique = vi.fn().mockResolvedValue(found);
+  // Cast through `unknown`: the mock implements only the surface `list`/`create`/
+  // `getDetails` use, not the whole PrismaClient / TransactionClient.
+  const client = { entry: { findMany, create, findUnique } } as unknown as PrismaClient &
     Prisma.TransactionClient;
-  return { client, findMany, create };
+  return { client, findMany, create, findUnique };
 }
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
@@ -83,6 +84,61 @@ describe("EntryController.listForLibrary", () => {
     await new EntryController(base.client).listForLibrary("user-1");
 
     expect(base.findMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EntryController.getDetails", () => {
+  it("looks up by id alone, unscoped by owner, selecting userId alongside listForLibrary's columns", async () => {
+    const { client, findUnique } = mockDb();
+    await new EntryController(client).getDetails("entry-1");
+
+    expect(findUnique).toHaveBeenCalledTimes(1);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+      },
+    });
+  });
+
+  it("returns whatever the client yields, null included — ownership is left to the caller", async () => {
+    const entry = makeEntry({ id: "entry-1", userId: "some-owner" });
+    const { client } = mockDb([], makeEntry(), entry);
+
+    const found = await new EntryController(client).getDetails("entry-1");
+    expect(found).toBe(entry);
+
+    const { client: emptyClient } = mockDb([], makeEntry(), null);
+    const missing = await new EntryController(emptyClient).getDetails("missing");
+    expect(missing).toBeNull();
+  });
+
+  it("runs on the transaction client when one is passed", async () => {
+    const base = mockDb();
+    const tx = mockDb();
+
+    await new EntryController(base.client).getDetails("entry-1", tx.client);
+
+    expect(tx.findUnique).toHaveBeenCalledTimes(1);
+    expect(base.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("runs on the base client when no transaction is passed", async () => {
+    const base = mockDb();
+
+    await new EntryController(base.client).getDetails("entry-1");
+
+    expect(base.findUnique).toHaveBeenCalledTimes(1);
   });
 });
 
