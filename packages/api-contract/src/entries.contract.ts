@@ -79,6 +79,49 @@ export function deriveEntrySummaryFields(body: string): {
 export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
 
 /**
+ * Fields a single saved piece carries for the detail view — distinct from
+ * `EntryBaseSchema`: it carries the full `body` text rather than the derived
+ * `excerpt`/`lineCount`/`wordCount`, since the detail view renders the whole
+ * piece rather than a preview card.
+ */
+const EntryDetailBaseSchema = z.object({
+  id: z.uuidv4(),
+  title: z.string().trim().min(1),
+  author: z.string().trim(),
+  year: z.number().int().positive().optional(),
+  body: z.string().trim(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+/** A poem's detail shape — carries none of the lyrics-only fields. */
+export const PoemDetailSchema = EntryDetailBaseSchema.extend({
+  kind: z.literal("poem"),
+});
+
+/** A song's lyrics detail shape — adds the performer and the record it's on. */
+export const LyricsDetailSchema = EntryDetailBaseSchema.extend({
+  kind: z.literal("lyrics"),
+  artist: z.string(),
+  album: z.string(),
+});
+
+/** A saved piece's full detail: a poem or a song's lyrics, discriminated by `kind`. */
+export const EntryDetailSchema = z.discriminatedUnion("kind", [
+  PoemDetailSchema,
+  LyricsDetailSchema,
+]);
+
+export type EntryDetail = z.infer<typeof EntryDetailSchema>;
+
+/**
+ * Fetch a single saved piece by id. The handler 404s (`NOT_FOUND`) both when the
+ * id doesn't exist and when it belongs to another user — the two look identical
+ * to the caller, so existence can't be probed for a piece you don't own.
+ */
+export const get = oc.input(z.object({ id: z.uuidv4() })).output(EntryDetailSchema);
+
+/**
  * Fields a client submits to save a new piece — distinct from `EntrySummarySchema`:
  * it carries the full `body` text (the source of truth) rather than the derived
  * `excerpt`/`lineCount`/`wordCount`, and has no `id`/timestamps yet.
