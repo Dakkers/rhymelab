@@ -18,7 +18,6 @@
   "dependencies": {
     "@faker-js/faker": "10.5.0",
     "@rhymelab/api-contract": "workspace:*",
-    "zod": "4.4.3",
-    "zod-schema-faker": "2.1.1"
+    "zod": "4.4.3"
   }
 }

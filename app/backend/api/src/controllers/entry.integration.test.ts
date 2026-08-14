@@ -1,4 +1,4 @@
-import { fakeEntries } from "@rhymelab/fixtures";
+import { fakeEntryRow } from "@rhymelab/fixtures";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { Entry, Prisma } from "../_generated/prisma/client";
@@ -9,7 +9,7 @@ import { EntryController } from "./entry";
  * DB-backed integration tests for `EntryController`. Unlike the sibling
  * `entry.test.ts` (which mocks the client and asserts the *query* built), these
  * run the real Prisma queries against the real local Postgres and assert on rows
- * actually written and read back — for `listForUser`: userId scoping,
+ * actually written and read back — for `listForLibrary`: userId scoping,
  * `updatedAt`-desc ordering, and the `tx` path; for `create`: what's persisted,
  * the DB-assigned id/timestamps, column defaults, and rollback when the
  * transaction it's handed aborts.
@@ -25,10 +25,10 @@ import { EntryController } from "./entry";
  */
 const controller = new EntryController(prisma);
 
-// A realistic, contract-valid sample from the shared fixtures package (the same
-// source the API stub and web mock use), so the seed data tracks the real entry
-// shape instead of hand-written literals.
-const [sampleEntry] = fakeEntries(1);
+// A realistic sample row from the shared fixtures package (the same generator the
+// web mock's entries come from), so the seed data tracks the real stored shape
+// instead of hand-written literals.
+const sampleRow = fakeEntryRow({ kind: "poem" });
 
 /**
  * A DB row for a user, with default column values sourced from the fixtures
@@ -42,18 +42,18 @@ function entryData(
 ): Prisma.EntryCreateManyInput {
   return {
     userId,
-    kind: "poem",
-    title: sampleEntry.title,
-    author: sampleEntry.author,
-    year: sampleEntry.year,
-    body: sampleEntry.excerpt,
+    kind: sampleRow.kind,
+    title: sampleRow.title,
+    author: sampleRow.author,
+    year: sampleRow.year,
+    body: sampleRow.body,
     ...overrides,
   };
 }
 
 const ids = (entries: Entry[]) => entries.map((e) => e.id);
 
-describe("EntryController.listForUser (DB-backed)", () => {
+describe("EntryController.listForLibrary (DB-backed)", () => {
   it("returns only the given user's rows", async () => {
     const mine = freshUser();
     const other = freshUser();
@@ -63,7 +63,7 @@ describe("EntryController.listForUser (DB-backed)", () => {
     ]);
     await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
 
-    const result = await controller.listForUser(mine);
+    const result = await controller.listForLibrary(mine);
 
     expect(new Set(ids(result))).toEqual(new Set([mine1.id, mine2.id]));
     expect(result.every((e) => e.userId === mine)).toBe(true);
@@ -83,7 +83,7 @@ describe("EntryController.listForUser (DB-backed)", () => {
       data: entryData(user, { title: "middle", updatedAt: new Date("2026-02-01T00:00:00.000Z") }),
     });
 
-    const result = await controller.listForUser(user);
+    const result = await controller.listForLibrary(user);
 
     expect(ids(result)).toEqual([newest.id, middle.id, oldest.id]);
   });
@@ -95,7 +95,7 @@ describe("EntryController.listForUser (DB-backed)", () => {
       data: entryData(user, { kind: "lyrics", artist: "Someone", album: "An album" }),
     });
 
-    const result = await controller.listForUser(user);
+    const result = await controller.listForLibrary(user);
 
     expect(new Set(ids(result))).toEqual(new Set([poem.id, lyrics.id]));
   });
@@ -106,7 +106,7 @@ describe("EntryController.listForUser (DB-backed)", () => {
     const own = await prisma.entry.create({ data: entryData(mine, { title: "in-tx" }) });
     await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
 
-    const result = await prisma.$transaction((tx) => controller.listForUser(mine, tx));
+    const result = await prisma.$transaction((tx) => controller.listForLibrary(mine, tx));
 
     expect(ids(result)).toEqual([own.id]);
     expect(result.every((e) => e.userId === mine)).toBe(true);
@@ -118,7 +118,7 @@ describe("EntryController.listForUser (DB-backed)", () => {
     // A row for someone else must not leak into `mine`'s (empty) result.
     await prisma.entry.create({ data: entryData(other) });
 
-    const result = await controller.listForUser(mine);
+    const result = await controller.listForLibrary(mine);
 
     expect(result).toEqual([]);
   });
@@ -215,7 +215,7 @@ describe("EntryController.create (DB-backed)", () => {
       body: "one",
     });
 
-    expect(ids(await controller.listForUser(mine))).toEqual([created.id]);
+    expect(ids(await controller.listForLibrary(mine))).toEqual([created.id]);
   });
 
   it("runs the write on the passed transaction client — a rollback persists nothing", async () => {
@@ -232,6 +232,6 @@ describe("EntryController.create (DB-backed)", () => {
     ).rejects.toThrow("abort");
 
     // Had the write ignored `tx` and used the base client, this row would survive.
-    expect(await controller.listForUser(user)).toEqual([]);
+    expect(await controller.listForLibrary(user)).toEqual([]);
   });
 });

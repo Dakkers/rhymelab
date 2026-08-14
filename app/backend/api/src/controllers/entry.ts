@@ -28,7 +28,7 @@ export class EntryController {
    * @param tx     Optional transaction client to run the query on; defaults to
    *   the base client.
    */
-  listForUser(userId: string, tx?: Prisma.TransactionClient): Promise<Entry[]> {
+  listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<Entry[]> {
     const db = tx ?? this.db;
     return db.entry.findMany({
       where: { userId },

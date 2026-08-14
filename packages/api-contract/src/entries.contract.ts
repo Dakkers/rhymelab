@@ -75,6 +75,54 @@ export function deriveEntrySummaryFields(body: string): {
   };
 }
 
+/**
+ * A saved entry as it's stored: the full `body` plus the nullable columns, before
+ * any of it is dressed for the wire. Declared structurally rather than imported
+ * from the backend's generated Prisma client — a shared package can't depend on
+ * the app — so Prisma's `Entry` is assignable to it and `toEntrySummary` accepts
+ * a real row unchanged.
+ */
+export type EntryRow = {
+  id: string;
+  userId: string;
+  kind: string;
+  title: string;
+  author: string | null;
+  year: number | null;
+  /** The full saved text; the summary's derived fields come from this. */
+  body: string;
+  artist: string | null;
+  album: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/**
+ * Map a stored row onto the wire shape this contract promises: derive the
+ * list-view fields from `body`, collapse the nullable columns onto the contract's
+ * shape (`author` a plain string, `year` absent when unset), and attach the
+ * lyrics-only fields on that arm alone.
+ *
+ * Lives here beside the schema it satisfies, not in the API, because three
+ * callers need the same mapping — the handler, the web MSW mock, and the fixtures
+ * package — and a second copy is a drift waiting to happen.
+ */
+export function toEntrySummary(entry: EntryRow): EntrySummary {
+  const base = {
+    id: entry.id,
+    title: entry.title,
+    author: entry.author ?? "",
+    year: entry.year ?? undefined,
+    ...deriveEntrySummaryFields(entry.body),
+    createdAt: entry.createdAt.toISOString(),
+    updatedAt: entry.updatedAt.toISOString(),
+  };
+
+  return entry.kind === "lyrics"
+    ? { ...base, kind: "lyrics", artist: entry.artist ?? "", album: entry.album ?? "" }
+    : { ...base, kind: "poem" };
+}
+
 /** List the current user's saved entries. The handler returns them newest-first. */
 export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
 

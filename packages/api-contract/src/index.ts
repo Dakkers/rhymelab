@@ -25,5 +25,6 @@ export {
   EntrySummarySchema,
   EntryCreateInputSchema,
   deriveEntrySummaryFields,
+  toEntrySummary,
 } from "./entries.contract";
-export type { EntrySummary, EntryKind, EntryCreateInput } from "./entries.contract";
+export type { EntrySummary, EntryKind, EntryCreateInput, EntryRow } from "./entries.contract";

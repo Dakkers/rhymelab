@@ -1,3 +1,4 @@
+import { fakeEntryRow } from "@rhymelab/fixtures";
 import { describe, expect, it, vi } from "vitest";
 import type { Entry, Prisma, PrismaClient } from "../_generated/prisma/client";
 import { EntryController } from "./entry";
@@ -7,7 +8,7 @@ import { EntryController } from "./entry";
  * the controller *builds* is what's under test, so the client is mocked and no
  * database is touched. `findMany` resolves `rows` and records its arguments.
  */
-function mockDb(rows: Entry[] = [], created: Entry = makeEntry()) {
+function mockDb(rows: Entry[] = [], created: Entry = fakeEntryRow()) {
   const findMany = vi.fn().mockResolvedValue(rows);
   const create = vi.fn().mockResolvedValue(created);
   // Cast through `unknown`: the mock implements only the surface `list`/`create`
@@ -17,27 +18,10 @@ function mockDb(rows: Entry[] = [], created: Entry = makeEntry()) {
   return { client, findMany, create };
 }
 
-function makeEntry(overrides: Partial<Entry> = {}): Entry {
-  return {
-    id: "00000000-0000-4000-8000-000000000000",
-    userId: "user-1",
-    kind: "poem",
-    title: "A poem",
-    author: "Poet",
-    year: null,
-    body: "Line one\nLine two",
-    artist: null,
-    album: null,
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
-    ...overrides,
-  };
-}
-
-describe("EntryController.listForUser", () => {
+describe("EntryController.listForLibrary", () => {
   it("scopes to the given userId, newest-edited first", async () => {
     const { client, findMany } = mockDb();
-    await new EntryController(client).listForUser("user-1");
+    await new EntryController(client).listForLibrary("user-1");
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(findMany).toHaveBeenCalledWith({
@@ -48,7 +32,7 @@ describe("EntryController.listForUser", () => {
 
   it("filters on nothing but the user — the scope can't be widened", async () => {
     const { client, findMany } = mockDb();
-    await new EntryController(client).listForUser("user-1");
+    await new EntryController(client).listForLibrary("user-1");
 
     // The query is fixed, so `where` is exactly the user scope: no caller can
     // slip in a condition that reaches another user's rows.
@@ -57,10 +41,10 @@ describe("EntryController.listForUser", () => {
   });
 
   it("returns whatever the client yields", async () => {
-    const rows = [makeEntry({ id: "a" }), makeEntry({ id: "b" })];
+    const rows = [fakeEntryRow({ id: "a" }), fakeEntryRow({ id: "b" })];
     const { client } = mockDb(rows);
 
-    const result = await new EntryController(client).listForUser("user-1");
+    const result = await new EntryController(client).listForLibrary("user-1");
 
     expect(result).toBe(rows);
   });
@@ -69,7 +53,7 @@ describe("EntryController.listForUser", () => {
     const base = mockDb();
     const tx = mockDb();
 
-    await new EntryController(base.client).listForUser("user-1", tx.client);
+    await new EntryController(base.client).listForLibrary("user-1", tx.client);
 
     expect(tx.findMany).toHaveBeenCalledTimes(1);
     expect(base.findMany).not.toHaveBeenCalled();
@@ -78,7 +62,7 @@ describe("EntryController.listForUser", () => {
   it("runs on the base client when no transaction is passed", async () => {
     const base = mockDb();
 
-    await new EntryController(base.client).listForUser("user-1");
+    await new EntryController(base.client).listForLibrary("user-1");
 
     expect(base.findMany).toHaveBeenCalledTimes(1);
   });

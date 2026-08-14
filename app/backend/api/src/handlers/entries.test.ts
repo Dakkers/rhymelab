@@ -9,6 +9,7 @@
  */
 import { createProcedureClient } from "@orpc/server";
 import type { EntryCreateInput } from "@rhymelab/api-contract";
+import { fakeEntryRow } from "@rhymelab/fixtures";
 import type { FastifyReply } from "fastify";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Entry } from "../_generated/prisma/client";
@@ -16,31 +17,22 @@ import type { ORPCContext } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
 vi.mock("../controllers/entry", () => ({
-  entryController: { listForUser: vi.fn(), create: vi.fn() },
+  entryController: { listForLibrary: vi.fn(), create: vi.fn() },
 }));
 
 const { entryController } = await import("../controllers/entry");
 const { list, create } = await import("./entries");
 
-const mockedList = vi.mocked(entryController.listForUser);
+const mockedList = vi.mocked(entryController.listForLibrary);
 const mockedCreate = vi.mocked(entryController.create);
 
-/** A Prisma `Entry` row — `body` is the source the summary fields derive from. */
+/**
+ * A Prisma `Entry` row from the shared fixtures — `body` is the source the summary
+ * fields derive from, so each test overrides it with text whose derived values it
+ * can state outright.
+ */
 function makeRow(overrides: Partial<Entry> = {}): Entry {
-  return {
-    id: "00000000-0000-4000-8000-000000000000",
-    userId: SINGLE_USER_ID,
-    kind: "poem",
-    title: "A poem",
-    author: "Poet",
-    year: null,
-    body: "First line\nSecond line",
-    artist: null,
-    album: null,
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2026-01-02T00:00:00.000Z"),
-    ...overrides,
-  };
+  return fakeEntryRow({ userId: SINGLE_USER_ID, kind: "poem", ...overrides });
 }
 
 function callList() {
@@ -58,7 +50,7 @@ describe("entries.list", () => {
     mockedList.mockReset();
   });
 
-  it("delegates to EntryController.listForUser, scoped to the single alpha user", async () => {
+  it("delegates to EntryController.listForLibrary, scoped to the single alpha user", async () => {
     mockedList.mockResolvedValue([]);
 
     await callList();

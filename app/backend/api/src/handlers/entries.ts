@@ -3,37 +3,18 @@
  * save a user's saved pieces.
  *
  * Both read from / write to `EntryController` and map Prisma rows onto the
- * contract's `EntrySummary` shape — a discriminated union on `kind`, so the
- * lyrics-only fields (`artist` / `album`) only get attached on that arm.
+ * contract's `EntrySummary` shape with `toEntrySummary` — which lives in the
+ * contract package beside the schema it satisfies, so the web MSW mock and the
+ * shared fixtures derive their rows through the very same mapping.
  */
-import { deriveEntrySummaryFields, type EntrySummary } from "@rhymelab/api-contract";
-import type { Entry } from "../_generated/prisma/client";
+import { toEntrySummary } from "@rhymelab/api-contract";
 import { entryController } from "../controllers/entry";
 import { authed } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
-/** Map a Prisma `Entry` row onto the wire shape the contract promises. */
-function toEntrySummary(entry: Entry): EntrySummary {
-  const base = {
-    id: entry.id,
-    title: entry.title,
-    // Every optional column is nullable; the contract exposes `author` as a
-    // plain string and `year` as absent-when-unset, so map NULL accordingly.
-    author: entry.author ?? "",
-    year: entry.year ?? undefined,
-    ...deriveEntrySummaryFields(entry.body),
-    createdAt: entry.createdAt.toISOString(),
-    updatedAt: entry.updatedAt.toISOString(),
-  };
-
-  return entry.kind === "lyrics"
-    ? { ...base, kind: "lyrics", artist: entry.artist ?? "", album: entry.album ?? "" }
-    : { ...base, kind: "poem" };
-}
-
 // No accounts yet — every entry is scoped to the single alpha user.
 export const list = authed.entries.list.handler(async () => {
-  const entries = await entryController.listForUser(SINGLE_USER_ID);
+  const entries = await entryController.listForLibrary(SINGLE_USER_ID);
   return entries.map(toEntrySummary);
 });
 
