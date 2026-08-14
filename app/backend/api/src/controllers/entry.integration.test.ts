@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { freshUser, prisma } from "../test-support/integration-db";
-import { EntryController } from "./entry";
+import { EntryController, type EntryForLibrary } from "./entry";
 
 /**
  * DB-backed integration tests for `EntryController`. These are deliberately NOT a
@@ -57,9 +57,9 @@ function entryData(
   };
 }
 
-const ids = (entries: Entry[]) => entries.map((e) => e.id);
+const ids = (entries: EntryForLibrary[]) => entries.map((e) => e.id);
 
-describe("EntryController.list (DB-backed)", () => {
+describe("EntryController.listForLibrary (DB-backed)", () => {
   it("isolates the user scope — another user's rows in the table don't leak in", async () => {
     const mine = freshUser();
     const other = freshUser();
@@ -69,10 +69,9 @@ describe("EntryController.list (DB-backed)", () => {
     ]);
     await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
 
-    const result = await controller.list(mine);
+    const result = await controller.listForLibrary(mine);
 
     expect(new Set(ids(result))).toEqual(new Set([mine1.id, mine2.id]));
-    expect(result.every((e) => e.userId === mine)).toBe(true);
   });
 
   it("orders newest-edited first (updatedAt desc), regardless of insert order", async () => {
@@ -89,7 +88,7 @@ describe("EntryController.list (DB-backed)", () => {
       data: entryData(user, { title: "middle", updatedAt: new Date("2026-02-01T00:00:00.000Z") }),
     });
 
-    const result = await controller.list(user);
+    const result = await controller.listForLibrary(user);
 
     expect(ids(result)).toEqual([newest.id, middle.id, oldest.id]);
   });
@@ -181,6 +180,6 @@ describe("EntryController.create (DB-backed)", () => {
     ).rejects.toThrow("abort");
 
     // Had the write ignored `tx` and used the base client, this row would survive.
-    expect(await controller.list(user)).toEqual([]);
+    expect(await controller.listForLibrary(user)).toEqual([]);
   });
 });

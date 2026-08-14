@@ -34,15 +34,27 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
   };
 }
 
-describe("EntryController.list", () => {
-  it("scopes to the given userId, newest-edited first", async () => {
+describe("EntryController.listForLibrary", () => {
+  it("scopes to the given userId, newest-edited first, selecting only the library columns", async () => {
     const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1");
+    await new EntryController(client).listForLibrary("user-1");
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(findMany).toHaveBeenCalledWith({
       where: { userId: "user-1" },
       orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   });
 
@@ -50,36 +62,16 @@ describe("EntryController.list", () => {
     const rows = [makeEntry({ id: "a" }), makeEntry({ id: "b" })];
     const { client } = mockDb(rows);
 
-    const result = await new EntryController(client).list("user-1");
+    const result = await new EntryController(client).listForLibrary("user-1");
 
     expect(result).toBe(rows);
-  });
-
-  it("AND-s the optional `where` with the user scope", async () => {
-    const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1", { kind: "lyrics" });
-
-    expect(findMany).toHaveBeenCalledWith({
-      where: { kind: "lyrics", userId: "user-1" },
-      orderBy: { updatedAt: "desc" },
-    });
-  });
-
-  it("keeps userId authoritative — a userId in `where` cannot widen the scope", async () => {
-    const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1", { userId: "someone-else" });
-
-    expect(findMany).toHaveBeenCalledWith({
-      where: { userId: "user-1" },
-      orderBy: { updatedAt: "desc" },
-    });
   });
 
   it("runs on the transaction client when one is passed", async () => {
     const base = mockDb();
     const tx = mockDb();
 
-    await new EntryController(base.client).list("user-1", undefined, tx.client);
+    await new EntryController(base.client).listForLibrary("user-1", tx.client);
 
     expect(tx.findMany).toHaveBeenCalledTimes(1);
     expect(base.findMany).not.toHaveBeenCalled();
@@ -88,7 +80,7 @@ describe("EntryController.list", () => {
   it("runs on the base client when no transaction is passed", async () => {
     const base = mockDb();
 
-    await new EntryController(base.client).list("user-1");
+    await new EntryController(base.client).listForLibrary("user-1");
 
     expect(base.findMany).toHaveBeenCalledTimes(1);
   });

@@ -7,6 +7,26 @@ import type { EntryCreateInput } from "@rhymelab/api-contract";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 
+/**
+ * Columns the library view actually reads (see `toEntrySummary`). `userId` is
+ * the scope, not a field callers need back, so it's left out.
+ */
+const libraryListSelect = {
+  id: true,
+  kind: true,
+  title: true,
+  author: true,
+  year: true,
+  body: true,
+  artist: true,
+  album: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.EntrySelect;
+
+/** A row as `listForLibrary` returns it — only the selected columns. */
+export type EntryForLibrary = Prisma.EntryGetPayload<{ select: typeof libraryListSelect }>;
+
 export class EntryController {
   /**
    * @param db The base Prisma client. Defaults to the shared singleton; inject a
@@ -15,25 +35,21 @@ export class EntryController {
   constructor(private readonly db = prisma) {}
 
   /**
-   * List a user's entries, newest-edited first.
+   * List a user's entries for the library view, newest-edited first.
    *
-   * `userId` is always applied — entries are scoped per user — and takes
-   * precedence over any `userId` in `where`. Pass `tx` to run the read inside an
-   * open transaction; otherwise it uses the base client.
+   * Selects only the columns the library view renders (see `libraryListSelect`)
+   * — `userId` scopes the query but isn't returned. Pass `tx` to run the read
+   * inside an open transaction; otherwise it uses the base client.
    *
    * @param userId  Owner whose entries to return.
-   * @param where   Optional extra filter, `AND`ed with the user scope.
    * @param tx      Optional transaction client to run the query on.
    */
-  list(
-    userId: string,
-    where?: Prisma.EntryWhereInput,
-    tx?: Prisma.TransactionClient,
-  ): Promise<Entry[]> {
+  listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<EntryForLibrary[]> {
     const db = tx ?? this.db;
     return db.entry.findMany({
-      where: { ...where, userId },
+      where: { userId },
       orderBy: { updatedAt: "desc" },
+      select: libraryListSelect,
     });
   }
 
