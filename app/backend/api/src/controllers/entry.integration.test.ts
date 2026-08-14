@@ -198,7 +198,7 @@ describe("EntryController.create (DB-backed)", () => {
     });
   });
 
-  it("stores an omitted author as '' and omitted lyrics fields as NULL", async () => {
+  it("stores every omitted optional field as NULL", async () => {
     const user = freshUser();
 
     const created = await controller.create({
@@ -209,7 +209,7 @@ describe("EntryController.create (DB-backed)", () => {
     });
 
     const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
-    expect(stored).toMatchObject({ author: "", artist: null, album: null });
+    expect(stored).toMatchObject({ author: null, year: null, artist: null, album: null });
   });
 
   it("scopes the saved row to its user — a later list finds exactly it", async () => {

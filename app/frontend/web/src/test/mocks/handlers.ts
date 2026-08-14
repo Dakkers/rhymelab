@@ -53,8 +53,8 @@ const router = {
     ),
     create: os.entries.create.handler(({ input }) => {
       const now = new Date().toISOString();
-      // The optional input fields collapse to "" on the wire shape, matching how
-      // the real API stores/returns them (author non-null; artist/album `?? ""`).
+      // The optional input fields collapse to "" on the wire shape, matching the
+      // real API: it stores them as nullable columns and maps NULL to "" on read.
       const base = {
         id: crypto.randomUUID(),
         title: input.title,

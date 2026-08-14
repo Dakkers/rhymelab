@@ -43,6 +43,10 @@ export class EntryController {
    * word count are derived from `body` on read (see the entries handler), so
    * there's nothing to compute here.
    *
+   * The optional fields (`author` / `year`, and `artist` / `album` on the lyrics
+   * arm) are all nullable columns, so an omitted one arrives as `undefined` and
+   * writes as NULL with no coercion needed here.
+   *
    * @param data The row to write — see `EntryCreateInputSchema`, plus `userId`.
    * @param tx   Optional transaction client to run the write on.
    */
@@ -51,17 +55,7 @@ export class EntryController {
     tx?: Prisma.TransactionClient,
   ): Promise<Entry> {
     const db = tx ?? this.db;
-    const { year, author, ...rest } = data;
-    return db.entry.create({
-      data: {
-        ...rest,
-        // `author` is optional on input but a non-null column; `artist` / `album`
-        // are left in `rest` and flow through as `undefined` -> NULL for poems and
-        // for lyrics that omit them.
-        author: author ?? "",
-        year: year ?? null,
-      },
-    });
+    return db.entry.create({ data });
   }
 }
 
