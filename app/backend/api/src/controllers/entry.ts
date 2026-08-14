@@ -44,7 +44,7 @@ export class EntryController {
    * @param userId  Owner whose entries to return.
    * @param tx      Optional transaction client to run the query on.
    */
-  listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<EntryForLibrary[]> {
+  async listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<EntryForLibrary[]> {
     const db = tx ?? this.db;
     return db.entry.findMany({
       where: { userId },
@@ -77,7 +77,7 @@ export class EntryController {
    * @param data The row to write — see `EntryCreateInputSchema`, plus `userId`.
    * @param tx   Optional transaction client to run the write on.
    */
-  create(
+  async create(
     data: EntryCreateInput & { userId: string },
     tx?: Prisma.TransactionClient,
   ): Promise<Entry> {
