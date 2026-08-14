@@ -16,13 +16,13 @@ import type { ORPCContext } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
 vi.mock("../controllers/entry", () => ({
-  entryController: { list: vi.fn(), create: vi.fn() },
+  entryController: { listForLibrary: vi.fn(), create: vi.fn() },
 }));
 
 const { entryController } = await import("../controllers/entry");
 const { list, create } = await import("./entries");
 
-const mockedList = vi.mocked(entryController.list);
+const mockedList = vi.mocked(entryController.listForLibrary);
 const mockedCreate = vi.mocked(entryController.create);
 
 /** A Prisma `Entry` row — `body` is the source the summary fields derive from. */
@@ -58,7 +58,7 @@ describe("entries.list", () => {
     mockedList.mockReset();
   });
 
-  it("delegates to EntryController.list, scoped to the single alpha user", async () => {
+  it("delegates to EntryController.listForLibrary, scoped to the single alpha user", async () => {
     mockedList.mockResolvedValue([]);
 
     await callList();

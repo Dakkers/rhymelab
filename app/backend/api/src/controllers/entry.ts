@@ -7,6 +7,26 @@ import type { EntryCreateInput } from "@rhymelab/api-contract";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 
+/**
+ * A row as `listForLibrary` returns it — must mirror the `select` below field
+ * for field. `Pick`, not `Omit`: a new column added to the schema later stays
+ * out of this type (and the query) until someone opts it in here, rather than
+ * silently starting to flow through the library view.
+ */
+export type EntryForLibrary = Pick<
+  Entry,
+  | "id"
+  | "kind"
+  | "title"
+  | "author"
+  | "year"
+  | "body"
+  | "artist"
+  | "album"
+  | "createdAt"
+  | "updatedAt"
+>;
+
 export class EntryController {
   /**
    * @param db The base Prisma client. Defaults to the shared singleton; inject a
@@ -15,25 +35,32 @@ export class EntryController {
   constructor(private readonly db = prisma) {}
 
   /**
-   * List a user's entries, newest-edited first.
+   * List a user's entries for the library view, newest-edited first.
    *
-   * `userId` is always applied — entries are scoped per user — and takes
-   * precedence over any `userId` in `where`. Pass `tx` to run the read inside an
-   * open transaction; otherwise it uses the base client.
+   * Selects only the columns `EntryForLibrary` promises — `userId` scopes the
+   * query but isn't something callers read back. Pass `tx` to run the read
+   * inside an open transaction; otherwise it uses the base client.
    *
    * @param userId  Owner whose entries to return.
-   * @param where   Optional extra filter, `AND`ed with the user scope.
    * @param tx      Optional transaction client to run the query on.
    */
-  list(
-    userId: string,
-    where?: Prisma.EntryWhereInput,
-    tx?: Prisma.TransactionClient,
-  ): Promise<Entry[]> {
+  async listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<EntryForLibrary[]> {
     const db = tx ?? this.db;
     return db.entry.findMany({
-      where: { ...where, userId },
+      where: { userId },
       orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 
@@ -50,7 +77,7 @@ export class EntryController {
    * @param data The row to write — see `EntryCreateInputSchema`, plus `userId`.
    * @param tx   Optional transaction client to run the write on.
    */
-  create(
+  async create(
     data: EntryCreateInput & { userId: string },
     tx?: Prisma.TransactionClient,
   ): Promise<Entry> {

@@ -7,13 +7,12 @@
  * lyrics-only fields (`artist` / `album`) only get attached on that arm.
  */
 import { deriveEntrySummaryFields, type EntrySummary } from "@rhymelab/api-contract";
-import type { Entry } from "../_generated/prisma/client";
-import { entryController } from "../controllers/entry";
+import { entryController, type EntryForLibrary } from "../controllers/entry";
 import { authed } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
 /** Map a Prisma `Entry` row onto the wire shape the contract promises. */
-function toEntrySummary(entry: Entry): EntrySummary {
+function toEntrySummary(entry: EntryForLibrary): EntrySummary {
   const base = {
     id: entry.id,
     title: entry.title,
@@ -33,7 +32,7 @@ function toEntrySummary(entry: Entry): EntrySummary {
 
 // No accounts yet — every entry is scoped to the single alpha user.
 export const list = authed.entries.list.handler(async () => {
-  const entries = await entryController.list(SINGLE_USER_ID);
+  const entries = await entryController.listForLibrary(SINGLE_USER_ID);
   return entries.map(toEntrySummary);
 });
 
