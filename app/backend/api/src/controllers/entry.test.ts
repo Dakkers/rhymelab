@@ -112,7 +112,6 @@ describe("EntryController.create", () => {
         author: "Poet",
         userId: "user-1",
         body: "First line\nSecond line\n\nThird line",
-        year: null,
       },
     });
   });
@@ -144,7 +143,7 @@ describe("EntryController.create", () => {
     });
   });
 
-  it("defaults an omitted author to '' and leaves the lyrics fields unset", async () => {
+  it("leaves every omitted optional field unset, to land as NULL", async () => {
     const { client, create } = mockDb();
     await new EntryController(client).create({
       userId: "user-1",
@@ -159,8 +158,6 @@ describe("EntryController.create", () => {
         kind: "lyrics",
         title: "A song",
         body: "one",
-        author: "",
-        year: null,
       },
     });
   });

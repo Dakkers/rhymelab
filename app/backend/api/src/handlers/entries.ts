@@ -17,7 +17,9 @@ function toEntrySummary(entry: Entry): EntrySummary {
   const base = {
     id: entry.id,
     title: entry.title,
-    author: entry.author,
+    // Every optional column is nullable; the contract exposes `author` as a
+    // plain string and `year` as absent-when-unset, so map NULL accordingly.
+    author: entry.author ?? "",
     year: entry.year ?? undefined,
     ...deriveEntrySummaryFields(entry.body),
     createdAt: entry.createdAt.toISOString(),
