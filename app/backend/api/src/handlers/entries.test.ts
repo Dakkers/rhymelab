@@ -63,7 +63,23 @@ describe("entries.list", () => {
 
     await callList();
 
-    expect(mockedList).toHaveBeenCalledExactlyOnceWith(SINGLE_USER_ID);
+    // `list` requires an explicit select: every column the summary is built
+    // from — `body` included, since the excerpt / counts derive from it — and
+    // no `userId`, which the wire shape never carries.
+    expect(mockedList).toHaveBeenCalledExactlyOnceWith(SINGLE_USER_ID, {
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   });
 
   it("derives the summary fields from each row's body", async () => {

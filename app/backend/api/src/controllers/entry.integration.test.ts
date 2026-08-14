@@ -1,7 +1,7 @@
 import { fakeEntries } from "@rhymelab/fixtures";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { Entry, Prisma } from "../_generated/prisma/client";
+import type { Prisma } from "../_generated/prisma/client";
 import { freshUser, prisma } from "../test-support/integration-db";
 import { EntryController } from "./entry";
 
@@ -51,7 +51,10 @@ function entryData(
   };
 }
 
-const ids = (entries: Entry[]) => entries.map((e) => e.id);
+const ids = (entries: { id: string }[]) => entries.map((e) => e.id);
+
+/** The columns these tests assert on; `list` requires an explicit select. */
+const select = { id: true, userId: true, title: true } satisfies Prisma.EntrySelect;
 
 describe("EntryController.list (DB-backed)", () => {
   it("returns only the given user's rows", async () => {
@@ -63,10 +66,22 @@ describe("EntryController.list (DB-backed)", () => {
     ]);
     await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
 
-    const result = await controller.list(mine);
+    const result = await controller.list(mine, { select });
 
     expect(new Set(ids(result))).toEqual(new Set([mine1.id, mine2.id]));
     expect(result.every((e) => e.userId === mine)).toBe(true);
+  });
+
+  it("returns exactly the selected columns — an unselected one is absent", async () => {
+    const user = freshUser();
+    await prisma.entry.create({ data: entryData(user, { title: "selective" }) });
+
+    const [row] = await controller.list(user, { select: { id: true, title: true } });
+
+    expect(Object.keys(row).sort()).toEqual(["id", "title"]);
+    expect(row.title).toBe("selective");
+    // `body` was never asked for, so the query never fetched it.
+    expect("body" in row).toBe(false);
   });
 
   it("orders newest-edited first (updatedAt desc), regardless of insert order", async () => {
@@ -83,7 +98,7 @@ describe("EntryController.list (DB-backed)", () => {
       data: entryData(user, { title: "middle", updatedAt: new Date("2026-02-01T00:00:00.000Z") }),
     });
 
-    const result = await controller.list(user);
+    const result = await controller.list(user, { select });
 
     expect(ids(result)).toEqual([newest.id, middle.id, oldest.id]);
   });
@@ -95,7 +110,7 @@ describe("EntryController.list (DB-backed)", () => {
       data: entryData(user, { kind: "lyrics", artist: "Someone", album: "An album" }),
     });
 
-    const result = await controller.list(user, { kind: "lyrics" });
+    const result = await controller.list(user, { select, where: { kind: "lyrics" } });
 
     expect(ids(result)).toEqual([lyrics.id]);
     expect(ids(result)).not.toContain(poem.id);
@@ -110,7 +125,7 @@ describe("EntryController.list (DB-backed)", () => {
     // The `where.userId` (other) is overridden by the authoritative `userId`
     // (mine) — the controller spreads `userId` last — so only `mine`'s row
     // comes back. A leak would show as `other`'s row appearing.
-    const result = await controller.list(mine, { userId: other });
+    const result = await controller.list(mine, { select, where: { userId: other } });
 
     expect(ids(result)).toEqual([own.id]);
     expect(result.every((e) => e.userId === mine)).toBe(true);
@@ -122,7 +137,7 @@ describe("EntryController.list (DB-backed)", () => {
     const own = await prisma.entry.create({ data: entryData(mine, { title: "in-tx" }) });
     await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
 
-    const result = await prisma.$transaction((tx) => controller.list(mine, undefined, tx));
+    const result = await prisma.$transaction((tx) => controller.list(mine, { select, tx }));
 
     expect(ids(result)).toEqual([own.id]);
     expect(result.every((e) => e.userId === mine)).toBe(true);
@@ -134,7 +149,7 @@ describe("EntryController.list (DB-backed)", () => {
     // A row for someone else must not leak into `mine`'s (empty) result.
     await prisma.entry.create({ data: entryData(other) });
 
-    const result = await controller.list(mine);
+    const result = await controller.list(mine, { select });
 
     expect(result).toEqual([]);
   });
@@ -231,7 +246,7 @@ describe("EntryController.create (DB-backed)", () => {
       body: "one",
     });
 
-    expect(ids(await controller.list(mine))).toEqual([created.id]);
+    expect(ids(await controller.list(mine, { select }))).toEqual([created.id]);
   });
 
   it("runs the write on the passed transaction client — a rollback persists nothing", async () => {
@@ -248,6 +263,6 @@ describe("EntryController.create (DB-backed)", () => {
     ).rejects.toThrow("abort");
 
     // Had the write ignored `tx` and used the base client, this row would survive.
-    expect(await controller.list(user)).toEqual([]);
+    expect(await controller.list(user, { select })).toEqual([]);
   });
 });

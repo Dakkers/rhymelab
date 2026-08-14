@@ -7,6 +7,30 @@ import type { EntryCreateInput } from "@rhymelab/api-contract";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 
+/**
+ * The row shape a `select` yields: exactly the columns set to `true`, typed with
+ * their real column types. Use it to type anything that consumes a `list` result
+ * (`SelectedEntry<typeof MY_SELECT>`) instead of reaching for the full `Entry`.
+ */
+export type SelectedEntry<S extends Prisma.EntrySelect> = Prisma.EntryGetPayload<{ select: S }>;
+
+/**
+ * Options for {@link EntryController.list}.
+ *
+ * `select` is required on purpose: callers have to say which columns they need,
+ * so nothing ships a whole row (`body` is the big one) by accident. `Subset`
+ * rejects keys that aren't columns, so a typo is a compile error rather than a
+ * silently ignored key.
+ */
+export type EntryListOptions<S extends Prisma.EntrySelect> = {
+  /** Columns to return — `{ id: true, title: true }`. */
+  select: Prisma.Subset<S, Prisma.EntrySelect>;
+  /** Optional extra filter, `AND`ed with the user scope. */
+  where?: Prisma.EntryWhereInput;
+  /** Transaction client to run the query on; defaults to the base client. */
+  tx?: Prisma.TransactionClient;
+};
+
 export class EntryController {
   /**
    * @param db The base Prisma client. Defaults to the shared singleton; inject a
@@ -18,23 +42,29 @@ export class EntryController {
    * List a user's entries, newest-edited first.
    *
    * `userId` is always applied — entries are scoped per user — and takes
-   * precedence over any `userId` in `where`. Pass `tx` to run the read inside an
-   * open transaction; otherwise it uses the base client.
+   * precedence over any `userId` in `options.where`.
+   *
+   * The return type follows `options.select`: `list(id, { select: { id: true } })`
+   * resolves to `{ id: string }[]`, so touching an unselected column doesn't
+   * compile.
    *
    * @param userId  Owner whose entries to return.
-   * @param where   Optional extra filter, `AND`ed with the user scope.
-   * @param tx      Optional transaction client to run the query on.
+   * @param options Columns to select, plus the optional filter / transaction.
    */
-  list(
+  list<S extends Prisma.EntrySelect>(
     userId: string,
-    where?: Prisma.EntryWhereInput,
-    tx?: Prisma.TransactionClient,
-  ): Promise<Entry[]> {
-    const db = tx ?? this.db;
+    options: EntryListOptions<S>,
+  ): Promise<SelectedEntry<S>[]> {
+    const db = options.tx ?? this.db;
+    // Prisma resolves `findMany`'s row type from the literal it's handed; behind
+    // a wrapper `S` is still unresolved, so it can't simplify its conditional
+    // types down to `SelectedEntry<S>`. The cast restates what Prisma returns —
+    // the same select goes in, so the shape is the one the signature promises.
     return db.entry.findMany({
-      where: { ...where, userId },
+      where: { ...options.where, userId },
       orderBy: { updatedAt: "desc" },
-    });
+      select: options.select,
+    }) as unknown as Promise<SelectedEntry<S>[]>;
   }
 
   /**
