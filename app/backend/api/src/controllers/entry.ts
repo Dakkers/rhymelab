@@ -8,10 +8,24 @@ import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 
 /**
- * A row as `listForLibrary` returns it. `userId` is the scope, not a field
- * callers need back, so the query (and this type) leave it out.
+ * A row as `listForLibrary` returns it — must mirror the `select` below field
+ * for field. `Pick`, not `Omit`: a new column added to the schema later stays
+ * out of this type (and the query) until someone opts it in here, rather than
+ * silently starting to flow through the library view.
  */
-export type EntryForLibrary = Omit<Entry, "userId">;
+export type EntryForLibrary = Pick<
+  Entry,
+  | "id"
+  | "kind"
+  | "title"
+  | "author"
+  | "year"
+  | "body"
+  | "artist"
+  | "album"
+  | "createdAt"
+  | "updatedAt"
+>;
 
 export class EntryController {
   /**
@@ -23,9 +37,9 @@ export class EntryController {
   /**
    * List a user's entries for the library view, newest-edited first.
    *
-   * Selects every column except `userId` — it scopes the query but isn't
-   * something callers read back. Pass `tx` to run the read inside an open
-   * transaction; otherwise it uses the base client.
+   * Selects only the columns `EntryForLibrary` promises — `userId` scopes the
+   * query but isn't something callers read back. Pass `tx` to run the read
+   * inside an open transaction; otherwise it uses the base client.
    *
    * @param userId  Owner whose entries to return.
    * @param tx      Optional transaction client to run the query on.
