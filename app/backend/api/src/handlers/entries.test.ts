@@ -16,13 +16,13 @@ import type { ORPCContext } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
 vi.mock("../controllers/entry", () => ({
-  entryController: { list: vi.fn(), create: vi.fn() },
+  entryController: { listForUser: vi.fn(), create: vi.fn() },
 }));
 
 const { entryController } = await import("../controllers/entry");
 const { list, create } = await import("./entries");
 
-const mockedList = vi.mocked(entryController.list);
+const mockedList = vi.mocked(entryController.listForUser);
 const mockedCreate = vi.mocked(entryController.create);
 
 /** A Prisma `Entry` row — `body` is the source the summary fields derive from. */
@@ -58,28 +58,12 @@ describe("entries.list", () => {
     mockedList.mockReset();
   });
 
-  it("delegates to EntryController.list, scoped to the single alpha user", async () => {
+  it("delegates to EntryController.listForUser, scoped to the single alpha user", async () => {
     mockedList.mockResolvedValue([]);
 
     await callList();
 
-    // `list` requires an explicit select: every column the summary is built
-    // from — `body` included, since the excerpt / counts derive from it — and
-    // no `userId`, which the wire shape never carries.
-    expect(mockedList).toHaveBeenCalledExactlyOnceWith(SINGLE_USER_ID, {
-      select: {
-        id: true,
-        kind: true,
-        title: true,
-        author: true,
-        year: true,
-        body: true,
-        artist: true,
-        album: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    expect(mockedList).toHaveBeenCalledExactlyOnceWith(SINGLE_USER_ID);
   });
 
   it("derives the summary fields from each row's body", async () => {

@@ -34,71 +34,42 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
   };
 }
 
-/** A minimal select for the cases that only care about the rest of the query. */
-const select = { id: true, title: true } satisfies Prisma.EntrySelect;
-
-describe("EntryController.list", () => {
+describe("EntryController.listForUser", () => {
   it("scopes to the given userId, newest-edited first", async () => {
     const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1", { select });
+    await new EntryController(client).listForUser("user-1");
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(findMany).toHaveBeenCalledWith({
       where: { userId: "user-1" },
       orderBy: { updatedAt: "desc" },
-      select,
     });
   });
 
-  it("passes the requested columns through as the query's `select`", async () => {
+  it("filters on nothing but the user — the scope can't be widened", async () => {
     const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1", {
-      select: { id: true, body: true, updatedAt: true },
-    });
+    await new EntryController(client).listForUser("user-1");
 
-    expect(findMany).toHaveBeenCalledWith({
-      where: { userId: "user-1" },
-      orderBy: { updatedAt: "desc" },
-      select: { id: true, body: true, updatedAt: true },
-    });
+    // The query is fixed, so `where` is exactly the user scope: no caller can
+    // slip in a condition that reaches another user's rows.
+    const [args] = findMany.mock.calls[0];
+    expect(Object.keys(args.where)).toEqual(["userId"]);
   });
 
   it("returns whatever the client yields", async () => {
     const rows = [makeEntry({ id: "a" }), makeEntry({ id: "b" })];
     const { client } = mockDb(rows);
 
-    const result = await new EntryController(client).list("user-1", { select });
+    const result = await new EntryController(client).listForUser("user-1");
 
     expect(result).toBe(rows);
-  });
-
-  it("AND-s the optional `where` with the user scope", async () => {
-    const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1", { select, where: { kind: "lyrics" } });
-
-    expect(findMany).toHaveBeenCalledWith({
-      where: { kind: "lyrics", userId: "user-1" },
-      orderBy: { updatedAt: "desc" },
-      select,
-    });
-  });
-
-  it("keeps userId authoritative — a userId in `where` cannot widen the scope", async () => {
-    const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1", { select, where: { userId: "someone-else" } });
-
-    expect(findMany).toHaveBeenCalledWith({
-      where: { userId: "user-1" },
-      orderBy: { updatedAt: "desc" },
-      select,
-    });
   });
 
   it("runs on the transaction client when one is passed", async () => {
     const base = mockDb();
     const tx = mockDb();
 
-    await new EntryController(base.client).list("user-1", { select, tx: tx.client });
+    await new EntryController(base.client).listForUser("user-1", tx.client);
 
     expect(tx.findMany).toHaveBeenCalledTimes(1);
     expect(base.findMany).not.toHaveBeenCalled();
@@ -107,7 +78,7 @@ describe("EntryController.list", () => {
   it("runs on the base client when no transaction is passed", async () => {
     const base = mockDb();
 
-    await new EntryController(base.client).list("user-1", { select });
+    await new EntryController(base.client).listForUser("user-1");
 
     expect(base.findMany).toHaveBeenCalledTimes(1);
   });

@@ -7,31 +7,13 @@
  * lyrics-only fields (`artist` / `album`) only get attached on that arm.
  */
 import { deriveEntrySummaryFields, type EntrySummary } from "@rhymelab/api-contract";
-import type { Prisma } from "../_generated/prisma/client";
-import { entryController, type SelectedEntry } from "../controllers/entry";
+import type { Entry } from "../_generated/prisma/client";
+import { entryController } from "../controllers/entry";
 import { authed } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
-/**
- * The columns `toEntrySummary` reads — everything the contract's `EntrySummary`
- * exposes, plus `body`, which the excerpt / line count / word count are derived
- * from. `userId` is deliberately absent: the summary never carries it.
- */
-const ENTRY_SUMMARY_SELECT = {
-  id: true,
-  kind: true,
-  title: true,
-  author: true,
-  year: true,
-  body: true,
-  artist: true,
-  album: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.EntrySelect;
-
-/** Map a selected `Entry` row onto the wire shape the contract promises. */
-function toEntrySummary(entry: SelectedEntry<typeof ENTRY_SUMMARY_SELECT>): EntrySummary {
+/** Map a Prisma `Entry` row onto the wire shape the contract promises. */
+function toEntrySummary(entry: Entry): EntrySummary {
   const base = {
     id: entry.id,
     title: entry.title,
@@ -51,9 +33,7 @@ function toEntrySummary(entry: SelectedEntry<typeof ENTRY_SUMMARY_SELECT>): Entr
 
 // No accounts yet — every entry is scoped to the single alpha user.
 export const list = authed.entries.list.handler(async () => {
-  const entries = await entryController.list(SINGLE_USER_ID, {
-    select: ENTRY_SUMMARY_SELECT,
-  });
+  const entries = await entryController.listForUser(SINGLE_USER_ID);
   return entries.map(toEntrySummary);
 });
 
