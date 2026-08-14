@@ -8,24 +8,10 @@ import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 
 /**
- * Columns the library view actually reads (see `toEntrySummary`). `userId` is
- * the scope, not a field callers need back, so it's left out.
+ * A row as `listForLibrary` returns it. `userId` is the scope, not a field
+ * callers need back, so the query (and this type) leave it out.
  */
-const libraryListSelect = {
-  id: true,
-  kind: true,
-  title: true,
-  author: true,
-  year: true,
-  body: true,
-  artist: true,
-  album: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.EntrySelect;
-
-/** A row as `listForLibrary` returns it — only the selected columns. */
-export type EntryForLibrary = Prisma.EntryGetPayload<{ select: typeof libraryListSelect }>;
+export type EntryForLibrary = Omit<Entry, "userId">;
 
 export class EntryController {
   /**
@@ -37,9 +23,9 @@ export class EntryController {
   /**
    * List a user's entries for the library view, newest-edited first.
    *
-   * Selects only the columns the library view renders (see `libraryListSelect`)
-   * — `userId` scopes the query but isn't returned. Pass `tx` to run the read
-   * inside an open transaction; otherwise it uses the base client.
+   * Selects every column except `userId` — it scopes the query but isn't
+   * something callers read back. Pass `tx` to run the read inside an open
+   * transaction; otherwise it uses the base client.
    *
    * @param userId  Owner whose entries to return.
    * @param tx      Optional transaction client to run the query on.
@@ -49,7 +35,18 @@ export class EntryController {
     return db.entry.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
-      select: libraryListSelect,
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 
