@@ -79,19 +79,17 @@ export function deriveEntrySummaryFields(body: string): {
 export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
 
 /**
- * Fields a single saved piece carries for the detail view — distinct from
- * `EntryBaseSchema`: it carries the full `body` text rather than the derived
- * `excerpt`/`lineCount`/`wordCount`, since the detail view renders the whole
- * piece rather than a preview card.
+ * Fields a single saved piece carries for the detail view — `EntryBaseSchema`
+ * with the derived preview fields (`excerpt`/`lineCount`/`wordCount`) swapped
+ * for the full `body` text, since the detail view renders the whole piece
+ * rather than a preview card.
  */
-const EntryDetailBaseSchema = z.object({
-  id: z.uuidv4(),
-  title: z.string().trim().min(1),
-  author: z.string().trim(),
-  year: z.number().int().positive().optional(),
+const EntryDetailBaseSchema = EntryBaseSchema.omit({
+  excerpt: true,
+  lineCount: true,
+  wordCount: true,
+}).extend({
   body: z.string().trim(),
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
 });
 
 /** A poem's detail shape — carries none of the lyrics-only fields. */

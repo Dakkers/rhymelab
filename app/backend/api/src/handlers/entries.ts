@@ -13,37 +13,17 @@ import {
   type EntryDetail,
   type EntrySummary,
 } from "@rhymelab/api-contract";
-import { entryController, type EntryDetails, type EntryForLibrary } from "../controllers/entry";
+import { entryController, type EntryForLibrary } from "../controllers/entry";
 import { authed } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
-/** Map a Prisma `Entry` row onto the wire shape the contract promises. */
-function toEntrySummary(entry: EntryForLibrary): EntrySummary {
+/** Map a Prisma `Entry` row onto the detail wire shape the contract promises. */
+function toEntryDetail(entry: EntryForLibrary): EntryDetail {
   const base = {
     id: entry.id,
     title: entry.title,
     // Every optional column is nullable; the contract exposes `author` as a
     // plain string and `year` as absent-when-unset, so map NULL accordingly.
-    author: entry.author ?? "",
-    year: entry.year ?? undefined,
-    ...deriveEntrySummaryFields(entry.body),
-    createdAt: entry.createdAt.toISOString(),
-    updatedAt: entry.updatedAt.toISOString(),
-  };
-
-  return entry.kind === "lyrics"
-    ? { ...base, kind: "lyrics", artist: entry.artist ?? "", album: entry.album ?? "" }
-    : { ...base, kind: "poem" };
-}
-
-/**
- * Map a Prisma `Entry` row onto the detail wire shape — like `toEntrySummary`,
- * but carries the raw `body` instead of the derived preview fields.
- */
-function toEntryDetail(entry: EntryDetails): EntryDetail {
-  const base = {
-    id: entry.id,
-    title: entry.title,
     author: entry.author ?? "",
     year: entry.year ?? undefined,
     body: entry.body,
@@ -54,6 +34,17 @@ function toEntryDetail(entry: EntryDetails): EntryDetail {
   return entry.kind === "lyrics"
     ? { ...base, kind: "lyrics", artist: entry.artist ?? "", album: entry.album ?? "" }
     : { ...base, kind: "poem" };
+}
+
+/**
+ * Map a Prisma `Entry` row onto the summary wire shape. Built on `toEntryDetail`
+ * so the id/title/author/year/kind/artist/album mapping stays in one place —
+ * just swaps the raw `body` for the derived preview fields
+ * (`excerpt`/`lineCount`/`wordCount`) the list view actually renders.
+ */
+function toEntrySummary(entry: EntryForLibrary): EntrySummary {
+  const { body: _body, ...detail } = toEntryDetail(entry);
+  return { ...detail, ...deriveEntrySummaryFields(entry.body) };
 }
 
 // No accounts yet — every entry is scoped to the single alpha user.
