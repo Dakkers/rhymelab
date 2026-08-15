@@ -7,10 +7,10 @@
  * the request to that handler, so serialisation and routing match production
  * exactly.
  *
- * `auth.me`, `entries.list`, and `entries.create` are mocked. Add procedures
- * here as the new surface — and the tests that exercise it — take shape.
+ * `auth.me`, `entries.list`, `entries.create`, and `entries.get` are mocked. Add
+ * procedures here as the new surface — and the tests that exercise it — take shape.
  */
-import { implement } from "@orpc/server";
+import { implement, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { http, passthrough } from "msw";
 import { contract, deriveEntrySummaryFields } from "@rhymelab/api-contract";
@@ -75,6 +75,15 @@ const router = {
           : { ...base, kind: "poem" as const };
       store.entries = [entry, ...store.entries];
       return entry;
+    }),
+    get: os.entries.get.handler(({ input }) => {
+      const entry = store.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // The fixtures only carry the derived summary fields, not a real `body` —
+      // the excerpt stands in for it here, same as the DB-backed integration
+      // tests' fixture entries do.
+      const { excerpt, lineCount: _lineCount, wordCount: _wordCount, ...rest } = entry;
+      return { ...rest, body: excerpt };
     }),
   },
 };
