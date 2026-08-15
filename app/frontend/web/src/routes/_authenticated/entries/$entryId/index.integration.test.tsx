@@ -10,6 +10,7 @@
 import { expect, test } from "vitest";
 import { screen } from "@testing-library/react";
 import type { FakeEntry } from "@rhymelab/fixtures";
+import { names } from "#/lib/format";
 import { renderRoute } from "#/test/render-route";
 import { store } from "#/test/mocks/handlers";
 import { Route } from "./index";
@@ -44,7 +45,7 @@ test("renders a lyrics entry, with the performer and record in the byline", asyn
   // Substring matches, never `new RegExp(...)`: these are generated names, and
   // interpolating them into a pattern would let their punctuation act as regex
   // syntax — "Mr. Foo" silently matching any character, "*NSYNC" throwing outright.
-  expect(screen.getByText(entry.artist, { exact: false })).toBeInTheDocument();
+  expect(screen.getByText(names(entry.artist), { exact: false })).toBeInTheDocument();
   expect(screen.getByText(entry.album, { exact: false })).toBeInTheDocument();
 });
 
@@ -55,7 +56,7 @@ test("renders a poem entry, with the author in the byline", async () => {
 
   await renderEntry(entry);
 
-  expect(screen.getByText(entry.author, { exact: false })).toBeInTheDocument();
+  expect(screen.getByText(names(entry.author), { exact: false })).toBeInTheDocument();
 });
 
 // NB: asserts the *current* behaviour — a loader that rejects with oRPC's

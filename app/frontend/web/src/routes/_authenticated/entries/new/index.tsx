@@ -46,15 +46,18 @@ const DEFAULTS: NewEntryForm = {
 /**
  * Build the create payload and send it over oRPC. Drops the UI-only `step`,
  * coerces `year`, and narrows the lyrics-only fields off `kind` so the shape
- * matches the contract's `EntryCreateInput` union. The optional text fields
- * (author, artist, album) go out as `undefined` when blank rather than "", so
- * they're stored absent. The server derives excerpt / line count / word count
- * from `body`, so none of those are sent.
+ * matches the contract's `EntryCreateInput` union. Blank `album` goes out as
+ * `undefined` rather than "", so it's stored absent. `author` and `artist` are
+ * lists on the wire — the form still collects one value each, so a blank one
+ * becomes `[]` (see `toList`). The server derives excerpt / line count / word
+ * count from `body`, so none of those are sent.
  */
+const toList = (value: string) => (value.trim() ? [value.trim()] : []);
+
 function createEntry({ step: _step, ...values }: NewEntryForm) {
   const base = {
     title: values.title.trim(),
-    author: values.author.trim() || undefined,
+    author: toList(values.author),
     body: values.body,
     year: values.year.trim() ? Number(values.year) : undefined,
   };
@@ -63,7 +66,7 @@ function createEntry({ step: _step, ...values }: NewEntryForm) {
       ? {
           ...base,
           kind: "lyrics" as const,
-          artist: values.artist.trim() || undefined,
+          artist: toList(values.artist),
           album: values.album.trim() || undefined,
         }
       : { ...base, kind: "poem" as const };
@@ -160,24 +163,15 @@ function NewEntryPage() {
   // Step 2 — the metadata; the lyrics-only fields appear only for the lyrics kind.
   const metadataStep = (
     <>
-      <form.Field name="author">
-        {(field) => (
-          <TextInput
-            label="Author"
-            helpText="The writer — a poem's poet, or a song's lyricist."
-            value={field.state.value}
-            onChange={(value) => field.handleChange(value)}
-            onBlur={field.handleBlur}
-            placeholder="Optional"
-          />
-        )}
-      </form.Field>
-
-      {/* Lyrics-only fields — hidden for poems, matching the contract's union. */}
+      {/* Kind is settled in step 1, so the writer field can just name itself for
+          the kind at hand — "Author" for a poem, "Lyricist" for a song — instead
+          of carrying help text explaining that it means both. For lyrics the
+          performer comes first: it's the credit you'd reach for to identify the
+          song, with the lyricist a level of detail below it. */}
       <form.Subscribe selector={(state) => state.values.kind}>
-        {(kind) =>
-          kind === "lyrics" ? (
-            <>
+        {(kind) => (
+          <>
+            {kind === "lyrics" ? (
               <form.Field name="artist">
                 {(field) => (
                   <TextInput
@@ -189,6 +183,21 @@ function NewEntryPage() {
                   />
                 )}
               </form.Field>
+            ) : null}
+
+            <form.Field name="author">
+              {(field) => (
+                <TextInput
+                  label={kind === "lyrics" ? "Lyricist" : "Author"}
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Optional"
+                />
+              )}
+            </form.Field>
+
+            {kind === "lyrics" ? (
               <form.Field name="album">
                 {(field) => (
                   <TextInput
@@ -200,9 +209,9 @@ function NewEntryPage() {
                   />
                 )}
               </form.Field>
-            </>
-          ) : null
-        }
+            ) : null}
+          </>
+        )}
       </form.Subscribe>
 
       <form.Field name="year">

@@ -43,7 +43,11 @@ function makeEntry(rank: number): FakeEntry {
   const shared = {
     id: faker.string.uuid(),
     title: faker.music.songName(),
-    author: faker.person.fullName(),
+    // Mostly one writer, sometimes a co-writing credit — so consumers of the
+    // fixtures see the multi-value case too.
+    author: Array.from({ length: faker.number.int({ min: 1, max: 2 }) }, () =>
+      faker.person.fullName(),
+    ),
     year: faker.number.int({ min: 1990, max: 2025 }),
     body,
     ...deriveEntrySummaryFields(body),
@@ -56,7 +60,14 @@ function makeEntry(rank: number): FakeEntry {
 
   // Honour the arm zod-schema-faker picked so both kinds show up.
   return skeleton.kind === "lyrics"
-    ? { ...shared, kind: "lyrics", artist: faker.music.artist(), album: faker.music.album() }
+    ? {
+        ...shared,
+        kind: "lyrics",
+        artist: Array.from({ length: faker.number.int({ min: 1, max: 2 }) }, () =>
+          faker.music.artist(),
+        ),
+        album: faker.music.album(),
+      }
     : { ...shared, kind: "poem" };
 }
 

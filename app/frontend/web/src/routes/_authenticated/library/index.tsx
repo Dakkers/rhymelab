@@ -5,7 +5,7 @@ import { Badge, Card, CardList, Flex, Link, Text } from "@saintly-software/barit
 import type { EntrySummary } from "@rhymelab/api-contract";
 import { Page } from "../../../components/Page";
 import { orpc } from "../../../lib/orpc";
-import { pluralize, since } from "../../../lib/format";
+import { names, pluralize, since } from "../../../lib/format";
 import { useMounted } from "../../../lib/hooks";
 
 /**
@@ -73,7 +73,7 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
         {/* The writer, surfaced for lyrics (a poem already names them in the byline). */}
         {entry.kind === "lyrics" && (
           <Text size="sm" saliency="low">
-            Words by {entry.author}
+            Words by {names(entry.author)}
           </Text>
         )}
         <Updated at={entry.updatedAt} />
@@ -88,7 +88,9 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
  */
 function byline(entry: EntrySummary): string {
   const parts =
-    entry.kind === "lyrics" ? [entry.artist, entry.album, entry.year] : [entry.author, entry.year];
+    entry.kind === "lyrics"
+      ? [names(entry.artist), entry.album, entry.year]
+      : [names(entry.author), entry.year];
   // `year` is optional, so drop it (and any other gap) rather than print "undefined".
   return parts.filter((part) => part !== undefined).join(" · ");
 }

@@ -105,9 +105,10 @@ export class EntryController {
    * word count are derived from `body` on read (see the entries handler), so
    * there's nothing to compute here.
    *
-   * The optional fields (`author` / `year`, and `artist` / `album` on the lyrics
-   * arm) are all nullable columns, so an omitted one arrives as `undefined` and
-   * writes as NULL with no coercion needed here.
+   * The optional scalars (`year`, and `album` on the lyrics arm) are nullable
+   * columns, so an omitted one arrives as `undefined` and writes as NULL. The
+   * list columns (`author` / `artist`) are defaulted to `[]` by the contract, so
+   * they always arrive as arrays — no coercion needed here either.
    *
    * @param data The row to write — see `EntryCreateInputSchema`, plus `userId`.
    * @param tx   Optional transaction client to run the write on.

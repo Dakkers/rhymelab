@@ -129,7 +129,7 @@ describe("EntryController.create (DB-backed)", () => {
       userId: user,
       kind: "poem",
       title: "A poem",
-      author: "Poet",
+      author: ["Poet"],
       body: "Roses are red\nViolets are blue",
     });
 
@@ -141,10 +141,10 @@ describe("EntryController.create (DB-backed)", () => {
       userId: user,
       kind: "poem",
       title: "A poem",
-      author: "Poet",
+      author: ["Poet"],
       body: "Roses are red\nViolets are blue",
       year: null,
-      artist: null,
+      artist: [],
       album: null,
     });
 
@@ -160,9 +160,9 @@ describe("EntryController.create (DB-backed)", () => {
       userId: user,
       kind: "lyrics",
       title: "A song",
-      author: "Songwriter",
+      author: ["Songwriter"],
       year: 2020,
-      artist: "Band",
+      artist: ["Band"],
       album: "Album",
       body: "la la la",
     });
@@ -171,23 +171,25 @@ describe("EntryController.create (DB-backed)", () => {
     expect(stored).toMatchObject({
       kind: "lyrics",
       year: 2020,
-      artist: "Band",
+      artist: ["Band"],
       album: "Album",
     });
   });
 
-  it("stores every omitted optional field as NULL", async () => {
+  it("stores omitted optional scalars as NULL and empty lists as empty arrays", async () => {
     const user = freshUser();
 
     const created = await controller.create({
       userId: user,
       kind: "lyrics",
       title: "Untitled",
+      author: [],
+      artist: [],
       body: "hums only",
     });
 
     const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
-    expect(stored).toMatchObject({ author: null, year: null, artist: null, album: null });
+    expect(stored).toMatchObject({ author: [], year: null, artist: [], album: null });
   });
 
   it("runs the write on the passed transaction client — a rollback persists nothing", async () => {
@@ -196,7 +198,7 @@ describe("EntryController.create (DB-backed)", () => {
     await expect(
       prisma.$transaction(async (tx) => {
         await controller.create(
-          { userId: user, kind: "poem", title: "doomed", author: "A", body: "one" },
+          { userId: user, kind: "poem", title: "doomed", author: ["A"], body: "one" },
           tx,
         );
         throw new Error("abort");
