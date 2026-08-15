@@ -1,0 +1,299 @@
+#!/usr/bin/env bash
+#
+# sandbox — spin up a full, isolated stack for the current worktree.
+#
+# The pain this solves: every worktree's `pnpm dev` points at the ONE shared
+# Postgres (compose.yaml, host :5433, database "rhymelab"). Two worktrees editing
+# data step on each other. `./sandbox` gives each worktree its own dedicated
+# database inside that same container — `rhymelab_<worktree-slug>` — plus API and
+# web servers on free ports, all wired together. Full data isolation, instant
+# create/drop, negligible overhead (one shared Postgres server, many databases).
+#
+# Nothing is written to the worktree: the servers and `prisma migrate` read their
+# config from exported env vars. dotenv (API + prisma.config.ts) never overrides
+# an already-set var, and Vite's loadEnv applies process.env *after* .env files —
+# so the values exported here win over the committed defaults, and `git status`
+# stays clean.
+#
+#   ./sandbox            # up: provision + migrate the DB, then run API + web
+#   ./sandbox up         # (same as no args)
+#   ./sandbox status     # show this worktree's slug, database, ports
+#   ./sandbox migrate    # ensure the DB exists and apply migrations (no servers)
+#   ./sandbox reset      # drop + recreate + migrate (wipes this worktree's data)
+#   ./sandbox down       # drop this worktree's database
+#   ./sandbox psql       # open a psql shell on this worktree's database
+#
+# `down`/`reset` refuse to touch the shared default "rhymelab" database. Add
+# --yes / -y to skip their confirmation prompt.
+
+set -euo pipefail
+
+# ── Constants (match compose.yaml) ───────────────────────────────────────────
+PG_HOST="localhost"
+PG_PORT="5433"
+PG_USER="rhymelab"
+PG_PASSWORD="rhymelab"
+PG_SERVICE="postgres"              # docker-compose service name (create fallback)
+PG_CONTAINER="rhymelab-postgres"  # fixed container_name in compose.yaml
+PG_PROJECT="rhymelab"             # pin compose project so every worktree shares one container
+DEFAULT_DB="rhymelab"             # the shared dev database; never dropped by this script
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" # docker compose + pnpm workspace filters resolve from the root
+
+# ── Derive a stable, Postgres-safe identity for this worktree ─────────────────
+# Slug from the checkout's directory name: lowercased, non-alphanumerics folded
+# to "_". Deterministic, so the same worktree always maps to the same database
+# and ports across runs.
+slugify() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//'
+}
+
+slug="$(slugify "$(basename "$REPO_ROOT")")"
+
+# Database name. The primary checkout (dir "rhymelab") keeps the shared default;
+# worktrees named "rhymelab-<x>" become "rhymelab_<x>" without doubling the
+# prefix; anything else is prefixed. Capped at Postgres's 63-char identifier max.
+if [ "$slug" = "rhymelab" ]; then
+  DB="$DEFAULT_DB"
+elif [[ "$slug" == rhymelab_* ]]; then
+  DB="$slug"
+else
+  DB="rhymelab_${slug}"
+fi
+DB="${DB:0:63}"
+
+DB_URL="postgresql://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${DB}"
+
+# ── Port selection: deterministic base per slug, then scan up if occupied ─────
+# A per-slug offset spreads worktrees out so their preferred ports rarely clash;
+# free_port still guarantees we never bind a port someone else already holds.
+free_port() {
+  local p="$1"
+  while lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; do p=$((p + 1)); done
+  printf '%s' "$p"
+}
+port_busy() { lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+
+port_offset="$(($(cksum <<<"$slug" | cut -d' ' -f1) % 50))"
+WEB_PORT="$(free_port $((3000 + port_offset)))"
+API_PORT="$(free_port $((4000 + port_offset)))"
+
+# ── Postgres helpers ─────────────────────────────────────────────────────────
+# The Postgres container is shared by every worktree, so we address it by its
+# fixed container_name with plain `docker` — never through a per-directory
+# `docker compose` project (that derives its name from the cwd and would try to
+# spin up a *second* rhymelab-postgres, colliding on the fixed name). Compose is
+# used only to *create* the container when it's missing, pinned to a constant
+# project so all worktrees converge on the one instance.
+pg_running() { [ -n "$(docker ps -q -f "name=^/${PG_CONTAINER}\$" -f status=running)" ]; }
+pg_exists() { [ -n "$(docker ps -aq -f "name=^/${PG_CONTAINER}\$")" ]; }
+
+# Run psql against the maintenance "postgres" database as an admin, by container name.
+psql_admin() {
+  docker exec -i "$PG_CONTAINER" \
+    psql -v ON_ERROR_STOP=1 -U "$PG_USER" -d postgres "$@"
+}
+
+db_exists() {
+  local out
+  out="$(psql_admin -tAc "SELECT 1 FROM pg_database WHERE datname = '${DB}'" 2>/dev/null || true)"
+  [ "$out" = "1" ]
+}
+
+ensure_pg() {
+  if ! docker info >/dev/null 2>&1; then
+    echo "error: Docker isn't running. Start Docker/OrbStack and retry." >&2
+    exit 1
+  fi
+  if pg_running; then
+    : # already up — nothing to do
+  elif pg_exists; then
+    echo "Starting existing Postgres container…"
+    docker start "$PG_CONTAINER" >/dev/null
+  else
+    echo "Creating Postgres container…"
+    docker compose -p "$PG_PROJECT" up -d "$PG_SERVICE" >/dev/null
+  fi
+  local tries=0
+  until docker exec "$PG_CONTAINER" pg_isready -U "$PG_USER" -d postgres >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    if [ "$tries" -gt 30 ]; then
+      echo "error: Postgres didn't become ready after 30s." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+ensure_db() {
+  if db_exists; then return 0; fi
+  echo "Creating database \"${DB}\"…"
+  # Identifier is slug-derived (alphanumerics + underscore), so quoting it is safe.
+  psql_admin -c "CREATE DATABASE \"${DB}\"" >/dev/null
+}
+
+run_migrations() {
+  echo "Applying migrations to \"${DB}\"…"
+  DATABASE_URL="$DB_URL" pnpm --filter @rhymelab/api exec prisma migrate deploy
+}
+
+# Reinstall deps / regenerate the Prisma client if this is a fresh checkout.
+ensure_deps() {
+  if [ ! -d "node_modules" ]; then
+    echo "Installing dependencies (fresh worktree)…"
+    pnpm install
+  fi
+  if [ ! -d "app/backend/api/src/_generated/prisma" ]; then
+    echo "Generating Prisma client…"
+    pnpm --filter @rhymelab/api db:generate
+  fi
+}
+
+confirm_destructive() {
+  # $1 = action description. Refuses the shared default DB outright; otherwise
+  # prompts unless --yes was passed.
+  if [ "$DB" = "$DEFAULT_DB" ]; then
+    echo "refusing to $1 the shared default database \"$DEFAULT_DB\"." >&2
+    echo "Sandboxes are per-worktree; run this from a worktree, not the primary checkout." >&2
+    exit 1
+  fi
+  if [ "${ASSUME_YES:-0}" = "1" ]; then return 0; fi
+  read -r -p "About to $1 database \"$DB\". Continue? [y/N] " ans
+  case "$ans" in
+    [yY] | [yY][eE][sS]) return 0 ;;
+    *) echo "Aborted."; exit 1 ;;
+  esac
+}
+
+# ── Subcommands ──────────────────────────────────────────────────────────────
+cmd_status() {
+  local db_state pg_state
+  pg_running && pg_state="up" || pg_state="down"
+  if pg_running && db_exists; then db_state="present"; else db_state="not created"; fi
+  echo "worktree : $REPO_ROOT"
+  echo "slug     : $slug"
+  echo "postgres : container rhymelab-postgres ($pg_state) @ ${PG_HOST}:${PG_PORT}"
+  echo "database : $DB ($db_state)"
+  echo "db url   : $DB_URL"
+  echo "api      : http://localhost:${API_PORT}/rpc ($(port_busy "$API_PORT" && echo listening || echo free))"
+  echo "web      : http://localhost:${WEB_PORT} ($(port_busy "$WEB_PORT" && echo listening || echo free))"
+}
+
+cmd_migrate() {
+  ensure_pg
+  ensure_db
+  run_migrations
+}
+
+cmd_reset() {
+  confirm_destructive "wipe and recreate"
+  ensure_pg
+  echo "Dropping database \"${DB}\"…"
+  psql_admin -c "DROP DATABASE IF EXISTS \"${DB}\" WITH (FORCE)" >/dev/null
+  ensure_db
+  run_migrations
+  echo "Reset complete — \"${DB}\" is empty and migrated."
+}
+
+cmd_down() {
+  confirm_destructive "drop"
+  ensure_pg
+  echo "Dropping database \"${DB}\"…"
+  psql_admin -c "DROP DATABASE IF EXISTS \"${DB}\" WITH (FORCE)" >/dev/null
+  echo "Dropped \"${DB}\". Servers, if running, are separate — stop them with Ctrl-C."
+}
+
+cmd_psql() {
+  ensure_pg
+  if ! db_exists; then
+    echo "error: database \"$DB\" doesn't exist yet. Run \`./sandbox migrate\` first." >&2
+    exit 1
+  fi
+  docker exec -it "$PG_CONTAINER" psql -U "$PG_USER" -d "$DB"
+}
+
+cmd_up() {
+  ensure_deps
+  ensure_pg
+  ensure_db
+  run_migrations
+
+  cat <<BANNER
+
+  ┌─ RhymeLab sandbox ────────────────────────────────────────
+  │ worktree : $slug
+  │ database : $DB (isolated)
+  │ web      : http://localhost:${WEB_PORT}
+  │ api      : http://localhost:${API_PORT}/rpc
+  │
+  │ Ctrl-C stops both servers. The database persists — drop it
+  │ with \`./sandbox down\` when you're done with this worktree.
+  └───────────────────────────────────────────────────────────
+
+BANNER
+
+  # Wire both servers via exported env. dotenv (API + prisma) and Vite all defer
+  # to an already-set var, so these override the committed :4000/:3000/rhymelab
+  # defaults without touching a file.
+  export DATABASE_URL="$DB_URL"
+  export PORT="$API_PORT"
+  export FRONTEND_ORIGIN="http://localhost:${WEB_PORT}"
+  export VITE_API_URL="http://localhost:${API_PORT}/rpc"
+
+  # Job control (set -m) puts each server in its own process group, so on Ctrl-C
+  # we can signal the whole group — killing pnpm's grandchildren (tsx, vite) too,
+  # not just the pnpm wrapper.
+  set -m
+  local pids=()
+  stop() {
+    trap - INT TERM EXIT
+    echo
+    echo "Stopping sandbox servers…"
+    local pid
+    for pid in "${pids[@]}"; do
+      kill -TERM "-${pid}" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+    done
+    wait 2>/dev/null || true
+  }
+  trap stop INT TERM EXIT
+
+  pnpm --filter @rhymelab/api dev &
+  pids+=($!)
+  pnpm --filter @rhymelab/web exec \
+    vite dev --config .config/vite.config.ts --port "$WEB_PORT" --strictPort &
+  pids+=($!)
+
+  wait
+}
+
+usage() {
+  # Print the leading comment block (skip the shebang, stop at the first line of
+  # code), stripping the "# " prefix.
+  awk 'NR==1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+}
+
+case "${1:-up}" in
+  up | "") cmd_up ;;
+  status) cmd_status ;;
+  migrate) cmd_migrate ;;
+  reset)
+    shift || true
+    [[ "${1:-}" == "-y" || "${1:-}" == "--yes" ]] && ASSUME_YES=1
+    cmd_reset
+    ;;
+  down)
+    shift || true
+    [[ "${1:-}" == "-y" || "${1:-}" == "--yes" ]] && ASSUME_YES=1
+    cmd_down
+    ;;
+  psql) cmd_psql ;;
+  -h | --help | help) usage ;;
+  *)
+    echo "unknown command: $1" >&2
+    echo "run \`./sandbox help\` for usage." >&2
+    exit 1
+    ;;
+esac
