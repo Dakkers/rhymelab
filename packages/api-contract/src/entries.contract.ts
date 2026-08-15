@@ -14,8 +14,11 @@ import { z } from "zod";
 const EntryBaseSchema = z.object({
   id: z.uuidv4(),
   title: z.string().trim().min(1),
-  /** The writer — a poem's poet, or a song's lyricist. */
-  author: z.string().trim(),
+  /**
+   * The writers — a poem's poet(s), or a song's lyricist(s). Ordered as credited;
+   * empty when no author was given.
+   */
+  author: z.array(z.string().trim()),
   /** Publication / release year, when known. */
   year: z.number().int().positive().optional(),
   /** A short preview of the opening lines, for the card body. */
@@ -35,8 +38,8 @@ export const PoemEntrySchema = EntryBaseSchema.extend({
 /** A song's lyrics — adds the performer and the record it appears on. */
 export const LyricsEntrySchema = EntryBaseSchema.extend({
   kind: z.literal("lyrics"),
-  /** The performing artist or band. */
-  artist: z.string(),
+  /** The performing artists or bands, ordered as credited; empty when unknown. */
+  artist: z.array(z.string().trim()),
   album: z.string(),
 });
 
@@ -103,7 +106,7 @@ export const PoemDetailSchema = EntryDetailBaseSchema.extend({
 /** A song's lyrics detail shape — adds the performer and the record it's on. */
 export const LyricsDetailSchema = EntryDetailBaseSchema.extend({
   kind: z.literal("lyrics"),
-  artist: z.string(),
+  artist: z.array(z.string().trim()),
   album: z.string(),
 });
 
@@ -129,7 +132,9 @@ export const get = oc.input(z.object({ id: z.uuidv4() })).output(EntryDetailSche
  */
 const EntryCreateBaseSchema = z.object({
   title: z.string().trim().min(1),
-  author: z.string().trim().optional(),
+  // Defaulted rather than optional so the write path always receives a list and
+  // never has to decide what an omitted author means.
+  author: z.array(z.string().trim().min(1)).default([]),
   year: z.number().int().positive().optional(),
   /** The full saved text; `excerpt`, `lineCount`, and `wordCount` are derived from this. */
   body: z.string().trim().min(1),
@@ -139,7 +144,7 @@ const PoemCreateSchema = EntryCreateBaseSchema.extend({ kind: z.literal("poem") 
 
 const LyricsCreateSchema = EntryCreateBaseSchema.extend({
   kind: z.literal("lyrics"),
-  artist: z.string().trim().optional(),
+  artist: z.array(z.string().trim().min(1)).default([]),
   album: z.string().trim().optional(),
 });
 

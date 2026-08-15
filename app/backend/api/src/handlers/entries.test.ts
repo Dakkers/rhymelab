@@ -34,10 +34,10 @@ function makeRow(overrides: Partial<Entry> = {}): Entry {
     userId: SINGLE_USER_ID,
     kind: "poem",
     title: "A poem",
-    author: "Poet",
+    author: ["Poet"],
     year: null,
     body: "First line\nSecond line",
-    artist: null,
+    artist: [],
     album: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-02T00:00:00.000Z"),
@@ -87,11 +87,11 @@ describe("entries.list", () => {
   });
 
   it("attaches the lyrics-only fields on the lyrics arm", async () => {
-    mockCtrlList.mockResolvedValue([makeRow({ kind: "lyrics", artist: "Band", album: "Album" })]);
+    mockCtrlList.mockResolvedValue([makeRow({ kind: "lyrics", artist: ["Band"], album: "Album" })]);
 
     const [entry] = await callList();
 
-    expect(entry).toMatchObject({ kind: "lyrics", artist: "Band", album: "Album" });
+    expect(entry).toMatchObject({ kind: "lyrics", artist: ["Band"], album: "Album" });
   });
 });
 
@@ -104,7 +104,7 @@ describe("entries.create", () => {
     const input: EntryCreateInput = {
       kind: "poem",
       title: "A poem",
-      author: "Poet",
+      author: ["Poet"],
       body: "Line one\nLine two",
     };
     mockCtrlCreate.mockResolvedValue(makeRow());
@@ -116,21 +116,21 @@ describe("entries.create", () => {
 
   it("maps the saved row onto EntrySummary, deriving from body", async () => {
     mockCtrlCreate.mockResolvedValue(
-      makeRow({ kind: "lyrics", artist: "Band", album: "Album", body: "a b\nc" }),
+      makeRow({ kind: "lyrics", artist: ["Band"], album: "Album", body: "a b\nc" }),
     );
 
     const result = await callCreate({
       kind: "lyrics",
       title: "A poem",
-      author: "Poet",
-      artist: "Band",
+      author: ["Poet"],
+      artist: ["Band"],
       album: "Album",
       body: "a b\nc",
     });
 
     expect(result).toMatchObject({
       kind: "lyrics",
-      artist: "Band",
+      artist: ["Band"],
       album: "Album",
       excerpt: "a b / c",
       lineCount: 2,
@@ -165,12 +165,12 @@ describe("entries.get", () => {
 
   it("attaches the lyrics-only fields on the lyrics arm", async () => {
     mockCtrlGetDetails.mockResolvedValue(
-      makeRow({ kind: "lyrics", artist: "Band", album: "Album" }),
+      makeRow({ kind: "lyrics", artist: ["Band"], album: "Album" }),
     );
 
     const result = await callGet("00000000-0000-4000-8000-000000000000");
 
-    expect(result).toMatchObject({ kind: "lyrics", artist: "Band", album: "Album" });
+    expect(result).toMatchObject({ kind: "lyrics", artist: ["Band"], album: "Album" });
   });
 
   it("404s when the id doesn't exist", async () => {

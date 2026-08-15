@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Badge, Text } from "@saintly-software/baritone";
 import type { EntryDetail } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
+import { names } from "#/lib/format";
 import { orpc } from "#/lib/orpc";
 
 /**
@@ -50,8 +51,12 @@ function EntryPage() {
  * summary carries and the detail view doesn't.
  */
 function byline(entry: EntryDetail): string | undefined {
+  // `author`/`artist` are lists — a piece can credit several people; join them
+  // into one name run so the byline reads as a sentence rather than a column.
   const parts =
-    entry.kind === "lyrics" ? [entry.artist, entry.album, entry.year] : [entry.author, entry.year];
+    entry.kind === "lyrics"
+      ? [names(entry.artist), entry.album, entry.year]
+      : [names(entry.author), entry.year];
   const joined = parts.filter((part) => part !== undefined && part !== "").join(" · ");
   return joined || undefined;
 }

@@ -24,10 +24,10 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
     userId: "user-1",
     kind: "poem",
     title: "A poem",
-    author: "Poet",
+    author: ["Poet"],
     year: null,
     body: "Line one\nLine two",
-    artist: null,
+    artist: [],
     album: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -149,7 +149,7 @@ describe("EntryController.create", () => {
       userId: "user-1",
       kind: "poem",
       title: "A poem",
-      author: "Poet",
+      author: ["Poet"],
       body: "First line\nSecond line\n\nThird line",
     });
 
@@ -157,7 +157,7 @@ describe("EntryController.create", () => {
       data: {
         kind: "poem",
         title: "A poem",
-        author: "Poet",
+        author: ["Poet"],
         userId: "user-1",
         body: "First line\nSecond line\n\nThird line",
       },
@@ -170,9 +170,9 @@ describe("EntryController.create", () => {
       userId: "user-1",
       kind: "lyrics",
       title: "A song",
-      author: "Songwriter",
+      author: ["Songwriter"],
       year: 2020,
-      artist: "Band",
+      artist: ["Band"],
       album: "Album",
       body: "Verse one",
     });
@@ -181,8 +181,8 @@ describe("EntryController.create", () => {
       data: {
         kind: "lyrics",
         title: "A song",
-        author: "Songwriter",
-        artist: "Band",
+        author: ["Songwriter"],
+        artist: ["Band"],
         album: "Album",
         userId: "user-1",
         body: "Verse one",
@@ -191,12 +191,14 @@ describe("EntryController.create", () => {
     });
   });
 
-  it("leaves every omitted optional field unset, to land as NULL", async () => {
+  it("leaves omitted optional scalars unset (to land as NULL) and passes empty lists through", async () => {
     const { client, create } = mockDb();
     await new EntryController(client).create({
       userId: "user-1",
       kind: "lyrics",
       title: "A song",
+      author: [],
+      artist: [],
       body: "one",
     });
 
@@ -205,6 +207,8 @@ describe("EntryController.create", () => {
         userId: "user-1",
         kind: "lyrics",
         title: "A song",
+        author: [],
+        artist: [],
         body: "one",
       },
     });
@@ -215,7 +219,7 @@ describe("EntryController.create", () => {
     const tx = mockDb();
 
     await new EntryController(base.client).create(
-      { userId: "user-1", kind: "poem", title: "T", author: "A", body: "one" },
+      { userId: "user-1", kind: "poem", title: "T", author: ["A"], body: "one" },
       tx.client,
     );
 

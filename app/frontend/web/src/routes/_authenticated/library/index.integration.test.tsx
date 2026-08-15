@@ -8,6 +8,7 @@
  */
 import { expect, test } from "vitest";
 import { screen, within } from "@testing-library/react";
+import { names } from "#/lib/format";
 import { renderRoute } from "#/test/render-route";
 import { store } from "#/test/mocks/handlers";
 import { Route } from "./index";
@@ -50,12 +51,12 @@ test("each card shows its kind, byline, and stats", async () => {
 
     if (entry.kind === "lyrics") {
       // Byline is artist · album · year; the writer is surfaced in the stats.
-      expect(text).toContain(entry.artist);
+      expect(text).toContain(names(entry.artist));
       expect(text).toContain(entry.album);
-      expect(within(card).getByText(`Words by ${entry.author}`)).toBeInTheDocument();
+      expect(within(card).getByText(`Words by ${names(entry.author)}`)).toBeInTheDocument();
     } else {
       // Byline is author · year; no album, and the writer isn't repeated.
-      expect(text).toContain(entry.author);
+      expect(text).toContain(names(entry.author));
       expect(within(card).queryByText(/Words by/)).not.toBeInTheDocument();
     }
   }

@@ -53,12 +53,14 @@ const router = {
     ),
     create: os.entries.create.handler(({ input }) => {
       const now = new Date().toISOString();
-      // The optional input fields collapse to "" on the wire shape, matching the
-      // real API: it stores them as nullable columns and maps NULL to "" on read.
+      // The optional scalars collapse to "" on the wire shape, matching the real
+      // API: it stores them as nullable columns and maps NULL to "" on read. The
+      // list fields (`author`/`artist`) are already defaulted to `[]` by the
+      // contract, so they pass straight through.
       const base = {
         id: crypto.randomUUID(),
         title: input.title,
-        author: input.author ?? "",
+        author: input.author,
         year: input.year,
         body: input.body,
         ...deriveEntrySummaryFields(input.body),
@@ -70,7 +72,7 @@ const router = {
           ? {
               ...base,
               kind: "lyrics" as const,
-              artist: input.artist ?? "",
+              artist: input.artist,
               album: input.album ?? "",
             }
           : { ...base, kind: "poem" as const };

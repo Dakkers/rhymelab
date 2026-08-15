@@ -22,9 +22,9 @@ function toEntryDetail(entry: EntryForLibrary): EntryDetail {
   const base = {
     id: entry.id,
     title: entry.title,
-    // Every optional column is nullable; the contract exposes `author` as a
-    // plain string and `year` as absent-when-unset, so map NULL accordingly.
-    author: entry.author ?? "",
+    // `author` is a list column — already `[]` when unset, so it passes straight
+    // through. `year` is nullable and the contract wants it absent-when-unset.
+    author: entry.author,
     year: entry.year ?? undefined,
     body: entry.body,
     createdAt: entry.createdAt.toISOString(),
@@ -32,7 +32,7 @@ function toEntryDetail(entry: EntryForLibrary): EntryDetail {
   };
 
   return entry.kind === "lyrics"
-    ? { ...base, kind: "lyrics", artist: entry.artist ?? "", album: entry.album ?? "" }
+    ? { ...base, kind: "lyrics", artist: entry.artist, album: entry.album ?? "" }
     : { ...base, kind: "poem" };
 }
 

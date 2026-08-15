@@ -18,8 +18,8 @@ datasource db {
 
 /// A saved piece — a poem or a song's lyrics. Shape follows the api-contract's
 /// `EntrySummarySchema`: `kind` discriminates the two, and `artist`/`album` are
-/// present only for lyrics. Every optional field is nullable, `artist`/`album`
-/// included. `userId` scopes every query — the app is moving toward multi-user,
+/// present only for lyrics. Optional scalars are nullable; the list columns
+/// (`author`/`artist`) record absence as `[]`. `userId` scopes every query — the app is moving toward multi-user,
 /// and entries are always listed per user.
 model Entry {
   id     String @id @default(uuid()) @db.Uuid
@@ -28,10 +28,10 @@ model Entry {
   kind  String // "poem" | "lyrics"
   title String
 
-  // Optional metadata. All nullable — NULL means "not provided" — and coerced to
-  // the contract's shape on read (see `toEntrySummary`), so absence is recorded
-  // one way rather than as "" here and NULL there.
-  author String?
+  // Optional metadata. A piece can have several writers, so `author` is a list —
+  // ordered, and empty when none was given (lists can't be NULL, so absence is
+  // `[]` rather than NULL). `year` is nullable; NULL means "not provided".
+  author String[] @default([])
   year   Int?
 
   // The full text as saved. The list view's excerpt / line count / word count
@@ -39,8 +39,9 @@ model Entry {
   // they can never drift from the body they summarize.
   body String
 
-  // Lyrics-only fields; null for poems.
-  artist String?
+  // Lyrics-only fields; empty / null for poems. `artist` is a list for the same
+  // reason as `author` — a track can credit more than one performer.
+  artist String[] @default([])
   album  String?
 
   createdAt DateTime @default(now()) @map("created_at")
