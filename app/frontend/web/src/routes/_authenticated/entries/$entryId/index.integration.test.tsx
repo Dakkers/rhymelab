@@ -11,7 +11,7 @@ import { expect, test } from "vitest";
 import { screen } from "@testing-library/react";
 import type { FakeEntry } from "@rhymelab/fixtures";
 import { renderRoute } from "#/test/render-route";
-import { store } from "#/test/mocks/handlers";
+import { db } from "#/mocks/db";
 import { Route } from "./index";
 
 /**
@@ -35,7 +35,7 @@ async function renderEntry(entry: FakeEntry): Promise<void> {
 }
 
 test("renders a lyrics entry, with the performer and record in the byline", async () => {
-  const entry = store.entries.find((candidate) => candidate.kind === "lyrics");
+  const entry = db.entries.find((candidate) => candidate.kind === "lyrics");
   // Narrows to the lyrics arm as well as asserting the fixtures cover it.
   if (entry?.kind !== "lyrics") throw new Error("expected a lyrics fixture entry");
 
@@ -49,7 +49,7 @@ test("renders a lyrics entry, with the performer and record in the byline", asyn
 });
 
 test("renders a poem entry, with the author in the byline", async () => {
-  const entry = store.entries.find((candidate) => candidate.kind === "poem");
+  const entry = db.entries.find((candidate) => candidate.kind === "poem");
   // Narrows to the poem arm as well as asserting the fixtures cover it.
   if (entry?.kind !== "poem") throw new Error("expected a poem fixture entry");
 

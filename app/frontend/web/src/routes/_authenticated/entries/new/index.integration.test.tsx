@@ -2,7 +2,7 @@
  * New-entry route — the two-step create form.
  *
  * The form submits over oRPC (`entries.create`), answered here by the MSW mock,
- * which appends to `store.entries` just as the real API persists a row. The test
+ * which appends to `db.entries` just as the real API persists a row. The test
  * drives the default lyrics path end to end and asserts the payload the mock
  * received, so it verifies the form's field-to-contract mapping, not fixtures.
  */
@@ -10,7 +10,7 @@ import { expect, test, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderRoute } from "#/test/render-route";
-import { store } from "#/test/mocks/handlers";
+import { db } from "#/mocks/db";
 import { Route } from "./index";
 
 test("saves a new lyrics entry via entries.create, then heads to the library", async () => {
@@ -34,7 +34,7 @@ test("saves a new lyrics entry via entries.create, then heads to the library", a
 
   // The mock appended the created row; assert on what the server received/derived.
   await vi.waitFor(() => {
-    expect(store.entries[0]).toMatchObject({
+    expect(db.entries[0]).toMatchObject({
       kind: "lyrics",
       title: "My Song",
       author: "A. Writer",
