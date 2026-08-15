@@ -1,7 +1,7 @@
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Badge, Card, CardList, Flex, Link, Text } from "@saintly-software/baritone";
+import { Badge, Card, CardList, InlineList, Link, Text } from "@saintly-software/baritone";
 import type { EntrySummary } from "@rhymelab/api-contract";
 import { Page } from "../../../components/Page";
 import { orpc } from "../../../lib/orpc";
@@ -63,54 +63,49 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
       href={`/entries/${entry.id}`}
       render={<RouterLink to="/entries/$entryId" params={{ entryId: entry.id }} />}
     >
-      <MetaRow>
+      <InlineList
+        separator={
+          <Text size="sm" saliency="low">
+            ·
+          </Text>
+        }
+      >
         <Text size="sm" saliency="low">
           {pluralize(entry.lineCount, "line")}
         </Text>
         <Text size="sm" saliency="low">
           {pluralize(entry.wordCount, "word")}
         </Text>
-        {/* The writer, surfaced for lyrics (a poem already names them in the byline). */}
-        {entry.kind === "lyrics" && (
+        {/* The writer, surfaced for lyrics (a poem already names them in the
+            byline) — and only when there is one: the `&&` yields "" for an
+            unattributed piece, which InlineList drops along with its separator
+            rather than printing a bare "Words by". */}
+        {entry.kind === "lyrics" && names(entry.author) && (
           <Text size="sm" saliency="low">
             Words by {names(entry.author)}
           </Text>
         )}
         <Updated at={entry.updatedAt} />
-      </MetaRow>
+      </InlineList>
     </Card>
   );
 }
 
 /**
  * The identity line under the title: who made it and when. A poem leads with its
- * author; lyrics lead with the performer and the record it's on.
+ * author; lyrics lead with the performer and the record it's on. Every part is
+ * optional — an unattributed piece, a single with no album, a year we don't know
+ * — so the parts go in as bare strings and `InlineList` drops the empty ones
+ * along with their separators. Typography is inherited from the `subheader`
+ * slot, so nothing here imposes its own.
  */
-function byline(entry: EntrySummary): string {
-  const parts =
-    entry.kind === "lyrics"
-      ? [names(entry.artist), entry.album, entry.year]
-      : [names(entry.author), entry.year];
-  // `year` is optional, so drop it (and any other gap) rather than print "undefined".
-  return parts.filter((part) => part !== undefined).join(" · ");
-}
-
-/** A row of low-saliency metadata, dot-separated and wrapping on narrow cards. */
-function MetaRow({ children }: { children: ReactNode }) {
-  const items = Array.isArray(children) ? children.filter(Boolean) : [children];
+function byline(entry: EntrySummary): ReactNode {
   return (
-    <Flex gap="2" align="center" wrap>
-      {items.map((item, i) => (
-        <Fragment key={i}>
-          {i > 0 && (
-            <Text size="sm" saliency="low" aria-hidden>
-              ·
-            </Text>
-          )}
-          {item}
-        </Fragment>
-      ))}
-    </Flex>
+    <InlineList>
+      {entry.kind === "lyrics" ? names(entry.artist) : names(entry.author)}
+      {entry.kind === "lyrics" && entry.album}
+      {entry.year}
+    </InlineList>
   );
 }
 
