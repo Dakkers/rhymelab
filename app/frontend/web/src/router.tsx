@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { routeTree } from "./routeTree.gen";
-import { NotFound } from "./components/NotFound";
+import { NotFoundScreen } from "./components/RouteStatus";
 
 export function getRouter() {
   const queryClient = new QueryClient({
@@ -15,11 +15,7 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
-    // Wrapped rather than passed directly: `NotFound`'s `title`/`message` are
-    // both optional (so `RouteError` can override them for an oRPC `NOT_FOUND`),
-    // and TS's weak-type check rejects a component whose props share nothing
-    // with `NotFoundRouteProps` — none of which this default case needs.
-    defaultNotFoundComponent: () => <NotFound />,
+    defaultNotFoundComponent: NotFoundScreen,
   });
 
   setupRouterSsrQueryIntegration({ router, queryClient });

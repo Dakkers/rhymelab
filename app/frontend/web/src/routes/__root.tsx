@@ -7,8 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { BaritoneTheme, LinkProvider } from "@saintly-software/baritone";
 
-import { NotFound } from "../components/NotFound";
-import { RouteError } from "../components/RouteError";
+import { NotFoundScreen, RouteError } from "../components/RouteStatus";
 import {
   APP_FONTS,
   APP_LINE_HEIGHTS,
@@ -39,9 +38,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
   }),
   shellComponent: RootDocument,
-  // Wrapped rather than passed directly — see the matching comment in
-  // `router.tsx` on why `NotFound` can't be a `notFoundComponent` as-is.
-  notFoundComponent: () => <NotFound />,
+  notFoundComponent: NotFoundScreen,
   errorComponent: RouteError,
 });
 

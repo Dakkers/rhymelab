@@ -6,12 +6,13 @@
  * Why bother, instead of letting the `ORPCError` propagate to the root's
  * `errorComponent`: TanStack Router's SSR hydration only round-trips a plain
  * `{ name, message }` for a *thrown* error (`defaultSerializeError` in
- * `@tanstack/router-core`) — a direct navigation or full-page reload loses the
- * `ORPCError` shape entirely, so `error.code` isn't there to check by the time
- * the client re-renders. `notFound()` doesn't have that problem; it's the
- * router's own first-class "no data here" signal; the root's already-wired
- * `notFoundComponent` renders reliably for it either way. Route through this
- * whenever a loader fetches a single resource by id.
+ * `@tanstack/router-core`), so on a direct navigation or full-page reload the
+ * `ORPCError` shape is gone and `error.code` isn't there to check by the time
+ * the client re-renders — the reader gets "Something went wrong" for what is
+ * really just a missing row. `notFound()` is the router's own first-class "no
+ * data here" signal and doesn't have that problem: the already-wired
+ * `notFoundComponent` renders for it either way. Route through this whenever a
+ * loader fetches a single resource by id.
  */
 import { notFound } from "@tanstack/react-router";
 import { ORPCError } from "@orpc/client";
