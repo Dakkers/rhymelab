@@ -84,10 +84,13 @@ export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
  * for the full `body` text, since the detail view renders the whole piece
  * rather than a preview card.
  */
-const EntryDetailBaseSchema = EntryBaseSchema.omit({
-  excerpt: true,
-  lineCount: true,
-  wordCount: true,
+const EntryDetailBaseSchema = EntryBaseSchema.pick({
+  id: true,
+  title: true,
+  author: true,
+  year: true,
+  createdAt: true,
+  updatedAt: true,
 }).extend({
   body: z.string().trim(),
 });
