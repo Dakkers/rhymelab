@@ -15,7 +15,11 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
-    defaultNotFoundComponent: NotFound,
+    // Wrapped rather than passed directly: `NotFound`'s `title`/`message` are
+    // both optional (so `RouteError` can override them for an oRPC `NOT_FOUND`),
+    // and TS's weak-type check rejects a component whose props share nothing
+    // with `NotFoundRouteProps` — none of which this default case needs.
+    defaultNotFoundComponent: () => <NotFound />,
   });
 
   setupRouterSsrQueryIntegration({ router, queryClient });
