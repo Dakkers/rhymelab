@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { BaritoneTheme, LinkProvider } from "@saintly-software/baritone";
 
-import { NotFound } from "../components/NotFound";
+import { NotFoundScreen, RouteError } from "../components/RouteStatus";
 import {
   APP_FONTS,
   APP_LINE_HEIGHTS,
@@ -38,7 +38,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
   }),
   shellComponent: RootDocument,
-  notFoundComponent: NotFound,
+  notFoundComponent: NotFoundScreen,
+  errorComponent: RouteError,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
