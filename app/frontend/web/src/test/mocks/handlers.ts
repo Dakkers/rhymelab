@@ -7,10 +7,10 @@
  * the request to that handler, so serialisation and routing match production
  * exactly.
  *
- * `auth.me`, `entries.list`, and `entries.create` are mocked. Add procedures
- * here as the new surface — and the tests that exercise it — take shape.
+ * `auth.me`, `entries.list`, `entries.create`, and `entries.get` are mocked. Add
+ * procedures here as the new surface — and the tests that exercise it — take shape.
  */
-import { implement } from "@orpc/server";
+import { implement, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { http, passthrough } from "msw";
 import { contract, deriveEntrySummaryFields } from "@rhymelab/api-contract";
@@ -60,6 +60,7 @@ const router = {
         title: input.title,
         author: input.author ?? "",
         year: input.year,
+        body: input.body,
         ...deriveEntrySummaryFields(input.body),
         createdAt: now,
         updatedAt: now,
@@ -75,6 +76,14 @@ const router = {
           : { ...base, kind: "poem" as const };
       store.entries = [entry, ...store.entries];
       return entry;
+    }),
+    get: os.entries.get.handler(({ input }) => {
+      const entry = store.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // Every entry (fixture-seeded or created above) carries a real `body`; drop
+      // the list-view-only derived fields the detail shape doesn't want.
+      const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
+      return detail;
     }),
   },
 };

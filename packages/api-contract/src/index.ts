@@ -16,6 +16,7 @@ export const contract = {
   entries: {
     list: entries.list,
     create: entries.create,
+    get: entries.get,
   },
 };
 
@@ -24,6 +25,7 @@ export type Contract = typeof contract;
 export {
   EntrySummarySchema,
   EntryCreateInputSchema,
+  EntryDetailSchema,
   deriveEntrySummaryFields,
 } from "./entries.contract";
-export type { EntrySummary, EntryKind, EntryCreateInput } from "./entries.contract";
+export type { EntrySummary, EntryKind, EntryCreateInput, EntryDetail } from "./entries.contract";
