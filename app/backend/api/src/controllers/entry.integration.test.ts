@@ -52,7 +52,7 @@ function entryData(
     title: sampleEntry.title,
     author: sampleEntry.author,
     year: sampleEntry.year,
-    body: sampleEntry.excerpt,
+    body: sampleEntry.body,
     ...overrides,
   };
 }

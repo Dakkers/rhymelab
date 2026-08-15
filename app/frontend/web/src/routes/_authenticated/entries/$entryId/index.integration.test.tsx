@@ -19,8 +19,11 @@ test("renders the entry's title, byline, kind, and body", async () => {
 
   expect(await screen.findByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
   expect(screen.getByText(entry.kind === "lyrics" ? "Lyrics" : "Poem")).toBeInTheDocument();
-  // The mock stands the excerpt in for the not-yet-fixtured `body`.
-  expect(screen.getByText(entry.excerpt)).toBeInTheDocument();
+  // `body` is multi-line; match on exact textContent rather than a string
+  // matcher, since RTL's default matcher normalizes embedded newlines to spaces.
+  expect(
+    screen.getByText((_content, element) => element?.textContent === entry.body),
+  ).toBeInTheDocument();
 
   if (entry.kind === "lyrics") {
     expect(screen.getByText(new RegExp(entry.artist))).toBeInTheDocument();

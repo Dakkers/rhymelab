@@ -60,6 +60,7 @@ const router = {
         title: input.title,
         author: input.author ?? "",
         year: input.year,
+        body: input.body,
         ...deriveEntrySummaryFields(input.body),
         createdAt: now,
         updatedAt: now,
@@ -79,11 +80,10 @@ const router = {
     get: os.entries.get.handler(({ input }) => {
       const entry = store.entries.find((candidate) => candidate.id === input.id);
       if (!entry) throw new ORPCError("NOT_FOUND");
-      // The fixtures only carry the derived summary fields, not a real `body` —
-      // the excerpt stands in for it here, same as the DB-backed integration
-      // tests' fixture entries do.
-      const { excerpt, lineCount: _lineCount, wordCount: _wordCount, ...rest } = entry;
-      return { ...rest, body: excerpt };
+      // Every entry (fixture-seeded or created above) carries a real `body`; drop
+      // the list-view-only derived fields the detail shape doesn't want.
+      const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
+      return detail;
     }),
   },
 };

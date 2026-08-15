@@ -9,10 +9,20 @@
  * numbers (a song titled "Perspiciatis apud", a year in the trillions) that no
  * real library could show. A fixed seed makes the output reproducible, so the
  * list doesn't reshuffle between requests and tests can assert against it.
+ *
+ * Each row also carries a real `body` — generated first, with `excerpt` /
+ * `lineCount` / `wordCount` derived from it via `deriveEntrySummaryFields` (the
+ * same function the real API applies on read), rather than faking those three
+ * independently of any actual text. That gives `entries.get` mocks/fixtures real
+ * content to serve instead of standing in something else for it.
  */
 import { faker } from "@faker-js/faker";
 import { fake, seed as seedFaker, setFaker } from "zod-schema-faker/v4";
-import { EntrySummarySchema, type EntrySummary } from "@rhymelab/api-contract";
+import {
+  deriveEntrySummaryFields,
+  EntrySummarySchema,
+  type EntrySummary,
+} from "@rhymelab/api-contract";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -21,17 +31,22 @@ const EPOCH = Date.UTC(2026, 7, 12, 12, 0, 0); // 2026-08-12T12:00:00Z
 /** Arbitrary — fixed only so the generated set is reproducible. */
 const DEFAULT_SEED = 20260812;
 
-function makeEntry(rank: number): EntrySummary {
+/** A generated fixture row: the list-view `EntrySummary` plus the `body` it derives from. */
+export type FakeEntry = EntrySummary & { body: string };
+
+function makeEntry(rank: number): FakeEntry {
   // zod-schema-faker chooses the arm and produces a schema-valid skeleton.
   const skeleton = fake(EntrySummarySchema);
+  // One line per faker.lorem.lines() call, so `deriveEntrySummaryFields` sees a
+  // realistic line/word shape rather than one giant unbroken line.
+  const body = faker.lorem.lines({ min: 8, max: 80 });
   const shared = {
     id: faker.string.uuid(),
     title: faker.music.songName(),
     author: faker.person.fullName(),
     year: faker.number.int({ min: 1990, max: 2025 }),
-    excerpt: `${faker.lorem.words({ min: 5, max: 9 })} / ${faker.lorem.words({ min: 5, max: 9 })}`,
-    lineCount: faker.number.int({ min: 8, max: 80 }),
-    wordCount: faker.number.int({ min: 60, max: 600 }),
+    body,
+    ...deriveEntrySummaryFields(body),
     createdAt: new Date(EPOCH - faker.number.int({ min: 40, max: 240 }) * DAY).toISOString(),
     // Spread edits out by rank so the seeded list has a clear newest-first order.
     updatedAt: new Date(
@@ -53,7 +68,7 @@ function makeEntry(rank: number): EntrySummary {
 export function fakeEntries(
   count = 6,
   { seed = DEFAULT_SEED }: { seed?: number } = {},
-): EntrySummary[] {
+): FakeEntry[] {
   setFaker(faker);
   seedFaker(seed);
   return Array.from({ length: count }, (_, i) => makeEntry(i)).sort(
