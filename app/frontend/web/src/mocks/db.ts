@@ -12,15 +12,22 @@
  * The same store backs the Vitest integration suite, where `resetDb` in the
  * global `afterEach` returns it to the seed between tests.
  */
-import { fakeEntries } from "@rhymelab/fixtures";
-import type { EntrySummary } from "@rhymelab/api-contract";
+import { fakeEntries, type FakeEntry } from "@rhymelab/fixtures";
+
+/**
+ * A stored piece: the list-view `EntrySummary` plus the full `body` text. `body`
+ * is the source of truth — `entries.list` returns the summary fields and
+ * `entries.get` returns the detail (base fields + `body`), so the store carries
+ * a superset of both. `FakeEntry` is exactly that shape.
+ */
+export type MockEntry = FakeEntry;
 
 /** Shape of the mock store. Grows a field per "table" as the mock API grows. */
 export interface MockDb {
   /** Whether the mock session is signed in — what `auth.me` reports. */
   authed: boolean;
-  /** The current user's saved pieces — what `entries.list` returns. */
-  entries: EntrySummary[];
+  /** The current user's saved pieces — backs `entries.list`/`get`/`create`. */
+  entries: MockEntry[];
 }
 
 /**

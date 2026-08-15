@@ -3,16 +3,22 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { freshUser, prisma } from "../test-support/integration-db";
-import { EntryController } from "./entry";
+import { EntryController, type EntryForLibrary } from "./entry";
 
 /**
- * DB-backed integration tests for `EntryController`. Unlike the sibling
- * `entry.test.ts` (which mocks the client and asserts the *query* built), these
- * run the real Prisma queries against the real local Postgres and assert on rows
- * actually written and read back — for `list`: userId scoping, `updatedAt`-desc
- * ordering, the AND-ed `where`, userId staying authoritative, and the `tx` path;
- * for `create`: what's persisted, the DB-assigned id/timestamps, column
- * defaults, and rollback when the transaction it's handed aborts.
+ * DB-backed integration tests for `EntryController`. These are deliberately NOT a
+ * mirror of the sibling `entry.test.ts`. That file mocks the client and pins the
+ * *query the controller builds* — user scoping, the AND-ed `where`, userId staying
+ * authoritative over a `where.userId`, the exact `create` payload, and base-vs-`tx`
+ * routing — all of which are pure query-construction and need no database. This
+ * suite covers only what a mock cannot prove: the truths that require a real
+ * Postgres.
+ *
+ *   - `list`: that `updatedAt`-desc ordering actually happens, and that the user
+ *     scope isolates rows with *another user's rows physically present* in the table.
+ *   - `create`: the DB-assigned id/timestamps, columns round-tripping through the
+ *     schema, omitted optionals landing as real NULLs, and a handed-in transaction
+ *     rolling the write back.
  *
  * The env/DB ping/cleanup/disconnect hooks live in the shared `setupFiles`
  * handler (`../test-support/integration-setup`). Run with `pnpm test:integration`
@@ -46,15 +52,15 @@ function entryData(
     title: sampleEntry.title,
     author: sampleEntry.author,
     year: sampleEntry.year,
-    body: sampleEntry.excerpt,
+    body: sampleEntry.body,
     ...overrides,
   };
 }
 
-const ids = (entries: Entry[]) => entries.map((e) => e.id);
+const ids = (entries: EntryForLibrary[]) => entries.map((e) => e.id);
 
-describe("EntryController.list (DB-backed)", () => {
-  it("returns only the given user's rows", async () => {
+describe("EntryController.listForLibrary (DB-backed)", () => {
+  it("isolates the user scope — another user's rows in the table don't leak in", async () => {
     const mine = freshUser();
     const other = freshUser();
     const [mine1, mine2] = await Promise.all([
@@ -63,10 +69,9 @@ describe("EntryController.list (DB-backed)", () => {
     ]);
     await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
 
-    const result = await controller.list(mine);
+    const result = await controller.listForLibrary(mine);
 
     expect(new Set(ids(result))).toEqual(new Set([mine1.id, mine2.id]));
-    expect(result.every((e) => e.userId === mine)).toBe(true);
   });
 
   it("orders newest-edited first (updatedAt desc), regardless of insert order", async () => {
@@ -83,60 +88,33 @@ describe("EntryController.list (DB-backed)", () => {
       data: entryData(user, { title: "middle", updatedAt: new Date("2026-02-01T00:00:00.000Z") }),
     });
 
-    const result = await controller.list(user);
+    const result = await controller.listForLibrary(user);
 
     expect(ids(result)).toEqual([newest.id, middle.id, oldest.id]);
   });
+});
 
-  it("AND-s the optional `where` with the user scope", async () => {
+describe("EntryController.getDetails (DB-backed)", () => {
+  it("returns the entry by id, with userId included for the caller to check ownership", async () => {
     const user = freshUser();
-    const poem = await prisma.entry.create({ data: entryData(user, { kind: "poem" }) });
-    const lyrics = await prisma.entry.create({
-      data: entryData(user, { kind: "lyrics", artist: "Someone", album: "An album" }),
-    });
+    const entry = await prisma.entry.create({ data: entryData(user, { title: "mine" }) });
 
-    const result = await controller.list(user, { kind: "lyrics" });
+    const found = await controller.getDetails(entry.id);
 
-    expect(ids(result)).toEqual([lyrics.id]);
-    expect(ids(result)).not.toContain(poem.id);
+    expect(found).toMatchObject({ id: entry.id, title: "mine", userId: user });
   });
 
-  it("keeps userId authoritative — a userId inside `where` cannot widen the scope", async () => {
-    const mine = freshUser();
-    const other = freshUser();
-    const own = await prisma.entry.create({ data: entryData(mine, { title: "mine" }) });
-    await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
+  it("returns another user's entry too — getDetails doesn't scope by owner", async () => {
+    const owner = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(owner, { title: "theirs" }) });
 
-    // The `where.userId` (other) is overridden by the authoritative `userId`
-    // (mine) — the controller spreads `userId` last — so only `mine`'s row
-    // comes back. A leak would show as `other`'s row appearing.
-    const result = await controller.list(mine, { userId: other });
+    const found = await controller.getDetails(entry.id);
 
-    expect(ids(result)).toEqual([own.id]);
-    expect(result.every((e) => e.userId === mine)).toBe(true);
+    expect(found).toMatchObject({ id: entry.id, userId: owner });
   });
 
-  it("runs the read on the passed transaction client and returns the right rows", async () => {
-    const mine = freshUser();
-    const other = freshUser();
-    const own = await prisma.entry.create({ data: entryData(mine, { title: "in-tx" }) });
-    await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
-
-    const result = await prisma.$transaction((tx) => controller.list(mine, undefined, tx));
-
-    expect(ids(result)).toEqual([own.id]);
-    expect(result.every((e) => e.userId === mine)).toBe(true);
-  });
-
-  it("returns an empty list for a user with no rows", async () => {
-    const mine = freshUser();
-    const other = freshUser();
-    // A row for someone else must not leak into `mine`'s (empty) result.
-    await prisma.entry.create({ data: entryData(other) });
-
-    const result = await controller.list(mine);
-
-    expect(result).toEqual([]);
+  it("returns null for an id that doesn't exist", async () => {
+    expect(await controller.getDetails("00000000-0000-4000-8000-000000000000")).toBeNull();
   });
 });
 
@@ -198,7 +176,7 @@ describe("EntryController.create (DB-backed)", () => {
     });
   });
 
-  it("stores an omitted author as '' and omitted lyrics fields as NULL", async () => {
+  it("stores every omitted optional field as NULL", async () => {
     const user = freshUser();
 
     const created = await controller.create({
@@ -209,29 +187,7 @@ describe("EntryController.create (DB-backed)", () => {
     });
 
     const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
-    expect(stored).toMatchObject({ author: "", artist: null, album: null });
-  });
-
-  it("scopes the saved row to its user — a later list finds exactly it", async () => {
-    const mine = freshUser();
-    const other = freshUser();
-    await controller.create({
-      userId: other,
-      kind: "poem",
-      title: "theirs",
-      author: "A",
-      body: "not mine",
-    });
-
-    const created = await controller.create({
-      userId: mine,
-      kind: "poem",
-      title: "mine",
-      author: "A",
-      body: "one",
-    });
-
-    expect(ids(await controller.list(mine))).toEqual([created.id]);
+    expect(stored).toMatchObject({ author: null, year: null, artist: null, album: null });
   });
 
   it("runs the write on the passed transaction client — a rollback persists nothing", async () => {
@@ -248,6 +204,6 @@ describe("EntryController.create (DB-backed)", () => {
     ).rejects.toThrow("abort");
 
     // Had the write ignored `tx` and used the base client, this row would survive.
-    expect(await controller.list(user)).toEqual([]);
+    expect(await controller.listForLibrary(user)).toEqual([]);
   });
 });

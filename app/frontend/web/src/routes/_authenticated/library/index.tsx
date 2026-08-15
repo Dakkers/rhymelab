@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link as RouterLink } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Badge, Card, CardList, Flex, Link, Text } from "@saintly-software/baritone";
 import type { EntrySummary } from "@rhymelab/api-contract";
@@ -60,6 +60,8 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
       subheader={byline(entry)}
       action={<Badge text={KIND_LABEL[entry.kind]} shape="square" saliency="low" />}
       description={entry.excerpt}
+      href={`/entries/${entry.id}`}
+      render={<RouterLink to="/entries/$entryId" params={{ entryId: entry.id }} />}
     >
       <MetaRow>
         <Text size="sm" saliency="low">

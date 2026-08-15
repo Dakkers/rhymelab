@@ -7,14 +7,15 @@ import { EntryController } from "./entry";
  * the controller *builds* is what's under test, so the client is mocked and no
  * database is touched. `findMany` resolves `rows` and records its arguments.
  */
-function mockDb(rows: Entry[] = [], created: Entry = makeEntry()) {
+function mockDb(rows: Entry[] = [], created: Entry = makeEntry(), found: Entry | null = null) {
   const findMany = vi.fn().mockResolvedValue(rows);
   const create = vi.fn().mockResolvedValue(created);
-  // Cast through `unknown`: the mock implements only the surface `list`/`create`
-  // use, not the whole PrismaClient / TransactionClient.
-  const client = { entry: { findMany, create } } as unknown as PrismaClient &
+  const findUnique = vi.fn().mockResolvedValue(found);
+  // Cast through `unknown`: the mock implements only the surface `list`/`create`/
+  // `getDetails` use, not the whole PrismaClient / TransactionClient.
+  const client = { entry: { findMany, create, findUnique } } as unknown as PrismaClient &
     Prisma.TransactionClient;
-  return { client, findMany, create };
+  return { client, findMany, create, findUnique };
 }
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
@@ -34,15 +35,27 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
   };
 }
 
-describe("EntryController.list", () => {
-  it("scopes to the given userId, newest-edited first", async () => {
+describe("EntryController.listForLibrary", () => {
+  it("scopes to the given userId, newest-edited first, selecting only the library columns", async () => {
     const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1");
+    await new EntryController(client).listForLibrary("user-1");
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(findMany).toHaveBeenCalledWith({
       where: { userId: "user-1" },
       orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   });
 
@@ -50,36 +63,16 @@ describe("EntryController.list", () => {
     const rows = [makeEntry({ id: "a" }), makeEntry({ id: "b" })];
     const { client } = mockDb(rows);
 
-    const result = await new EntryController(client).list("user-1");
+    const result = await new EntryController(client).listForLibrary("user-1");
 
     expect(result).toBe(rows);
-  });
-
-  it("AND-s the optional `where` with the user scope", async () => {
-    const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1", { kind: "lyrics" });
-
-    expect(findMany).toHaveBeenCalledWith({
-      where: { kind: "lyrics", userId: "user-1" },
-      orderBy: { updatedAt: "desc" },
-    });
-  });
-
-  it("keeps userId authoritative — a userId in `where` cannot widen the scope", async () => {
-    const { client, findMany } = mockDb();
-    await new EntryController(client).list("user-1", { userId: "someone-else" });
-
-    expect(findMany).toHaveBeenCalledWith({
-      where: { userId: "user-1" },
-      orderBy: { updatedAt: "desc" },
-    });
   });
 
   it("runs on the transaction client when one is passed", async () => {
     const base = mockDb();
     const tx = mockDb();
 
-    await new EntryController(base.client).list("user-1", undefined, tx.client);
+    await new EntryController(base.client).listForLibrary("user-1", tx.client);
 
     expect(tx.findMany).toHaveBeenCalledTimes(1);
     expect(base.findMany).not.toHaveBeenCalled();
@@ -88,9 +81,64 @@ describe("EntryController.list", () => {
   it("runs on the base client when no transaction is passed", async () => {
     const base = mockDb();
 
-    await new EntryController(base.client).list("user-1");
+    await new EntryController(base.client).listForLibrary("user-1");
 
     expect(base.findMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EntryController.getDetails", () => {
+  it("looks up by id alone, unscoped by owner, selecting userId alongside listForLibrary's columns", async () => {
+    const { client, findUnique } = mockDb();
+    await new EntryController(client).getDetails("entry-1");
+
+    expect(findUnique).toHaveBeenCalledTimes(1);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+      },
+    });
+  });
+
+  it("returns whatever the client yields, null included — ownership is left to the caller", async () => {
+    const entry = makeEntry({ id: "entry-1", userId: "some-owner" });
+    const { client } = mockDb([], makeEntry(), entry);
+
+    const found = await new EntryController(client).getDetails("entry-1");
+    expect(found).toBe(entry);
+
+    const { client: emptyClient } = mockDb([], makeEntry(), null);
+    const missing = await new EntryController(emptyClient).getDetails("missing");
+    expect(missing).toBeNull();
+  });
+
+  it("runs on the transaction client when one is passed", async () => {
+    const base = mockDb();
+    const tx = mockDb();
+
+    await new EntryController(base.client).getDetails("entry-1", tx.client);
+
+    expect(tx.findUnique).toHaveBeenCalledTimes(1);
+    expect(base.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("runs on the base client when no transaction is passed", async () => {
+    const base = mockDb();
+
+    await new EntryController(base.client).getDetails("entry-1");
+
+    expect(base.findUnique).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -112,7 +160,6 @@ describe("EntryController.create", () => {
         author: "Poet",
         userId: "user-1",
         body: "First line\nSecond line\n\nThird line",
-        year: null,
       },
     });
   });
@@ -144,7 +191,7 @@ describe("EntryController.create", () => {
     });
   });
 
-  it("defaults an omitted author to '' and leaves the lyrics fields unset", async () => {
+  it("leaves every omitted optional field unset, to land as NULL", async () => {
     const { client, create } = mockDb();
     await new EntryController(client).create({
       userId: "user-1",
@@ -159,8 +206,6 @@ describe("EntryController.create", () => {
         kind: "lyrics",
         title: "A song",
         body: "one",
-        author: "",
-        year: null,
       },
     });
   });

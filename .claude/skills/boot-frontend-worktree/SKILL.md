@@ -1,39 +1,49 @@
 ---
 name: boot-frontend-worktree
 description: >-
-  Set up and boot the @rhymelab/web frontend dev server (localhost:3000) inside a
-  git worktree — copy the gitignored secret env overrides that a fresh checkout
-  doesn't carry, install node_modules, then launch the dev server. Use when the
-  user wants to run/start/boot the web app or frontend in a worktree, spin up a
-  freshly-created worktree to preview the web app, or fix a worktree where the
+  Set up and boot a worktree's own @rhymelab/web + @rhymelab/api dev servers on
+  free ports — copy the gitignored secret env overrides that a fresh checkout
+  doesn't carry, install node_modules, pin ports/CORS, then launch both. Use when
+  the user wants to run/start/boot the web app or frontend in a worktree, spin up
+  a freshly-created worktree to preview the web app, or fix a worktree where the
   frontend won't start because deps or env are missing.
 ---
 
-# Boot the frontend in a worktree
+# Boot a worktree's own web + API stack
 
-A git worktree is a **fresh checkout** sharing the main repo's history. Every
-committed file comes along automatically — including all the `.config/.env*`
-files, which hold **non-secret dev defaults**. The app runs on those defaults
-with zero env setup, so most worktrees need nothing copied.
+**Default: this worktree gets its own web server *and* its own API server, on
+ports nobody else holds.** Worktrees are meant to run side by side, so something
+is usually already listening on 3000 and 4000 — but that something is *another
+worktree's source code*. A page that loads at :3000 or an API that answers at
+:4000 proves nothing about the checkout you're working in. Never treat "the port
+is busy, so it's already running" as success: it is the exact failure this skill
+exists to prevent. Always start fresh processes from *this* worktree root and
+verify they're the ones you're looking at.
 
-Three things are gitignored and therefore do **not** carry into a new worktree:
+Boot only the web server (skipping the API) when the user explicitly asks for
+just the frontend, or when the change is purely visual and needs no data or auth.
+Say so when you do — an app without its API can't sign in or load entries.
 
-1. `node_modules/` — must be reinstalled (`pnpm install`).
+A git worktree is a fresh checkout sharing the main repo's history, so every
+committed file comes along — including the `.config/.env*` and `app/backend/api/.env`
+files of non-secret dev defaults. Three things are gitignored and do **not** carry
+over:
+
+1. `node_modules/` — reinstall with `pnpm install`.
 2. `worker-configuration.d.ts` — generated Worker binding types; regenerate with
    `pnpm cf-typegen`. The dev server boots without it (Vite doesn't typecheck), but
    `pnpm typecheck` and the editor error until it exists. `src/routeTree.gen.ts` is
    *tracked*, so it does carry over — don't confuse the two.
-3. Any secret env overrides (`*.local`, `.config/.dev.vars`) — copy them from the
-   main checkout **if they exist**. They usually don't; the committed defaults are
-   enough to boot.
+3. Secret env overrides (`*.local`, `.config/.dev.vars`) — copy from the main
+   checkout **if they exist**. They usually don't.
 
-Do the three steps below in order from the worktree root.
+Work through the steps below in order, from the worktree root.
 
 ## 1. Copy gitignored secret env files from the main checkout
 
 The committed `.env` files are already present. This only rescues secret
-overrides the main worktree happens to have. It's a no-op (and safe) when there
-are none.
+overrides the main worktree happens to have; it's a safe no-op when there are
+none.
 
 ```bash
 SRC="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
@@ -49,93 +59,117 @@ for f in \
 done
 ```
 
-If nothing is copied, that's expected — proceed. The committed `.config/.env`
-(`VITE_API_URL=http://localhost:4000/rpc`) and `.env.development` are all the web
-server needs to start.
+Nothing copied is the normal case — proceed.
 
 ## 2. Install dependencies
 
-pnpm hardlinks from the shared global store, so this is fast even though it's a
-separate `node_modules`. Run from the worktree root — it installs every workspace
-(web included):
+pnpm hardlinks from the shared global store, so this is fast despite being a
+separate `node_modules`. From the worktree root (installs every workspace):
 
 ```bash
 pnpm install
 ```
 
-Then regenerate the gitignored Worker binding types. Skip this only if you're just
-launching the dev server and won't run `pnpm typecheck` — otherwise typecheck fails
-on a missing `worker-configuration.d.ts`:
+Then regenerate the gitignored Worker binding types. Skip only if you won't run
+`pnpm typecheck` — otherwise it fails on a missing `worker-configuration.d.ts`:
 
 ```bash
 pnpm cf-typegen
 ```
 
-## 3. Pick a free port
+## 3. Pick a free port for each server
 
-The default is **3000**, but another worktree (or anything else) may already hold
-it — worktrees are meant to run side by side. Find the first free port starting at
-3000:
+Never reuse a listening port. Scan up from the defaults (web 3000, API 4000):
 
 ```bash
-PORT=3000
-while lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do PORT=$((PORT + 1)); done
-echo "using port $PORT"
+free_port() { p=$1; while lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; do p=$((p + 1)); done; echo "$p"; }
+WEB_PORT=$(free_port 3000)
+API_PORT=$(free_port 4000)
+echo "web=$WEB_PORT api=$API_PORT"
 ```
 
-Don't rely on Vite auto-incrementing — `strictPort` isn't set, so it would move to
-the next port silently while the launch config still points the browser at 3000,
-and you'd open a dead tab.
+Don't rely on Vite auto-incrementing — `strictPort` isn't set, so it would drift
+to another port silently while the launch config still points the browser at the
+original, and you'd open a dead tab (or worse, another worktree's tab).
 
-## 4. Boot the web dev server
+## 4. Wire the two servers to each other
 
-Use the Browser pane, not Bash — never run the dev server with Bash.
+Both sides need to agree on the ports, and the API's CORS allowlist is an exact
+origin (credentialed requests can't use `*`). Write the gitignored `.local`
+overrides — they beat the committed defaults and never dirty the worktree:
 
-- **If `PORT` is 3000:** `preview_start` with `{ name: "web" }` (the existing
-  config in `.claude/launch.json` runs `pnpm run dev:web` on 3000).
-- **If `PORT` is anything else:** add a config to `.claude/launch.json` that pins
-  that port with `--strictPort` (so the process fails loudly rather than drifting
-  off the port the browser opens), then `preview_start` with its name:
+```bash
+printf 'PORT=%s\nFRONTEND_ORIGIN=http://localhost:%s\n' "$API_PORT" "$WEB_PORT" \
+  >> app/backend/api/.env.local
+printf 'VITE_API_URL=http://localhost:%s/rpc\n' "$API_PORT" \
+  >> app/frontend/web/.config/.env.development.local
+```
 
-  ```json
-  {
-    "name": "web-3001",
-    "runtimeExecutable": "pnpm",
-    "runtimeArgs": [
-      "--filter", "@rhymelab/web", "exec",
-      "vite", "dev", "--config", ".config/vite.config.ts",
-      "--port", "3001", "--strictPort"
-    ],
-    "port": 3001
-  }
-  ```
+`.env.development.local` is the highest-priority file Vite loads in dev mode, so
+it wins over the `VITE_API_URL=http://localhost:4000/rpc` in the committed
+`.config/.env`. Skip the web-side write only when `API_PORT` is 4000 *and* that
+4000 is the API you just started from this worktree.
 
-  Substitute the real `PORT` for `3001` in both the `name`, the `--port` arg, and
-  the `port` field. This edit only dirties the worktree's own copy of
-  `launch.json` — it's reversible and never touches the shared `web` config.
+If step 1 copied an existing `app/backend/api/.env.local`, check it for an
+earlier `PORT`/`FRONTEND_ORIGIN` and edit those lines instead of appending a
+second copy.
 
-Then verify per the standard workflow: check `read_console_messages` /
-`preview_logs` for startup errors, `read_page` for rendered content, and a
-`screenshot` as proof.
+## 5. Start Postgres (shared)
 
-## Live data needs the API stack too
+One Postgres container serves every worktree — this is the single piece of the
+stack you should *not* duplicate:
 
-The web server renders on its own, but all data and auth go to the oRPC API at
-`http://localhost:4000/rpc`. For a frontend that actually loads entries / lets you
-sign in, that stack must also be up (a single shared Postgres container serves
-every worktree):
+```bash
+docker compose up -d
+```
 
-- Postgres — `docker compose up -d` (host `:5433`)
-- API — `pnpm dev:api` (`:4000`)
+It listens on host `:5433`. If it's already up, leave it.
 
-See the `record-e2e` skill's preflight for the full three-service setup and the
-signed-in session details. If the user only asked to see the frontend UI, step 4
-alone is enough; mention the API dependency rather than starting the database for
-them unprompted.
+## 6. Boot both servers
 
-**Non-3000 port + the API:** the API only allows CORS from its `FRONTEND_ORIGIN`
-(`http://localhost:3000`), and credentialed requests need an exact origin. So a
-worktree booted on, say, 3001 will render but its data/auth calls will be rejected
-by the API. To exercise live data from a non-3000 port, also point the API at that
-origin — set `FRONTEND_ORIGIN=http://localhost:<port>` in
-`app/backend/api/.env.local` (gitignored) before starting `pnpm dev:api`.
+Use the Browser pane — never run a dev server with Bash. Add a per-worktree
+config for each server to `.claude/launch.json`, substituting the real ports, then
+`preview_start` each by name. Name them after the ports so two worktrees' configs
+can't collide, and leave the shared `web` config alone:
+
+```json
+{
+  "name": "web-3001",
+  "runtimeExecutable": "pnpm",
+  "runtimeArgs": [
+    "--filter", "@rhymelab/web", "exec",
+    "vite", "dev", "--config", ".config/vite.config.ts",
+    "--port", "3001", "--strictPort"
+  ],
+  "port": 3001
+},
+{
+  "name": "api-4001",
+  "runtimeExecutable": "pnpm",
+  "runtimeArgs": ["run", "dev:api"],
+  "port": 4001
+}
+```
+
+The API reads its port from `PORT` in the `.env.local` you wrote in step 4; the
+`port` field just tells the pane where the server lives. Start the API first, then
+the web server. Editing `launch.json` dirties only this worktree's copy — it's
+reversible.
+
+## 7. Verify you're looking at *this* worktree
+
+A rendered page is not proof. Confirm both processes are yours:
+
+- `preview_logs` for each server — the web log should print the `WEB_PORT` you
+  chose, and the API log the `API_PORT`.
+- `read_console_messages` for startup errors, and `read_network_requests` to
+  confirm the app's calls go to `http://localhost:<API_PORT>/rpc` and come back
+  2xx, not CORS-rejected. A CORS failure means `FRONTEND_ORIGIN` doesn't match the
+  web port.
+- `read_page` for rendered content, then a `screenshot` as proof.
+
+If anything points at a port you didn't pick, you're on another worktree's server
+— stop it or move yours, don't report success.
+
+For the signed-in-session details of a full three-service run, see the
+`record-e2e` skill's preflight.

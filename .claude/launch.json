@@ -16,6 +16,16 @@
         "--port", "3001", "--strictPort"
       ],
       "port": 3001
+    },
+    {
+      "name": "web-3002",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter", "@rhymelab/web", "exec",
+        "vite", "dev", "--config", ".config/vite.config.ts",
+        "--port", "3002", "--strictPort"
+      ],
+      "port": 3002
     }
   ]
 }

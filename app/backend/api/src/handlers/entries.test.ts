@@ -7,6 +7,7 @@
  * outright rather than spied on: spying would still construct the real
  * controller, which pulls in the Prisma client and its adapter for no benefit.
  */
+import { ORPCError } from "@orpc/server";
 import { createProcedureClient } from "@orpc/server";
 import type { EntryCreateInput } from "@rhymelab/api-contract";
 import type { FastifyReply } from "fastify";
@@ -16,14 +17,15 @@ import type { ORPCContext } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
 vi.mock("../controllers/entry", () => ({
-  entryController: { list: vi.fn(), create: vi.fn() },
+  entryController: { listForLibrary: vi.fn(), create: vi.fn(), getDetails: vi.fn() },
 }));
 
 const { entryController } = await import("../controllers/entry");
-const { list, create } = await import("./entries");
+const { list, create, get } = await import("./entries");
 
-const mockedList = vi.mocked(entryController.list);
-const mockedCreate = vi.mocked(entryController.create);
+const mockCtrlList = vi.mocked(entryController.listForLibrary);
+const mockCtrlCreate = vi.mocked(entryController.create);
+const mockCtrlGetDetails = vi.mocked(entryController.getDetails);
 
 /** A Prisma `Entry` row — `body` is the source the summary fields derive from. */
 function makeRow(overrides: Partial<Entry> = {}): Entry {
@@ -53,21 +55,26 @@ function callCreate(input: EntryCreateInput) {
   return createProcedureClient(create, { context })(input);
 }
 
+function callGet(id: string) {
+  const context: ORPCContext = { session: { authed: true }, reply: {} as FastifyReply };
+  return createProcedureClient(get, { context })({ id });
+}
+
 describe("entries.list", () => {
   beforeEach(() => {
-    mockedList.mockReset();
+    mockCtrlList.mockReset();
   });
 
-  it("delegates to EntryController.list, scoped to the single alpha user", async () => {
-    mockedList.mockResolvedValue([]);
+  it("delegates to EntryController.listForLibrary, scoped to the single alpha user", async () => {
+    mockCtrlList.mockResolvedValue([]);
 
     await callList();
 
-    expect(mockedList).toHaveBeenCalledExactlyOnceWith(SINGLE_USER_ID);
+    expect(mockCtrlList).toHaveBeenCalledExactlyOnceWith(SINGLE_USER_ID);
   });
 
   it("derives the summary fields from each row's body", async () => {
-    mockedList.mockResolvedValue([makeRow({ body: "one two three\nfour\n\nsix" })]);
+    mockCtrlList.mockResolvedValue([makeRow({ body: "one two three\nfour\n\nsix" })]);
 
     const [entry] = await callList();
 
@@ -80,7 +87,7 @@ describe("entries.list", () => {
   });
 
   it("attaches the lyrics-only fields on the lyrics arm", async () => {
-    mockedList.mockResolvedValue([makeRow({ kind: "lyrics", artist: "Band", album: "Album" })]);
+    mockCtrlList.mockResolvedValue([makeRow({ kind: "lyrics", artist: "Band", album: "Album" })]);
 
     const [entry] = await callList();
 
@@ -90,7 +97,7 @@ describe("entries.list", () => {
 
 describe("entries.create", () => {
   beforeEach(() => {
-    mockedCreate.mockReset();
+    mockCtrlCreate.mockReset();
   });
 
   it("delegates to EntryController.create, scoped to the single alpha user", async () => {
@@ -100,15 +107,15 @@ describe("entries.create", () => {
       author: "Poet",
       body: "Line one\nLine two",
     };
-    mockedCreate.mockResolvedValue(makeRow());
+    mockCtrlCreate.mockResolvedValue(makeRow());
 
     await callCreate(input);
 
-    expect(mockedCreate).toHaveBeenCalledExactlyOnceWith({ ...input, userId: SINGLE_USER_ID });
+    expect(mockCtrlCreate).toHaveBeenCalledExactlyOnceWith({ ...input, userId: SINGLE_USER_ID });
   });
 
   it("maps the saved row onto EntrySummary, deriving from body", async () => {
-    mockedCreate.mockResolvedValue(
+    mockCtrlCreate.mockResolvedValue(
       makeRow({ kind: "lyrics", artist: "Band", album: "Album", body: "a b\nc" }),
     );
 
@@ -129,5 +136,56 @@ describe("entries.create", () => {
       lineCount: 2,
       wordCount: 3,
     });
+  });
+});
+
+describe("entries.get", () => {
+  beforeEach(() => {
+    mockCtrlGetDetails.mockReset();
+  });
+
+  it("delegates to EntryController.getDetails with the given id", async () => {
+    mockCtrlGetDetails.mockResolvedValue(makeRow());
+
+    await callGet("00000000-0000-4000-8000-000000000000");
+
+    expect(mockCtrlGetDetails).toHaveBeenCalledExactlyOnceWith(
+      "00000000-0000-4000-8000-000000000000",
+    );
+  });
+
+  it("maps the found row onto EntryDetail, carrying the raw body rather than deriving from it", async () => {
+    mockCtrlGetDetails.mockResolvedValue(makeRow({ body: "one two three\nfour\n\nsix" }));
+
+    const result = await callGet("00000000-0000-4000-8000-000000000000");
+
+    expect(result).toMatchObject({ kind: "poem", body: "one two three\nfour\n\nsix" });
+    expect(result).not.toHaveProperty("excerpt");
+  });
+
+  it("attaches the lyrics-only fields on the lyrics arm", async () => {
+    mockCtrlGetDetails.mockResolvedValue(
+      makeRow({ kind: "lyrics", artist: "Band", album: "Album" }),
+    );
+
+    const result = await callGet("00000000-0000-4000-8000-000000000000");
+
+    expect(result).toMatchObject({ kind: "lyrics", artist: "Band", album: "Album" });
+  });
+
+  it("404s when the id doesn't exist", async () => {
+    mockCtrlGetDetails.mockResolvedValue(null);
+
+    await expect(callGet("00000000-0000-4000-8000-000000000000")).rejects.toThrow(
+      expect.objectContaining(new ORPCError("NOT_FOUND")),
+    );
+  });
+
+  it("404s — not just refuses — when the entry belongs to another user", async () => {
+    mockCtrlGetDetails.mockResolvedValue(makeRow({ userId: "someone-else" }));
+
+    await expect(callGet("00000000-0000-4000-8000-000000000000")).rejects.toThrow(
+      expect.objectContaining(new ORPCError("NOT_FOUND")),
+    );
   });
 });

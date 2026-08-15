@@ -11,7 +11,7 @@
  * imports `msw` or any browser-only API, so it is also safe to load in the
  * Cloudflare Worker SSR runtime.
  */
-import { implement } from "@orpc/server";
+import { implement, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { contract, deriveEntrySummaryFields } from "@rhymelab/api-contract";
 import { db } from "./db";
@@ -55,6 +55,7 @@ const router = {
         title: input.title,
         author: input.author ?? "",
         year: input.year,
+        body: input.body,
         ...deriveEntrySummaryFields(input.body),
         createdAt: now,
         updatedAt: now,
@@ -71,6 +72,14 @@ const router = {
       // Prepend so the new row is newest-edited — where the Library shows it.
       db.entries = [entry, ...db.entries];
       return entry;
+    }),
+    get: os.entries.get.handler(({ input }) => {
+      const entry = db.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // Every stored entry (fixture-seeded or created above) carries a real
+      // `body`; drop the list-view-only derived fields the detail shape omits.
+      const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
+      return detail;
     }),
   },
 };
