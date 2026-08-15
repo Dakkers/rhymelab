@@ -1,5 +1,5 @@
 import { fakeEntries } from "@rhymelab/fixtures";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { freshUser, prisma } from "../test-support/integration-db";
@@ -76,17 +76,16 @@ describe("EntryController.listForLibrary (DB-backed)", () => {
 
   it("orders newest-edited first (updatedAt desc), regardless of insert order", async () => {
     const user = freshUser();
-    // Insert in a deliberately scrambled `updatedAt` order; Prisma honours an
-    // explicit `updatedAt` on create (verified against this schema).
-    const oldest = await prisma.entry.create({
-      data: entryData(user, { title: "oldest", updatedAt: new Date("2026-01-01T00:00:00.000Z") }),
-    });
-    const newest = await prisma.entry.create({
-      data: entryData(user, { title: "newest", updatedAt: new Date("2026-03-01T00:00:00.000Z") }),
-    });
-    const middle = await prisma.entry.create({
-      data: entryData(user, { title: "middle", updatedAt: new Date("2026-02-01T00:00:00.000Z") }),
-    });
+    // `updated_at` is DB-owned (trigger), so it can't be dictated on insert any
+    // more — the ordering has to be established by *editing* the rows, which is
+    // what the column means anyway. Insert order and edit order are deliberately
+    // different, so passing can't be an artefact of insertion sequence.
+    const newest = await prisma.entry.create({ data: entryData(user, { title: "newest" }) });
+    const oldest = await prisma.entry.create({ data: entryData(user, { title: "oldest" }) });
+    const middle = await prisma.entry.create({ data: entryData(user, { title: "middle" }) });
+    for (const entry of [oldest, middle, newest]) {
+      await prisma.entry.update({ where: { id: entry.id }, data: { title: entry.title } });
+    }
 
     const result = await controller.listForLibrary(user);
 
@@ -120,6 +119,86 @@ describe("EntryController.getDetails (DB-backed)", () => {
 
 /** The id the DB's `@default(uuid())` assigns must be what the contract demands. */
 const uuidV4 = z.uuidv4();
+
+/**
+ * `updated_at` is maintained by Postgres — a column default on INSERT and a
+ * `BEFORE UPDATE` trigger thereafter — precisely so it can't carry the API
+ * server's clock. Only a real database can prove that: with a mocked client
+ * there is no default and no trigger, just whatever value the test handed in.
+ *
+ * The lever is a faked `Date` (Date only — timers stay real, or Prisma's own
+ * async machinery would stall). A client-side stamp would follow the fake and
+ * land in 2001; a DB-side one ignores it entirely.
+ */
+describe("entries.updated_at is stamped by the database clock", () => {
+  const FAKE_NOW = new Date("2001-01-01T00:00:00.000Z");
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("uses the DB clock on insert, not the (faked) Node clock", async () => {
+    const user = freshUser();
+    vi.useFakeTimers({ toFake: ["Date"], now: FAKE_NOW });
+
+    const created = await controller.create({
+      userId: user,
+      kind: "poem",
+      title: "stamped",
+      author: [],
+      body: "one",
+    });
+
+    vi.useRealTimers();
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
+    expect(stored.updatedAt.getUTCFullYear()).not.toBe(2001);
+    // NB: `created_at` deliberately gets no such assertion — it would fail.
+    // `@default(now())` is *also* resolved client-side by this generator, so
+    // `created_at` still carries the app's clock. Out of scope for this change,
+    // but the same trigger would fix it.
+  });
+
+  it("advances on update from the DB clock, and overrides a client-supplied value", async () => {
+    const user = freshUser();
+    const created = await controller.create({
+      userId: user,
+      kind: "poem",
+      title: "before",
+      author: [],
+      body: "one",
+    });
+
+    vi.useFakeTimers({ toFake: ["Date"], now: FAKE_NOW });
+    // Both levers at once: the Node clock says 2001, *and* the write explicitly
+    // asks for 2001. The trigger is unconditional, so neither is honoured.
+    await prisma.entry.update({
+      where: { id: created.id },
+      data: { title: "after", updatedAt: FAKE_NOW },
+    });
+    vi.useRealTimers();
+
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
+    expect(stored.title).toBe("after");
+    expect(stored.updatedAt.getUTCFullYear()).not.toBe(2001);
+    expect(stored.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime());
+  });
+
+  it("agrees with the database's own now(), not the process's", async () => {
+    const user = freshUser();
+    const created = await controller.create({
+      userId: user,
+      kind: "poem",
+      title: "clock check",
+      author: [],
+      body: "one",
+    });
+
+    const [{ now: dbNow }] = await prisma.$queryRaw<{ now: Date }[]>`SELECT now() AS now`;
+    // Same transaction-less back-to-back statements: a DB-stamped row is within
+    // seconds of the DB's own clock however far the app host has drifted.
+    expect(Math.abs(dbNow.getTime() - created.updatedAt.getTime())).toBeLessThan(10_000);
+  });
+});
 
 describe("EntryController.create (DB-backed)", () => {
   it("persists a poem, letting the DB assign id and timestamps", async () => {
