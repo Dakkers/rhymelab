@@ -44,17 +44,14 @@ model Entry {
   artist String[] @default([])
   album  String?
 
-  // `updatedAt` is the database's to set, never the app's, and deliberately
-  // carries no `@updatedAt`: that attribute is client-side — Prisma computes
-  // `new Date()` in Node and binds it — which would put the API server's clock
-  // in the column. A `BEFORE INSERT OR UPDATE` trigger maintains it instead; see
-  // the `entry_updated_at_db_clock` migration. The `@default(now())` left here
-  // only keeps the field optional in the generated create input (the trigger
-  // overwrites whatever the client binds).
-  //
-  // `createdAt` is *not* covered by that trigger and is still app-stamped:
-  // `@default(now())` is likewise resolved client-side by this generator, so the
-  // column default never fires. Left as-is, but it is the same bug.
+  // Both stamps are the database's to set, never the app's. Neither attribute
+  // below achieves that on its own — `@updatedAt` is client-side outright, and
+  // this generator resolves `@default(now())` client-side too, so the column
+  // default never fires. A `BEFORE INSERT OR UPDATE` trigger is what actually
+  // maintains them; see the `entry_updated_at_db_clock` migration. `@updatedAt`
+  // is deliberately absent, and the `@default(now())`s survive only to keep the
+  // fields optional in the generated create input — the trigger overwrites
+  // whatever the client binds, and holds `createdAt` immutable across updates.
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @map("updated_at")
 

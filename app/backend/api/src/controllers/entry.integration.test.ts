@@ -121,23 +121,24 @@ describe("EntryController.getDetails (DB-backed)", () => {
 const uuidV4 = z.uuidv4();
 
 /**
- * `updated_at` is maintained by Postgres — a column default on INSERT and a
- * `BEFORE UPDATE` trigger thereafter — precisely so it can't carry the API
- * server's clock. Only a real database can prove that: with a mocked client
- * there is no default and no trigger, just whatever value the test handed in.
+ * `created_at` and `updated_at` are both maintained by Postgres — a
+ * `BEFORE INSERT OR UPDATE` trigger, *not* the column defaults, which this
+ * generator resolves client-side so they never fire — precisely so neither can
+ * carry the API server's clock. Only a real database can prove that: with a
+ * mocked client there is no trigger, just whatever value the test handed in.
  *
  * The lever is a faked `Date` (Date only — timers stay real, or Prisma's own
  * async machinery would stall). A client-side stamp would follow the fake and
  * land in 2001; a DB-side one ignores it entirely.
  */
-describe("entries.updated_at is stamped by the database clock", () => {
+describe("entries timestamps are stamped by the database clock", () => {
   const FAKE_NOW = new Date("2001-01-01T00:00:00.000Z");
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("uses the DB clock on insert, not the (faked) Node clock", async () => {
+  it("uses the DB clock on insert for both columns, not the (faked) Node clock", async () => {
     const user = freshUser();
     vi.useFakeTimers({ toFake: ["Date"], now: FAKE_NOW });
 
@@ -152,10 +153,12 @@ describe("entries.updated_at is stamped by the database clock", () => {
     vi.useRealTimers();
     const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
     expect(stored.updatedAt.getUTCFullYear()).not.toBe(2001);
-    // NB: `created_at` deliberately gets no such assertion — it would fail.
-    // `@default(now())` is *also* resolved client-side by this generator, so
-    // `created_at` still carries the app's clock. Out of scope for this change,
-    // but the same trigger would fix it.
+    expect(stored.createdAt.getUTCFullYear()).not.toBe(2001);
+    // The two columns are stamped from the same `now()` in one trigger call, so
+    // a new row's stamps are identical — never `createdAt` ahead of `updatedAt`,
+    // which is what a Node-stamped `createdAt` and a DB-stamped `updatedAt`
+    // would produce whenever the app host ran ahead of the database.
+    expect(stored.createdAt.getTime()).toBe(stored.updatedAt.getTime());
   });
 
   it("advances on update from the DB clock, and overrides a client-supplied value", async () => {
@@ -181,6 +184,28 @@ describe("entries.updated_at is stamped by the database clock", () => {
     expect(stored.title).toBe("after");
     expect(stored.updatedAt.getUTCFullYear()).not.toBe(2001);
     expect(stored.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime());
+    // `createdAt` is held to its original value across the update — the trigger
+    // carries `OLD.created_at` forward rather than letting the write set it.
+    expect(stored.createdAt.getTime()).toBe(created.createdAt.getTime());
+  });
+
+  it("keeps createdAt immutable even when the update explicitly sets it", async () => {
+    const user = freshUser();
+    const created = await controller.create({
+      userId: user,
+      kind: "poem",
+      title: "immutable",
+      author: [],
+      body: "one",
+    });
+
+    await prisma.entry.update({
+      where: { id: created.id },
+      data: { title: "edited", createdAt: FAKE_NOW },
+    });
+
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
+    expect(stored.createdAt.getTime()).toBe(created.createdAt.getTime());
   });
 
   it("agrees with the database's own now(), not the process's", async () => {
