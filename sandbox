@@ -39,6 +39,9 @@ PG_PROJECT="rhymelab"             # pin compose project so every worktree shares
 DEFAULT_DB="rhymelab"             # the shared dev database; never dropped by this script
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+# Resolve our own absolute path *before* cd'ing away, so `usage` can still read
+# the script no matter how it was invoked (relative path, from a subdirectory…).
+SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$REPO_ROOT" # docker compose + pnpm workspace filters resolve from the root
 
 # ── Derive a stable, Postgres-safe identity for this worktree ─────────────────
@@ -67,9 +70,10 @@ DB="${DB:0:63}"
 
 DB_URL="postgresql://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${DB}"
 
-# ── Port selection: deterministic base per slug, then scan up if occupied ─────
-# A per-slug offset spreads worktrees out so their preferred ports rarely clash;
-# free_port still guarantees we never bind a port someone else already holds.
+# ── Port selection: deterministic base per slug ──────────────────────────────
+# A per-slug offset spreads worktrees out so their preferred ports rarely clash.
+# The bases are cheap to derive (no I/O); `up` scans up from them with free_port
+# only when it actually needs to bind, and `status` reports them directly.
 free_port() {
   local p="$1"
   while lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; do p=$((p + 1)); done
@@ -78,8 +82,8 @@ free_port() {
 port_busy() { lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
 port_offset="$(($(cksum <<<"$slug" | cut -d' ' -f1) % 50))"
-WEB_PORT="$(free_port $((3000 + port_offset)))"
-API_PORT="$(free_port $((4000 + port_offset)))"
+WEB_BASE=$((3000 + port_offset))
+API_BASE=$((4000 + port_offset))
 
 # ── Postgres helpers ─────────────────────────────────────────────────────────
 # The Postgres container is shared by every worktree, so we address it by its
@@ -178,8 +182,8 @@ cmd_status() {
   echo "postgres : container rhymelab-postgres ($pg_state) @ ${PG_HOST}:${PG_PORT}"
   echo "database : $DB ($db_state)"
   echo "db url   : $DB_URL"
-  echo "api      : http://localhost:${API_PORT}/rpc ($(port_busy "$API_PORT" && echo listening || echo free))"
-  echo "web      : http://localhost:${WEB_PORT} ($(port_busy "$WEB_PORT" && echo listening || echo free))"
+  echo "api      : http://localhost:${API_BASE}/rpc ($(port_busy "$API_BASE" && echo listening || echo free))"
+  echo "web      : http://localhost:${WEB_BASE} ($(port_busy "$WEB_BASE" && echo listening || echo free))"
 }
 
 cmd_migrate() {
@@ -216,6 +220,21 @@ cmd_psql() {
 }
 
 cmd_up() {
+  # Refuse to start a second copy of this worktree's stack. Both preferred ports
+  # already listening is a strong signal the sandbox is up; a single squatted
+  # port is more likely an unrelated process, which free_port routes around below.
+  if port_busy "$WEB_BASE" && port_busy "$API_BASE"; then
+    echo "Sandbox looks like it's already running:" >&2
+    echo "  web  http://localhost:${WEB_BASE}" >&2
+    echo "  api  http://localhost:${API_BASE}/rpc" >&2
+    echo "Stop it first (Ctrl-C in its terminal) before starting another." >&2
+    exit 1
+  fi
+
+  local WEB_PORT API_PORT
+  WEB_PORT="$(free_port "$WEB_BASE")"
+  API_PORT="$(free_port "$API_BASE")"
+
   ensure_deps
   ensure_pg
   ensure_db
@@ -253,7 +272,7 @@ BANNER
     echo
     echo "Stopping sandbox servers…"
     local pid
-    for pid in "${pids[@]}"; do
+    for pid in ${pids[@]+"${pids[@]}"}; do
       kill -TERM "-${pid}" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
     done
     wait 2>/dev/null || true
@@ -272,7 +291,7 @@ BANNER
 usage() {
   # Print the leading comment block (skip the shebang, stop at the first line of
   # code), stripping the "# " prefix.
-  awk 'NR==1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+  awk 'NR==1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$SCRIPT_PATH"
 }
 
 case "${1:-up}" in
