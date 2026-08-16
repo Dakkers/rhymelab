@@ -138,10 +138,19 @@ export class EntryController {
    * Raw SQL rather than `updateMany`, so the tombstone reads the *database's*
    * clock: Prisma sends a JS `new Date()` as a bind parameter computed in Node,
    * which makes the stamp the API server's wall clock and skews it whenever the
-   * two machines disagree. `NOW()` is evaluated by Postgres, so the value is
-   * consistent with anything else that compares it against `now()` in SQL.
-   * `updated_at` is set from the same `NOW()` — it's a real modification, and
-   * the raw statement bypasses the `@updatedAt` Prisma would otherwise apply.
+   * two machines disagree.
+   *
+   * `AT TIME ZONE 'UTC'`, not a bare `NOW()`: `NOW()` is a `timestamptz`, while
+   * Prisma maps `DateTime` to `timestamp(3)` *without* a zone. Assigning one to
+   * the other converts through whatever `TimeZone` the session happens to have,
+   * so on a non-UTC server the tombstone would land in local wall time while
+   * every other timestamp in the table is UTC. Converting explicitly makes the
+   * statement independent of the server's timezone setting.
+   *
+   * `updated_at` is deliberately left alone. It means "when the content last
+   * changed", and it's the key `listForLibrary` sorts on — bumping it here would
+   * push a restored entry to the top of the library as if it had just been
+   * edited. When the delete happened is what `deleted_at` records.
    *
    * The `deleted_at IS NULL` guard is what keeps this idempotent: a missing id
    * and an already-deleted entry both match nothing and return `false`, so
@@ -157,7 +166,7 @@ export class EntryController {
     // Tagged template — `id` is bound as a parameter, never interpolated.
     const affected = await db.$executeRaw`
       UPDATE "entries"
-      SET "deleted_at" = NOW(), "updated_at" = NOW()
+      SET "deleted_at" = (NOW() AT TIME ZONE 'UTC')
       WHERE "id" = ${id}::uuid AND "deleted_at" IS NULL
     `;
     return affected > 0;

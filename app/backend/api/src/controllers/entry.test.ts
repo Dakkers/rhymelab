@@ -253,13 +253,19 @@ describe("EntryController.delete", () => {
     await new EntryController(client).delete("entry-1");
 
     expect($executeRaw).toHaveBeenCalledTimes(1);
-    const sql = sqlFrom($executeRaw);
-    expect(sql).toContain(`SET "deleted_at" = NOW()`);
-    // `updated_at` too — the raw statement bypasses Prisma's `@updatedAt`.
-    expect(sql).toContain(`"updated_at" = NOW()`);
+    // Converted explicitly: `NOW()` is a `timestamptz` and the column isn't, so
+    // a bare `NOW()` would land in whatever zone the session is set to.
+    expect(sqlFrom($executeRaw)).toContain(`SET "deleted_at" = (NOW() AT TIME ZONE 'UTC')`);
     // Nothing Date-shaped is bound: the stamp is the DB's, not this process's.
     const [, ...values] = $executeRaw.mock.calls[0];
     expect(values.some((v) => v instanceof Date)).toBe(false);
+  });
+
+  it("leaves updated_at alone — a delete isn't an edit, and it's the library's sort key", async () => {
+    const { client, $executeRaw } = mockDb();
+    await new EntryController(client).delete("entry-1");
+
+    expect(sqlFrom($executeRaw)).not.toContain("updated_at");
   });
 
   it("binds the id as a parameter rather than interpolating it into the SQL", async () => {

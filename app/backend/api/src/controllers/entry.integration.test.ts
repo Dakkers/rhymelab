@@ -503,6 +503,40 @@ describe("EntryController.delete (DB-backed)", () => {
     expect(Math.abs(dbNow.getTime() - deletedAt.getTime())).toBeLessThan(60_000);
   });
 
+  it("stamps UTC even when the session's timezone isn't", async () => {
+    const user = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(user) });
+
+    // `deleted_at` is `timestamp` *without* a zone, so a bare `NOW()` (a
+    // `timestamptz`) would be converted using the session's TimeZone and land
+    // four hours off here, while every Prisma-written timestamp stays UTC.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL TIME ZONE 'America/New_York'");
+      expect(await controller.delete(entry.id, tx)).toBe(true);
+
+      const [{ deleted_at: deletedAt, utc_now: utcNow }] = await tx.$queryRaw<
+        { deleted_at: Date; utc_now: Date }[]
+      >`SELECT "deleted_at", (NOW() AT TIME ZONE 'UTC') AS utc_now
+          FROM "entries" WHERE "id" = ${entry.id}::uuid`;
+
+      // Both columns come back as zoneless timestamps decoded the same way, so
+      // comparing them to each other is what isolates the conversion.
+      expect(Math.abs(utcNow.getTime() - deletedAt.getTime())).toBeLessThan(60_000);
+    });
+  });
+
+  it("doesn't touch updated_at — a delete isn't an edit", async () => {
+    const user = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(user) });
+
+    expect(await controller.delete(entry.id)).toBe(true);
+
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: entry.id } });
+    // Left as it was, so restoring the row puts it back in its old library
+    // position instead of at the top as the most recently edited piece.
+    expect(stored.updatedAt).toEqual(entry.updatedAt);
+  });
+
   it("leaves other rows alone — only the id given is tombstoned", async () => {
     const user = freshUser();
     const other = freshUser();
