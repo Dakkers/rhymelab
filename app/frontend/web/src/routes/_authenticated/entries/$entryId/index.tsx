@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { Badge, InlineList, Text } from "@saintly-software/baritone";
+import { Card, InlineList, Text } from "@saintly-software/baritone";
 import type { EntryDetail } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
@@ -33,14 +33,12 @@ function EntryPage() {
   );
 
   return (
-    <Page
-      title={entry.title}
-      subtitle={byline(entry)}
-      actions={<Badge text={KIND_LABEL[entry.kind]} shape="square" saliency="low" />}
-    >
-      <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-        {entry.body}
-      </Text>
+    <Page title={entry.title} subtitle={byline(entry)}>
+      <Card header={<Card.Header title={KIND_LABEL[entry.kind]} />}>
+        <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
+          {entry.body}
+        </Text>
+      </Card>
     </Page>
   );
 }
