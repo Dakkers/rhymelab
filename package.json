@@ -16,6 +16,7 @@
     "build:api": "pnpm --filter @rhymelab/api build",
     "start:web": "pnpm --filter @rhymelab/web start",
     "start:api": "pnpm --filter @rhymelab/api start",
+    "sandbox": "./sandbox",
     "cf-typegen": "pnpm --filter @rhymelab/web cf-typegen",
     "db:generate": "pnpm --filter @rhymelab/api db:generate",
     "db:migrate": "pnpm --filter @rhymelab/api db:migrate",
