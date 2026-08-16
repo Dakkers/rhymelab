@@ -73,10 +73,13 @@ fast and non-blocking. `reset`/`down` take `-y` to skip their prompt.
 Ctrl-C. Running it with the Bash tool would hang the turn, and dev servers must
 go through the Browser pane regardless. So boot it there:
 
-1. Read `WEB_PORT` (and `API_PORT`) from `./sandbox status`.
-2. On a **fresh worktree**, run `./sandbox migrate` first (it also runs
-   `pnpm install` if `node_modules` is missing). This provisions the DB up front
-   so the pane's port-wait doesn't time out on a cold install.
+1. Read the preferred `WEB_PORT` (and `API_PORT`) from `./sandbox status`. That's
+   the port `up` will bind **unless** something already holds it — status flags an
+   occupied base as `busy (other process)`, in which case `up` scans to the next
+   free port and the real one shows in the banner (step 4), not here.
+2. On a **fresh worktree**, run `./sandbox migrate` first (it runs `pnpm install`
+   if `node_modules` is missing, then provisions the DB) so the pane's port-wait
+   doesn't time out on a cold install.
 3. Add a config to `.claude/launch.json` (substitute the real port and the
    worktree's absolute path), then `preview_start` it by name:
 
@@ -90,9 +93,13 @@ go through the Browser pane regardless. So boot it there:
    ```
 
 4. Verify you're looking at *this* sandbox, not another worktree's server:
-   - `preview_logs` — expect `API listening on http://localhost:<API_PORT>` and
-     the Prisma line `Datasource "db": … database "rhymelab_<slug>"`, plus Vite's
-     `Local: http://localhost:<WEB_PORT>`.
+   - `preview_logs` — the banner prints the **actual** ports; expect `API
+     listening on http://localhost:<API_PORT>` and the Prisma line `Datasource
+     "db": … database "rhymelab_<slug>"`, plus Vite's `Local:
+     http://localhost:<WEB_PORT>`. If `up` shifted off an occupied base, these are
+     the true ports — re-point the launch config's `port` and restart preview if
+     the pane was still waiting on the step-1 guess. (Once running, `./sandbox
+     status` also reports the real bound ports.)
    - `read_network_requests` — the app's `/rpc/*` calls hit `:<API_PORT>` and
      return 2xx (a CORS failure means the ports/origin don't line up).
    - `read_page` + a `screenshot` as proof.

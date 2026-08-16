@@ -66,9 +66,21 @@ elif [[ "$slug" == rhymelab_* ]]; then
 else
   DB="rhymelab_${slug}"
 fi
-DB="${DB:0:63}"
+# Postgres caps identifiers at 63 chars. Plain truncation would drop the unique
+# hash worktree dirs carry at the *end*, silently merging two long branches into
+# one database — so on overflow, append a hash of the full name to keep it unique.
+if [ "${#DB}" -gt 63 ]; then
+  db_hash="$(printf '%s' "$DB" | cksum | cut -d' ' -f1)"
+  DB="${DB:0:$((62 - ${#db_hash}))}_${db_hash}"
+fi
 
 DB_URL="postgresql://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${DB}"
+
+# Runtime state (the actual bound ports + the `up` process's PID) lives OUTSIDE
+# the worktree, keyed by slug, so `git status` stays clean. `status` and the `up`
+# guard read it to report the real ports and detect whether *this* stack is live.
+STATE_DIR="${TMPDIR:-/tmp}/rhymelab-sandbox"
+STATE_FILE="${STATE_DIR}/${slug}.state"
 
 # ── Port selection: deterministic base per slug ──────────────────────────────
 # A per-slug offset spreads worktrees out so their preferred ports rarely clash.
@@ -84,6 +96,26 @@ port_busy() { lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 port_offset="$(($(cksum <<<"$slug" | cut -d' ' -f1) % 50))"
 WEB_BASE=$((3000 + port_offset))
 API_BASE=$((4000 + port_offset))
+
+# Load recorded state into SB_* (empty-init keeps `set -u` happy on a partial
+# file); succeeds only when all three fields are present.
+read_state() {
+  SB_WEB_PORT=""
+  SB_API_PORT=""
+  SB_UP_PID=""
+  [ -f "$STATE_FILE" ] || return 1
+  # shellcheck disable=SC1090
+  . "$STATE_FILE"
+  [ -n "$SB_WEB_PORT" ] && [ -n "$SB_API_PORT" ] && [ -n "$SB_UP_PID" ]
+}
+
+# True only when *this* worktree's stack is actually live: the recorded up-process
+# is still alive and its web port is listening — so stale state from a `kill -9`,
+# or a reused PID, doesn't read as running.
+sandbox_running() {
+  read_state 2>/dev/null || return 1
+  kill -0 "$SB_UP_PID" 2>/dev/null && port_busy "$SB_WEB_PORT"
+}
 
 # ── Postgres helpers ─────────────────────────────────────────────────────────
 # The Postgres container is shared by every worktree, so we address it by its
@@ -182,24 +214,37 @@ confirm_destructive() {
 
 # ── Subcommands ──────────────────────────────────────────────────────────────
 cmd_status() {
-  local db_state pg_state
+  local db_state pg_state api_line web_line
   if pg_running; then
     pg_state="up"
     if db_exists; then db_state="present"; else db_state="not created"; fi
   else
     pg_state="down"
-    db_state="not created"
+    db_state="unknown (postgres down)" # don't assert a state we couldn't check
   fi
+
+  # Report the *actual* bound ports when this stack is live (up may have scanned
+  # past an occupied base); otherwise show the preferred base ports up will try,
+  # flagging a base already held by some other process.
+  if sandbox_running; then
+    api_line="http://localhost:${SB_API_PORT}/rpc (listening)"
+    web_line="http://localhost:${SB_WEB_PORT} (listening)"
+  else
+    api_line="http://localhost:${API_BASE}/rpc ($(port_busy "$API_BASE" && echo 'busy (other process)' || echo free))"
+    web_line="http://localhost:${WEB_BASE} ($(port_busy "$WEB_BASE" && echo 'busy (other process)' || echo free))"
+  fi
+
   echo "worktree : $REPO_ROOT"
   echo "slug     : $slug"
   echo "postgres : container rhymelab-postgres ($pg_state) @ ${PG_HOST}:${PG_PORT}"
   echo "database : $DB ($db_state)"
   echo "db url   : $DB_URL"
-  echo "api      : http://localhost:${API_BASE}/rpc ($(port_busy "$API_BASE" && echo listening || echo free))"
-  echo "web      : http://localhost:${WEB_BASE} ($(port_busy "$WEB_BASE" && echo listening || echo free))"
+  echo "api      : $api_line"
+  echo "web      : $web_line"
 }
 
 cmd_migrate() {
+  ensure_deps # cold checkouts need node_modules before `prisma` is on the path
   ensure_pg
   ensure_db
   run_migrations
@@ -233,25 +278,28 @@ cmd_psql() {
 }
 
 cmd_up() {
-  # Refuse to start a second copy of this worktree's stack. Both preferred ports
-  # already listening is a strong signal the sandbox is up; a single squatted
-  # port is more likely an unrelated process, which free_port routes around below.
-  if port_busy "$WEB_BASE" && port_busy "$API_BASE"; then
-    echo "Sandbox looks like it's already running:" >&2
-    echo "  web  http://localhost:${WEB_BASE}" >&2
-    echo "  api  http://localhost:${API_BASE}/rpc" >&2
+  # Refuse to start a second copy of *this* worktree's stack. Keyed on our own
+  # recorded state (up-process alive + its web port live), so a different worktree
+  # that merely shares a port offset never trips this — free_port routes it away.
+  if sandbox_running; then
+    echo "This worktree's sandbox is already running:" >&2
+    echo "  web  http://localhost:${SB_WEB_PORT}" >&2
+    echo "  api  http://localhost:${SB_API_PORT}/rpc" >&2
     echo "Stop it first (Ctrl-C in its terminal) before starting another." >&2
     exit 1
   fi
-
-  local WEB_PORT API_PORT
-  WEB_PORT="$(free_port "$WEB_BASE")"
-  API_PORT="$(free_port "$API_BASE")"
 
   ensure_deps
   ensure_pg
   ensure_db
   run_migrations
+
+  # Pick ports as late as possible — right before binding — so the gap between
+  # "free_port saw it free" and "the server bound it" is milliseconds, not the
+  # whole install+migrate above (which would let a concurrent worktree grab them).
+  local WEB_PORT API_PORT
+  WEB_PORT="$(free_port "$WEB_BASE")"
+  API_PORT="$(free_port "$API_BASE")"
 
   cat <<BANNER
 
@@ -275,22 +323,25 @@ BANNER
   export FRONTEND_ORIGIN="http://localhost:${WEB_PORT}"
   export VITE_API_URL="http://localhost:${API_PORT}/rpc"
 
-  # Job control (set -m) puts each server in its own process group, so on Ctrl-C
-  # we can signal the whole group — killing pnpm's grandchildren (tsx, vite) too,
-  # not just the pnpm wrapper.
+  # Record the real ports + our PID so `status` and the guard see the live stack.
+  mkdir -p "$STATE_DIR"
+  printf 'SB_WEB_PORT=%s\nSB_API_PORT=%s\nSB_UP_PID=%s\n' "$WEB_PORT" "$API_PORT" "$$" >"$STATE_FILE"
+
+  # Job control (set -m) puts each server in its own process group, so we can
+  # signal the whole group on shutdown — reaping pnpm's grandchildren (tsx, vite)
+  # too, not just the pnpm wrapper.
   set -m
   local pids=()
-  stop() {
-    trap - INT TERM EXIT
-    echo
-    echo "Stopping sandbox servers…"
+  cleanup() {
+    rm -f "$STATE_FILE"
     local pid
     for pid in ${pids[@]+"${pids[@]}"}; do
       kill -TERM "-${pid}" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
     done
     wait 2>/dev/null || true
   }
-  trap stop INT TERM EXIT
+  trap cleanup EXIT
+  trap 'echo; echo "Stopping sandbox servers…"; exit 0' INT TERM
 
   pnpm --filter @rhymelab/api dev &
   pids+=($!)
@@ -298,7 +349,15 @@ BANNER
     vite dev --config .config/vite.config.ts --port "$WEB_PORT" --strictPort &
   pids+=($!)
 
-  wait
+  # A bare `wait` blocks until *all* children exit, so a server that dies at
+  # startup would hang the script on the survivor with no signal. Poll both and
+  # bail the moment either exits (bash 3.2 has no `wait -n`); the EXIT trap tears
+  # the rest down and clears state.
+  while kill -0 "${pids[0]}" 2>/dev/null && kill -0 "${pids[1]}" 2>/dev/null; do
+    sleep 1
+  done
+  echo "A sandbox server exited unexpectedly — shutting down the rest." >&2
+  exit 1
 }
 
 usage() {
