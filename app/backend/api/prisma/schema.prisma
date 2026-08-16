@@ -55,7 +55,16 @@ model Entry {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @map("updated_at")
 
+  // Soft-delete tombstone: NULL means live, a timestamp means the user deleted
+  // it. Every read path filters on `deletedAt: null` (see `EntryController`), so
+  // a deleted piece disappears from the app while the row — and anything that
+  // references it — survives, and the delete stays reversible.
+  deletedAt DateTime? @map("deleted_at")
+
   @@index([userId])
   @@index([kind])
+  // The library lists one user's live entries, so the filter is (user, live) —
+  // pairing the columns keeps that read on a single index as tombstones pile up.
+  @@index([userId, deletedAt])
   @@map("entries")
 }
