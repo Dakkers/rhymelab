@@ -92,8 +92,10 @@ API_BASE=$((4000 + port_offset))
 # spin up a *second* rhymelab-postgres, colliding on the fixed name). Compose is
 # used only to *create* the container when it's missing, pinned to a constant
 # project so all worktrees converge on the one instance.
-pg_running() { [ -n "$(docker ps -q -f "name=^/${PG_CONTAINER}\$" -f status=running)" ]; }
-pg_exists() { [ -n "$(docker ps -aq -f "name=^/${PG_CONTAINER}\$")" ]; }
+# stderr is silenced so a stopped daemon surfaces as a clean "down", not a raw
+# docker connection dump (callers that need Docker up go through ensure_pg).
+pg_running() { [ -n "$(docker ps -q -f "name=^/${PG_CONTAINER}\$" -f status=running 2>/dev/null)" ]; }
+pg_exists() { [ -n "$(docker ps -aq -f "name=^/${PG_CONTAINER}\$" 2>/dev/null)" ]; }
 
 # Run psql against the maintenance "postgres" database as an admin, by container name.
 psql_admin() {
@@ -165,7 +167,13 @@ confirm_destructive() {
     exit 1
   fi
   if [ "${ASSUME_YES:-0}" = "1" ]; then return 0; fi
-  read -r -p "About to $1 database \"$DB\". Continue? [y/N] " ans
+  # `read` fails at EOF (piped / no TTY). Treat that like a declined prompt and
+  # abort with a message, rather than letting `set -e` kill us silently.
+  local ans
+  if ! read -r -p "About to $1 database \"$DB\". Continue? [y/N] " ans; then
+    echo "Aborted (no input)." >&2
+    exit 1
+  fi
   case "$ans" in
     [yY] | [yY][eE][sS]) return 0 ;;
     *) echo "Aborted."; exit 1 ;;
@@ -175,8 +183,13 @@ confirm_destructive() {
 # ── Subcommands ──────────────────────────────────────────────────────────────
 cmd_status() {
   local db_state pg_state
-  pg_running && pg_state="up" || pg_state="down"
-  if pg_running && db_exists; then db_state="present"; else db_state="not created"; fi
+  if pg_running; then
+    pg_state="up"
+    if db_exists; then db_state="present"; else db_state="not created"; fi
+  else
+    pg_state="down"
+    db_state="not created"
+  fi
   echo "worktree : $REPO_ROOT"
   echo "slug     : $slug"
   echo "postgres : container rhymelab-postgres ($pg_state) @ ${PG_HOST}:${PG_PORT}"
