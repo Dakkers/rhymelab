@@ -7,7 +7,7 @@
  * Playwright storage state.
  *
  * Requires `E2E_APP_PASSWORD` in the environment — the same value as `PASSWORD`
- * in `app/backend/api/.env`. Never hard-code it here.
+ * in `app/backend/api/.config/.env`. Never hard-code it here.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -25,7 +25,7 @@ setup("authenticate", async () => {
   const password = process.env.E2E_APP_PASSWORD;
   expect(
     password,
-    "Set E2E_APP_PASSWORD to the app password (the `PASSWORD` in app/backend/api/.env).",
+    "Set E2E_APP_PASSWORD to the app password (the `PASSWORD` in app/backend/api/.config/.env).",
   ).toBeTruthy();
 
   // oRPC builds the fully-serialized request for us; we just wrap the transport

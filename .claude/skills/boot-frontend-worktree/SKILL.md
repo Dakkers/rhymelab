@@ -25,8 +25,8 @@ just the frontend, or when the change is purely visual and needs no data or auth
 Say so when you do — an app without its API can't sign in or load entries.
 
 A git worktree is a fresh checkout sharing the main repo's history, so every
-committed file comes along — including the `.config/.env*` and `app/backend/api/.env`
-files of non-secret dev defaults. Three things are gitignored and do **not** carry
+committed file comes along — including both apps' `.config/.env*` files of
+non-secret dev defaults. Three things are gitignored and do **not** carry
 over:
 
 1. `node_modules/` — reinstall with `pnpm install`.
@@ -49,7 +49,7 @@ none.
 SRC="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
 DST="$(git rev-parse --show-toplevel)"
 for f in \
-  app/backend/api/.env.local \
+  app/backend/api/.config/.env.development.local \
   app/frontend/web/.config/.env.local \
   app/frontend/web/.config/.env.development.local \
   app/frontend/web/.config/.dev.vars; do
@@ -100,7 +100,7 @@ overrides — they beat the committed defaults and never dirty the worktree:
 
 ```bash
 printf 'PORT=%s\nFRONTEND_ORIGIN=http://localhost:%s\n' "$API_PORT" "$WEB_PORT" \
-  >> app/backend/api/.env.local
+  >> app/backend/api/.config/.env.development.local
 printf 'VITE_API_URL=http://localhost:%s/rpc\n' "$API_PORT" \
   >> app/frontend/web/.config/.env.development.local
 ```
@@ -110,7 +110,8 @@ it wins over the `VITE_API_URL=http://localhost:4000/rpc` in the committed
 `.config/.env`. Skip the web-side write only when `API_PORT` is 4000 *and* that
 4000 is the API you just started from this worktree.
 
-If step 1 copied an existing `app/backend/api/.env.local`, check it for an
+If step 1 copied an existing `app/backend/api/.config/.env.development.local`,
+check it for an
 earlier `PORT`/`FRONTEND_ORIGIN` and edit those lines instead of appending a
 second copy.
 
@@ -151,7 +152,8 @@ can't collide, and leave the shared `web` config alone:
 }
 ```
 
-The API reads its port from `PORT` in the `.env.local` you wrote in step 4; the
+The API reads its port from `PORT` in the `.env.development.local` you wrote in
+step 4; the
 `port` field just tells the pane where the server lives. Start the API first, then
 the web server. Editing `launch.json` dirties only this worktree's copy — it's
 reversible.
