@@ -225,6 +225,108 @@ describe("entries timestamps are stamped by the database clock", () => {
   });
 });
 
+/**
+ * `created_at` / `updated_at` are `timestamp(3) without time zone`, so assigning
+ * a `timestamptz` (which is what bare `now()` is) makes the stored wall clock
+ * depend on the writing session's `TimeZone` — while Prisma reads the column
+ * back as UTC. The trigger converts explicitly (`now() AT TIME ZONE 'UTC'`) so
+ * that dependence is gone; see the `entry_timestamps_utc` migration.
+ *
+ * Only a non-UTC session can prove it, and the container runs UTC, so the tests
+ * below set the zone themselves — `SET LOCAL` inside a transaction, so it is
+ * scoped to the write and rolls off with it rather than leaking to the pooled
+ * connection.
+ *
+ * The drift is measured in SQL rather than in Node: the assertion is about what
+ * Postgres *stored*, so routing it through the driver's decoding of a zoneless
+ * column would put a second, unrelated timezone convention in the way.
+ */
+describe("entries timestamps are stamped in UTC whatever the session timezone", () => {
+  const ZONE = "America/New_York"; // Any fixed non-UTC zone; this one is -4/-5.
+
+  /** Seconds between the row's stamp and the DB's own UTC clock, read in SQL. */
+  async function driftSeconds(id: string, column: "created_at" | "updated_at"): Promise<number> {
+    const [{ drift }] = await prisma.$queryRawUnsafe<{ drift: number }[]>(
+      `SELECT EXTRACT(EPOCH FROM ((now() AT TIME ZONE 'UTC') - "${column}"))::float8 AS drift
+         FROM "entries" WHERE id = $1::uuid`,
+      id,
+    );
+    return drift;
+  }
+
+  it("stamps insert-time columns in UTC from a session on a non-UTC zone", async () => {
+    const user = freshUser();
+
+    const created = await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL TIME ZONE '${ZONE}'`);
+      return controller.create(
+        { userId: user, kind: "poem", title: "zoned insert", author: [], body: "one" },
+        tx,
+      );
+    });
+
+    // Under the bug both stamps sit a whole UTC offset (hours) away from now().
+    expect(Math.abs(await driftSeconds(created.id, "created_at"))).toBeLessThan(10);
+    expect(Math.abs(await driftSeconds(created.id, "updated_at"))).toBeLessThan(10);
+  });
+
+  it("stamps update-time `updated_at` in UTC from a session on a non-UTC zone", async () => {
+    const user = freshUser();
+    const created = await controller.create({
+      userId: user,
+      kind: "poem",
+      title: "before",
+      author: [],
+      body: "one",
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL TIME ZONE '${ZONE}'`);
+      await tx.entry.update({ where: { id: created.id }, data: { title: "after" } });
+    });
+
+    expect(Math.abs(await driftSeconds(created.id, "updated_at"))).toBeLessThan(10);
+  });
+
+  it("stamps the `updated_at` column default in UTC too — for writers that skip the trigger", async () => {
+    // The trigger overrides every write, so the default is only reachable with
+    // the trigger disabled — which is exactly the state a non-Prisma writer
+    // relying on the default would be exercising. `DISABLE TRIGGER` is DDL on a
+    // shared table, so the whole thing is deliberately forced to roll back: the
+    // transaction ends in a throw and the drift is smuggled out through a
+    // closure. Letting it commit would leave the table's trigger off for every
+    // subsequent test.
+    const user = freshUser();
+    let drift = Number.NaN;
+    const ROLLBACK = new Error("rollback");
+
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL TIME ZONE '${ZONE}'`);
+        await tx.$executeRawUnsafe(
+          `ALTER TABLE "entries" DISABLE TRIGGER entries_stamp_timestamps`,
+        );
+        const [row] = await tx.$queryRawUnsafe<{ updated_at_drift: number }[]>(
+          `INSERT INTO "entries" (id, user_id, kind, title, body, created_at)
+           VALUES (gen_random_uuid(), $1, 'poem', 'defaulted', 'one', now() AT TIME ZONE 'UTC')
+           RETURNING EXTRACT(EPOCH FROM ((now() AT TIME ZONE 'UTC') - updated_at))::float8
+                       AS updated_at_drift`,
+          user,
+        );
+        drift = row.updated_at_drift;
+        throw ROLLBACK;
+      }),
+    ).rejects.toThrow(ROLLBACK);
+
+    expect(Math.abs(drift)).toBeLessThan(10);
+    // The rollback really did put the trigger back — otherwise every later test
+    // in the file would be silently exercising an untriggered table.
+    const [{ enabled }] = await prisma.$queryRaw<{ enabled: string }[]>`
+      SELECT tgenabled::text AS enabled FROM pg_trigger WHERE tgname = 'entries_stamp_timestamps'`;
+    expect(enabled).toBe("O");
+  });
+});
+
 describe("EntryController.create (DB-backed)", () => {
   it("persists a poem, letting the DB assign id and timestamps", async () => {
     const user = freshUser();
