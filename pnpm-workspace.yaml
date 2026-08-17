@@ -36,7 +36,15 @@ trustPolicyExclude:
   - "undici-types@6.21.0"
   - "semver@6.3.1"
 
-# Pin exact versions on `pnpm add` (no `^`/`~`).
+# Every dependency is pinned to an exact version — no `^`, no `~`. A range lets
+# a fresh install silently pick up a version nobody reviewed, which is the same
+# window `minimumReleaseAge` and `trustPolicy` above exist to close; a range in
+# `package.json` reopens it for anyone installing from scratch. `savePrefix: ""`
+# keeps `pnpm add` from reintroducing one. Upgrades are deliberate: bump the
+# exact version (or use `pnpm update`) and commit the lockfile change.
+#
+# The `workspace:*` specifiers are exempt — those resolve to local packages in
+# this repo, not to anything the registry can substitute.
 savePrefix: ""
 
 # Only the packages listed here may run install/build lifecycle scripts. Prisma
