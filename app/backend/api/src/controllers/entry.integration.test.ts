@@ -327,6 +327,35 @@ describe("entries timestamps are stamped in UTC whatever the session timezone", 
   });
 });
 
+/**
+ * The app's own connection pins `TimeZone=UTC` (see `../db`), so nothing that
+ * reads the session's zone — column defaults, ad-hoc SQL, `CURRENT_DATE` — can
+ * inherit whatever a managed host happens to default to. Only a real connection
+ * can show this: it is a property of the pool's startup options, invisible to a
+ * mocked client.
+ *
+ * The assertion is on the exact string rather than on an offset, because an
+ * offset check would pass on any UTC-equivalent default and prove nothing. The
+ * dev container's server default is `Etc/UTC` — equivalent, but *not* what an
+ * explicitly pinned session reports — so this fails if the pin is dropped.
+ */
+describe("the app's connection pins its session timezone", () => {
+  it("reports UTC, not the server's default", async () => {
+    const [{ TimeZone: zone }] = await prisma.$queryRaw<{ TimeZone: string }[]>`SHOW TimeZone`;
+    expect(zone).toBe("UTC");
+  });
+
+  it("holds across pooled connections, not just the first one opened", async () => {
+    // Concurrency forces the pool to hand out more than one backend; a startup
+    // option applied to only some of them would be a lurking, load-dependent bug.
+    const zones = await Promise.all(
+      Array.from({ length: 5 }, () => prisma.$queryRaw<{ TimeZone: string }[]>`SHOW TimeZone`),
+    );
+
+    expect(zones.map(([row]) => row.TimeZone)).toEqual(Array(5).fill("UTC"));
+  });
+});
+
 describe("EntryController.create (DB-backed)", () => {
   it("persists a poem, letting the DB assign id and timestamps", async () => {
     const user = freshUser();
