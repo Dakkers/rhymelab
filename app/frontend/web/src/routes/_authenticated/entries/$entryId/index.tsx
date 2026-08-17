@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { Card, ConfirmationModal, InlineList, Menu, Text } from "@saintly-software/baritone";
+import { Card, ConfirmationModal, Icon, InlineList, Menu, Text } from "@saintly-software/baritone";
+import { Trash2 } from "lucide-react";
 import type { EntryDetail } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
@@ -62,6 +63,15 @@ function EntryPage() {
             {
               children: "Delete Entry",
               intent: "negative",
+              // Baritone's `Icon` sizes the glyph to the row's text (its CSS
+              // stretches the child svg to the 1em box) and tints it via
+              // `currentColor`, which is what Lucide's svg strokes with — so the
+              // icon follows the item's `negative` intent without being told.
+              icon: (
+                <Icon>
+                  <Trash2 />
+                </Icon>
+              ),
               onClick: () => {
                 deleteEntry.reset();
                 setConfirmingDelete(true);
