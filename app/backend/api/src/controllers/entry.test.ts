@@ -261,10 +261,13 @@ describe("EntryController.delete", () => {
     expect(values.some((v) => v instanceof Date)).toBe(false);
   });
 
-  it("leaves updated_at alone — a delete isn't an edit, and it's the library's sort key", async () => {
+  it("doesn't write updated_at — that column belongs to the database's trigger", async () => {
     const { client, $executeRaw } = mockDb();
     await new EntryController(client).delete("entry-1");
 
+    // A `BEFORE UPDATE` trigger stamps it from the DB clock and overrides
+    // anything a statement sets, so naming the column here would be a value
+    // that's silently discarded — and a claim this code decides it.
     expect(sqlFrom($executeRaw)).not.toContain("updated_at");
   });
 

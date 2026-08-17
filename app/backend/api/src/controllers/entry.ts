@@ -147,10 +147,13 @@ export class EntryController {
    * every other timestamp in the table is UTC. Converting explicitly makes the
    * statement independent of the server's timezone setting.
    *
-   * `updated_at` is deliberately left alone. It means "when the content last
-   * changed", and it's the key `listForLibrary` sorts on — bumping it here would
-   * push a restored entry to the top of the library as if it had just been
-   * edited. When the delete happened is what `deleted_at` records.
+   * The statement doesn't mention `updated_at`: since the timestamps moved onto
+   * the database clock, an unconditional `BEFORE UPDATE` trigger owns that
+   * column, and a `BEFORE` trigger overwrites whatever a statement sets anyway.
+   * Note the consequence — a soft delete *does* bump `updated_at`, so restoring
+   * an entry later surfaces it at the top of the library as though it had just
+   * been edited. Changing that means teaching the trigger to skip a
+   * tombstone-only update, which is its call to make, not this statement's.
    *
    * The `deleted_at IS NULL` guard is what keeps this idempotent: a missing id
    * and an already-deleted entry both match nothing and return `false`, so

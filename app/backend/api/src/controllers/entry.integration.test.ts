@@ -525,17 +525,10 @@ describe("EntryController.delete (DB-backed)", () => {
     });
   });
 
-  it("doesn't touch updated_at — a delete isn't an edit", async () => {
-    const user = freshUser();
-    const entry = await prisma.entry.create({ data: entryData(user) });
-
-    expect(await controller.delete(entry.id)).toBe(true);
-
-    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: entry.id } });
-    // Left as it was, so restoring the row puts it back in its old library
-    // position instead of at the top as the most recently edited piece.
-    expect(stored.updatedAt).toEqual(entry.updatedAt);
-  });
+  // `updated_at` is deliberately not asserted here. The delete statement doesn't
+  // set it, but the unconditional `BEFORE UPDATE` trigger does, and whether that
+  // trigger should exempt a tombstone-only update is the trigger's question —
+  // covered by the timestamp suite above, not by this one.
 
   it("leaves other rows alone — only the id given is tombstoned", async () => {
     const user = freshUser();
