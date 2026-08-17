@@ -334,25 +334,36 @@ describe("entries timestamps are stamped in UTC whatever the session timezone", 
  * can show this: it is a property of the pool's startup options, invisible to a
  * mocked client.
  *
- * The assertion is on the exact string rather than on an offset, because an
- * offset check would pass on any UTC-equivalent default and prove nothing. The
- * dev container's server default is `Etc/UTC` — equivalent, but *not* what an
- * explicitly pinned session reports — so this fails if the pin is dropped.
+ * `pg_settings.source`, not just the value, is what makes these able to fail.
+ * The sibling `database_timezone_utc` migration sets `timezone = 'UTC'` on the
+ * database too, so the *value* is now UTC on this connection whether or not the
+ * pool pins anything — asserting only that would quietly stop testing the pool
+ * the day that migration applied. `source` separates the two mechanisms:
+ * `client` means the value arrived in the connection's startup options, where
+ * `database` means it came from the per-database default. Dropping the pin turns
+ * one into the other, and these tests red.
  */
 describe("the app's connection pins its session timezone", () => {
-  it("reports UTC, not the server's default", async () => {
-    const [{ TimeZone: zone }] = await prisma.$queryRaw<{ TimeZone: string }[]>`SHOW TimeZone`;
-    expect(zone).toBe("UTC");
+  /** What the session's `TimeZone` is, and which layer it came from. */
+  const timeZoneSetting = () =>
+    prisma.$queryRaw<{ setting: string; source: string }[]>`
+      SELECT setting, source FROM pg_settings WHERE name = 'TimeZone'`;
+
+  it("is UTC, and comes from the connection itself rather than a server default", async () => {
+    const [{ setting, source }] = await timeZoneSetting();
+
+    expect(setting).toBe("UTC");
+    expect(source).toBe("client");
   });
 
   it("holds across pooled connections, not just the first one opened", async () => {
     // Concurrency forces the pool to hand out more than one backend; a startup
     // option applied to only some of them would be a lurking, load-dependent bug.
-    const zones = await Promise.all(
-      Array.from({ length: 5 }, () => prisma.$queryRaw<{ TimeZone: string }[]>`SHOW TimeZone`),
-    );
+    const rows = await Promise.all(Array.from({ length: 5 }, timeZoneSetting));
 
-    expect(zones.map(([row]) => row.TimeZone)).toEqual(Array(5).fill("UTC"));
+    expect(rows.map(([row]) => `${row.setting}/${row.source}`)).toEqual(
+      Array(5).fill("UTC/client"),
+    );
   });
 });
 
