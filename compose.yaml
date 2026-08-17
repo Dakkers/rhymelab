@@ -8,7 +8,7 @@
 # Host port is 5433 (not 5432) to avoid colliding with any other local Postgres
 # already bound to 5432. Inside the container Postgres still listens on 5432.
 #
-# Connection string (matches app/backend/api/.env):
+# Connection string (matches app/backend/api/.config/.env):
 #   postgresql://rhymelab:rhymelab@localhost:5433/rhymelab
 services:
   postgres:

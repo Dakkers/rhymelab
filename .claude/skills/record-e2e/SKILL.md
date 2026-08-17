@@ -36,7 +36,7 @@ for them.
 For a **signed-in** recording (anything under `/library` or `/entries/*`), you
 need the saved session at `app/frontend/web/e2e/.auth/state.json`. If it's
 missing, mint it — this requires `E2E_APP_PASSWORD` in the env (same value as
-`PASSWORD` in `app/backend/api/.env`; ask the user, never guess it):
+`PASSWORD` in `app/backend/api/.config/.env`; ask the user, never guess it):
 
 ```bash
 pnpm --filter @rhymelab/web exec playwright test \
