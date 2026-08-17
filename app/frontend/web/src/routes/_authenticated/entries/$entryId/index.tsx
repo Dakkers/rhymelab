@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
-import { Card, InlineList, Text } from "@saintly-software/baritone";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
+import { Card, ConfirmationModal, InlineList, Menu, Text } from "@saintly-software/baritone";
 import type { EntryDetail } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
@@ -28,17 +28,79 @@ const KIND_LABEL: Record<EntryDetail["kind"], string> = {
 
 function EntryPage() {
   const { entryId } = Route.useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: entry } = useSuspenseQuery(
     orpc.entries.get.queryOptions({ input: { id: entryId } }),
   );
 
+  // Controlled rather than using `ConfirmationModal.Trigger`: the thing that
+  // opens it lives inside the menu, which closes on activation, so the dialog's
+  // open state has to outlive its trigger.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const deleteEntry = useMutation(
+    orpc.entries.delete.mutationOptions({
+      onSuccess: async () => {
+        // This page is now a 404 — drop the cached detail and the list's stale
+        // copy of it, then leave before anything can refetch the deleted piece.
+        queryClient.removeQueries({ queryKey: orpc.entries.get.key({ input: { id: entryId } }) });
+        await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
+        await navigate({ to: "/library" });
+      },
+    }),
+  );
+
   return (
-    <Page title={entry.title} subtitle={byline(entry)}>
+    <Page
+      title={entry.title}
+      subtitle={byline(entry)}
+      actions={
+        <Menu
+          trigger={<Menu.Trigger saliency="low">Actions</Menu.Trigger>}
+          items={[
+            {
+              children: "Delete Entry",
+              intent: "negative",
+              onClick: () => {
+                deleteEntry.reset();
+                setConfirmingDelete(true);
+              },
+            },
+          ]}
+        />
+      }
+    >
       <Card header={<Card.Header title={KIND_LABEL[entry.kind]} />}>
         <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
           {entry.body}
         </Text>
       </Card>
+
+      <ConfirmationModal
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        header={`Delete “${entry.title}”?`}
+        loading={deleteEntry.isPending}
+        confirm={{
+          children: "Delete Entry",
+          // `preventDefault` keeps the dialog up while the request is in flight
+          // — it closes by unmounting when the redirect lands, and stays open
+          // (showing the error below) if the delete fails.
+          onClick: (event) => {
+            event.preventDefault();
+            deleteEntry.mutate({ id: entryId });
+          },
+        }}
+      >
+        <Text>
+          It won’t appear in your library any more. The text isn’t erased from the database, so this
+          can be undone by hand — but not from the app.
+        </Text>
+        {deleteEntry.isError && (
+          <Text intent="negative">Couldn’t delete this entry. Try again.</Text>
+        )}
+      </ConfirmationModal>
     </Page>
   );
 }

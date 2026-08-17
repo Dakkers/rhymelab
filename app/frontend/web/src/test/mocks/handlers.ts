@@ -7,8 +7,9 @@
  * the request to that handler, so serialisation and routing match production
  * exactly.
  *
- * `auth.me`, `entries.list`, `entries.create`, and `entries.get` are mocked. Add
- * procedures here as the new surface — and the tests that exercise it — take shape.
+ * `auth.me`, `entries.list`, `entries.create`, `entries.get`, and
+ * `entries.delete` are mocked. Add procedures here as the new surface — and the
+ * tests that exercise it — take shape.
  */
 import { implement, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
@@ -86,6 +87,15 @@ const router = {
       // the list-view-only derived fields the detail shape doesn't want.
       const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
       return detail;
+    }),
+    delete: os.entries.delete.handler(({ input }) => {
+      const entry = store.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // The real delete is soft, but the tombstone is invisible over the wire —
+      // a deleted piece is simply gone from every response, so dropping it from
+      // the store is a faithful mock of what a client can observe.
+      store.entries = store.entries.filter((candidate) => candidate.id !== input.id);
+      return { ok: true } as const;
     }),
   },
 };

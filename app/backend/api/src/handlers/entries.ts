@@ -68,3 +68,19 @@ export const get = authed.entries.get.handler(async ({ input }) => {
   }
   return toEntryDetail(entry);
 });
+
+// Ownership is established the same way `get` does it — `delete` on the
+// controller is unscoped, so the check belongs here. The read and the write
+// aren't in one transaction: a concurrent delete of the same piece just makes
+// the second call's `delete` return false, which is already the 404 path.
+export const remove = authed.entries.delete.handler(async ({ input }) => {
+  const entry = await entryController.getDetails(input.id);
+  if (!entry || entry.userId !== SINGLE_USER_ID) {
+    throw new ORPCError("NOT_FOUND");
+  }
+  // Already-deleted reads as missing, so this can only be false in a race.
+  if (!(await entryController.delete(input.id))) {
+    throw new ORPCError("NOT_FOUND");
+  }
+  return { ok: true } as const;
+});

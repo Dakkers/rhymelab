@@ -7,8 +7,9 @@
  * on it inside a single test would leave whichever arm the seed didn't land on
  * permanently uncovered.
  */
-import { expect, test } from "vitest";
-import { screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { FakeEntry } from "@rhymelab/fixtures";
 import { names } from "#/lib/format";
 import { renderRoute } from "#/test/render-route";
@@ -71,4 +72,45 @@ test("surfaces the router's default error UI for an unknown id", async () => {
   });
 
   expect(await screen.findByText("Not Found")).toBeInTheDocument();
+});
+
+test("deletes the piece from the Actions menu, once the confirmation is accepted", async () => {
+  const user = userEvent.setup();
+  const [entry] = store.entries;
+  const { router } = renderRoute(Route, {
+    path: "/entries/$entryId",
+    initialEntries: [`/entries/${entry.id}`],
+  });
+  expect(await screen.findByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Delete Entry" }));
+
+  // Nothing is gone yet — the menu item only asks.
+  const dialog = await screen.findByRole("dialog");
+  expect(store.entries).toContain(entry);
+
+  await user.click(within(dialog).getByRole("button", { name: "Delete Entry" }));
+
+  await vi.waitFor(() => expect(store.entries).not.toContain(entry));
+  // ...and the now-deleted page sends us back to the library.
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe("/library"));
+});
+
+test("keeps the piece when the confirmation is cancelled", async () => {
+  const user = userEvent.setup();
+  const [entry] = store.entries;
+  renderRoute(Route, {
+    path: "/entries/$entryId",
+    initialEntries: [`/entries/${entry.id}`],
+  });
+  expect(await screen.findByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Delete Entry" }));
+  const dialog = await screen.findByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+  expect(store.entries).toContain(entry);
+  expect(screen.getByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
 });

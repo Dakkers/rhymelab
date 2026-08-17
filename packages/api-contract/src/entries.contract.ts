@@ -126,6 +126,19 @@ export type EntryDetail = z.infer<typeof EntryDetailSchema>;
 export const get = oc.input(z.object({ id: z.uuidv4() })).output(EntryDetailSchema);
 
 /**
+ * Delete a saved piece. The delete is *soft* — the row is tombstoned and stops
+ * appearing anywhere, but survives in the database, so this stays recoverable by
+ * hand. 404s on an unknown id and on another user's piece alike, for the same
+ * reason `get` does.
+ *
+ * Named `remove` here because `delete` is a reserved word and can't be an export
+ * binding; it's exposed on the contract as `entries.delete`.
+ */
+export const remove = oc
+  .input(z.object({ id: z.uuidv4() }))
+  .output(z.object({ ok: z.literal(true) }));
+
+/**
  * Fields a client submits to save a new piece — distinct from `EntrySummarySchema`:
  * it carries the full `body` text (the source of truth) rather than the derived
  * `excerpt`/`lineCount`/`wordCount`, and has no `id`/timestamps yet.
