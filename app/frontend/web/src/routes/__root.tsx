@@ -5,7 +5,7 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from "@tanstack/react-router";
-import { BaritoneTheme, LinkProvider } from "@saintly-software/baritone";
+import { BaritoneProvider, BaritoneTheme, LinkProvider } from "@saintly-software/baritone";
 
 import { NotFoundScreen, RouteError } from "../components/RouteStatus";
 import {
@@ -16,6 +16,7 @@ import {
   brandVars,
   buildAppTokens,
 } from "../lib/theme";
+import { toastManager } from "../lib/toast";
 import resetCss from "../styles/reset.css?url";
 import baritoneCss from "../styles/styles.css?url";
 import appCss from "../styles/app.css?url";
@@ -63,11 +64,18 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         render={<body className="rl-body" />}
         style={brandVars(tokens)}
       >
-        {/* Every internal Baritone <Link href> navigates through TanStack Router;
-            external / new-tab / download links stay plain anchors. */}
-        <LinkProvider render={({ href, ...props }) => <RouterLink to={href} {...props} />}>
-          {children}
-        </LinkProvider>
+        {/* BaritoneProvider owns the client-side toast system (Toast.Provider +
+            viewport). It lives inside BaritoneTheme so the body-mounted viewport
+            resolves its tokens from the theme class on <body>. The shared
+            `toastManager` lets non-React code — the global mutation-error handler
+            in `#/router` — fire toasts through this same viewport. */}
+        <BaritoneProvider toastManager={toastManager}>
+          {/* Every internal Baritone <Link href> navigates through TanStack Router;
+              external / new-tab / download links stay plain anchors. */}
+          <LinkProvider render={({ href, ...props }) => <RouterLink to={href} {...props} />}>
+            {children}
+          </LinkProvider>
+        </BaritoneProvider>
 
         <Scripts />
       </BaritoneTheme>
