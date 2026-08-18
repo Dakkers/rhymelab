@@ -21,16 +21,18 @@ vi.mock("../controllers/entry", () => ({
     listForLibrary: vi.fn(),
     create: vi.fn(),
     getDetails: vi.fn(),
+    updateBody: vi.fn(),
     delete: vi.fn(),
   },
 }));
 
 const { entryController } = await import("../controllers/entry");
-const { list, create, get, remove } = await import("./entries");
+const { list, create, get, remove, updateBody } = await import("./entries");
 
 const mockCtrlList = vi.mocked(entryController.listForLibrary);
 const mockCtrlCreate = vi.mocked(entryController.create);
 const mockCtrlGetDetails = vi.mocked(entryController.getDetails);
+const mockCtrlUpdateBody = vi.mocked(entryController.updateBody);
 const mockCtrlDelete = vi.mocked(entryController.delete);
 
 /** A Prisma `Entry` row — `body` is the source the summary fields derive from. */
@@ -65,6 +67,11 @@ function callCreate(input: EntryCreateInput) {
 function callGet(id: string) {
   const context: ORPCContext = { session: { authed: true }, reply: {} as FastifyReply };
   return createProcedureClient(get, { context })({ id });
+}
+
+function callUpdateBody(id: string, body: string) {
+  const context: ORPCContext = { session: { authed: true }, reply: {} as FastifyReply };
+  return createProcedureClient(updateBody, { context })({ id, body });
 }
 
 function callRemove(id: string) {
@@ -199,6 +206,45 @@ describe("entries.get", () => {
     await expect(callGet("00000000-0000-4000-8000-000000000000")).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),
     );
+  });
+});
+
+describe("entries.updateBody", () => {
+  const ID = "00000000-0000-4000-8000-000000000000";
+
+  beforeEach(() => {
+    mockCtrlGetDetails.mockReset();
+    mockCtrlUpdateBody.mockReset();
+  });
+
+  it("rewrites the body once its owner checks out, returning the updated detail", async () => {
+    mockCtrlGetDetails.mockResolvedValue(makeRow());
+    mockCtrlUpdateBody.mockResolvedValue(makeRow({ body: "New text" }));
+
+    await expect(callUpdateBody(ID, "New text")).resolves.toMatchObject({
+      id: ID,
+      kind: "poem",
+      body: "New text",
+    });
+    expect(mockCtrlUpdateBody).toHaveBeenCalledExactlyOnceWith(ID, "New text");
+  });
+
+  it("404s on an unknown id, without attempting the write", async () => {
+    mockCtrlGetDetails.mockResolvedValue(null);
+
+    await expect(callUpdateBody(ID, "New text")).rejects.toThrow(
+      expect.objectContaining(new ORPCError("NOT_FOUND")),
+    );
+    expect(mockCtrlUpdateBody).not.toHaveBeenCalled();
+  });
+
+  it("404s — and writes nothing — when the piece belongs to another user", async () => {
+    mockCtrlGetDetails.mockResolvedValue(makeRow({ userId: "someone-else" }));
+
+    await expect(callUpdateBody(ID, "New text")).rejects.toThrow(
+      expect.objectContaining(new ORPCError("NOT_FOUND")),
+    );
+    expect(mockCtrlUpdateBody).not.toHaveBeenCalled();
   });
 });
 

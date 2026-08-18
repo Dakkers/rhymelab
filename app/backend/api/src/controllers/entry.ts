@@ -128,6 +128,46 @@ export class EntryController {
   }
 
   /**
+   * Replace an entry's text and return the updated row in the library shape.
+   *
+   * Unscoped by owner and by tombstone, like `getDetails` — the caller
+   * establishes both (typically by reading `getDetails()` first, which only
+   * yields live rows) before calling this. `update` by unique id rather than
+   * `updateMany` with a `deletedAt IS NULL` guard, because the caller wants the
+   * updated row back and `updateMany` only reports a count.
+   *
+   * `updated_at` isn't in the payload: it belongs to the database's
+   * `BEFORE UPDATE` trigger, which overwrites anything a statement sets anyway.
+   *
+   * @param id    The entry to rewrite.
+   * @param body  The replacement text.
+   * @param tx    Optional transaction client to run the write on.
+   */
+  async updateBody(
+    id: string,
+    body: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<EntryForLibrary> {
+    const db = tx ?? this.db;
+    return db.entry.update({
+      where: { id },
+      data: { body },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  /**
    * Soft-delete an entry: stamp `deletedAt` so every read path stops returning
    * it, while the row itself stays put and the delete stays reversible.
    *

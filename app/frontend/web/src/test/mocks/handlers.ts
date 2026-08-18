@@ -7,7 +7,7 @@
  * request to that handler, so serialisation and routing (the same
  * `.route()`-annotated REST paths production serves) match exactly.
  *
- * `auth.me`, `entries.list`, `entries.create`, `entries.get`, and
+ * `auth.me`, `entries.list`, `entries.create`, `entries.get`, `entries.updateBody`, and
  * `entries.delete` are mocked. Add procedures here as the new surface — and the
  * tests that exercise it — take shape.
  */
@@ -86,6 +86,29 @@ const router = {
       // Every entry (fixture-seeded or created above) carries a real `body`; drop
       // the list-view-only derived fields the detail shape doesn't want.
       const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
+      return detail;
+    }),
+    updateBody: os.entries.updateBody.handler(({ input }) => {
+      const entry = store.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // The real API re-derives the list fields from the new text and lets the
+      // database bump `updatedAt`; mirror both so the Library sees what it would
+      // after a real edit.
+      const updated = {
+        ...entry,
+        body: input.body,
+        ...deriveEntrySummaryFields(input.body),
+        updatedAt: new Date().toISOString(),
+      };
+      store.entries = store.entries.map((candidate) =>
+        candidate.id === input.id ? updated : candidate,
+      );
+      const {
+        excerpt: _excerpt,
+        lineCount: _lineCount,
+        wordCount: _wordCount,
+        ...detail
+      } = updated;
       return detail;
     }),
     delete: os.entries.delete.handler(({ input }) => {

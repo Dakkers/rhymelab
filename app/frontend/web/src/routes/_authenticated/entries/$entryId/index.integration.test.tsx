@@ -114,3 +114,50 @@ test("keeps the piece when the confirmation is cancelled", async () => {
   expect(store.entries).toContain(entry);
   expect(screen.getByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
 });
+
+test("edits the text from the Actions menu, and shows the saved version on the page", async () => {
+  const user = userEvent.setup();
+  const [entry] = store.entries;
+  renderRoute(Route, {
+    path: "/entries/$entryId",
+    initialEntries: [`/entries/${entry.id}`],
+  });
+  expect(await screen.findByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Edit Text" }));
+
+  const drawer = await screen.findByRole("dialog");
+  const textbox = within(drawer).getByRole("textbox", { name: /text/i });
+  expect(textbox).toHaveValue(entry.body);
+
+  await user.clear(textbox);
+  await user.type(textbox, "Rewritten words");
+  await user.click(within(drawer).getByRole("button", { name: "Save" }));
+
+  // The drawer closes on success, and the page shows the saved text — proof the
+  // detail cache took the mutation's result rather than the stale loader data.
+  await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByText("Rewritten words")).toBeInTheDocument();
+});
+
+test("leaves the text alone when the edit drawer is cancelled", async () => {
+  const user = userEvent.setup();
+  const [entry] = store.entries;
+  renderRoute(Route, {
+    path: "/entries/$entryId",
+    initialEntries: [`/entries/${entry.id}`],
+  });
+  expect(await screen.findByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Edit Text" }));
+  const drawer = await screen.findByRole("dialog");
+  await user.type(within(drawer).getByRole("textbox", { name: /text/i }), " and more");
+  await user.click(within(drawer).getByRole("button", { name: "Cancel" }));
+
+  await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(
+    screen.getByText((_content, element) => element?.textContent === entry.body),
+  ).toBeInTheDocument();
+});

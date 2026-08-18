@@ -1,8 +1,8 @@
 /**
  * Entries procedures. Protected (`authed.*`): only a signed-in session may list,
- * save, or fetch a user's saved pieces.
+ * save, fetch, edit, or delete a user's saved pieces.
  *
- * Both read from / write to `EntryController` and map Prisma rows onto the
+ * They read from / write to `EntryController` and map Prisma rows onto the
  * contract's `EntrySummary` / `EntryDetail` shapes — discriminated unions on
  * `kind`, so the lyrics-only fields (`artist` / `album`) only get attached on
  * that arm.
@@ -67,6 +67,18 @@ export const get = authed.entries.get.handler(async ({ input }) => {
     throw new ORPCError("NOT_FOUND");
   }
   return toEntryDetail(entry);
+});
+
+// Ownership (and liveness) are established with the same `getDetails` read
+// `get` and `remove` use — `updateBody` is unscoped on both counts. The read and
+// the write aren't in one transaction: a delete landing in between makes this
+// rewrite the text of an already-tombstoned row, which stays invisible either way.
+export const updateBody = authed.entries.updateBody.handler(async ({ input }) => {
+  const entry = await entryController.getDetails(input.id);
+  if (!entry || entry.userId !== SINGLE_USER_ID) {
+    throw new ORPCError("NOT_FOUND");
+  }
+  return toEntryDetail(await entryController.updateBody(input.id, input.body));
 });
 
 // Ownership is established the same way `get` does it — `delete` on the
