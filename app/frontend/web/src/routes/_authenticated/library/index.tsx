@@ -1,7 +1,17 @@
 import type { ReactNode } from "react";
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Badge, Card, CardList, InlineList, Link, Text } from "@saintly-software/baritone";
+import {
+  Badge,
+  Card,
+  CardList,
+  Flex,
+  Icon,
+  InlineList,
+  Link,
+  Text,
+} from "@saintly-software/baritone";
+import { AlignLeft, Clock, PenLine, Plus, CaseSensitive } from "lucide-react";
 import type { EntrySummary } from "@rhymelab/api-contract";
 import { Page } from "../../../components/Page";
 import { orpc } from "../../../lib/orpc";
@@ -28,7 +38,15 @@ function LibraryPage() {
       title="Library"
       subtitle={entries.length > 0 ? pluralize(entries.length, "saved piece") : undefined}
       actions={
-        <Link appearance="button" href="/entries/new">
+        <Link
+          appearance="button"
+          href="/entries/new"
+          startIcon={
+            <Icon>
+              <Plus />
+            </Icon>
+          }
+        >
           New entry
         </Link>
       }
@@ -70,20 +88,14 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
           </Text>
         }
       >
-        <Text size="sm" saliency="low">
-          {pluralize(entry.lineCount, "line")}
-        </Text>
-        <Text size="sm" saliency="low">
-          {pluralize(entry.wordCount, "word")}
-        </Text>
+        <Stat icon={<AlignLeft />}>{pluralize(entry.lineCount, "line")}</Stat>
+        <Stat icon={<CaseSensitive />}>{pluralize(entry.wordCount, "word")}</Stat>
         {/* The writer, surfaced for lyrics (a poem already names them in the
             byline) — and only when there is one: the `&&` yields "" for an
             unattributed piece, which InlineList drops along with its separator
             rather than printing a bare "Words by". */}
         {entry.kind === "lyrics" && names(entry.author) && (
-          <Text size="sm" saliency="low">
-            Words by {names(entry.author)}
-          </Text>
+          <Stat icon={<PenLine />}>Words by {names(entry.author)}</Stat>
         )}
         <Updated at={entry.updatedAt} />
       </InlineList>
@@ -115,9 +127,24 @@ function byline(entry: EntrySummary): ReactNode {
  */
 function Updated({ at }: { at: string }) {
   const mounted = useMounted();
+  return <Stat icon={<Clock />}>{mounted ? `Edited ${since(at)}` : "Edited recently"}</Stat>;
+}
+
+/**
+ * One metadata item in a card's stat line: a small icon ahead of its label.
+ *
+ * The icons are decorative — `Icon` without a `label` is `aria-hidden`, so a
+ * screen reader hears "12 lines", not "document icon, 12 lines". The words are
+ * what carry the meaning; the glyph only makes the line scannable. Colour is
+ * inherited: `Icon` inside a `Text` picks up that text's resolved colour via
+ * `--iconColor`, so the icon dims with the label rather than needing its own
+ * `saliency`.
+ */
+function Stat({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <Text size="sm" saliency="low">
-      {mounted ? `Edited ${since(at)}` : "Edited recently"}
+    <Text size="sm" saliency="low" render={<Flex inline align="center" gap="1" />}>
+      <Icon size="sm">{icon}</Icon>
+      {children}
     </Text>
   );
 }
