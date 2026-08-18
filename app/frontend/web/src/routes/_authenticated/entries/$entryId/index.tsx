@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link as RouterLink, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import {
@@ -13,7 +13,7 @@ import {
   Text,
   TextInput,
 } from "@saintly-software/baritone";
-import { PenLine, Trash2 } from "lucide-react";
+import { Highlighter, PenLine, Trash2 } from "lucide-react";
 import {
   normalizeEntryBody,
   splitSections,
@@ -139,6 +139,20 @@ function EntryPage() {
               }}
             >
               Edit Text
+            </Menu.Item>,
+            <Menu.Item
+              key="annotate"
+              icon={
+                <Icon>
+                  <Highlighter />
+                </Icon>
+              }
+              // A link row, not an `onClick` + `navigate` — `render` makes it a
+              // real anchor, so it preloads on hover and opens in a new tab on
+              // middle-click like any other route in the app.
+              render={<RouterLink to="/entries/$entryId/annotate" params={{ entryId }} />}
+            >
+              Annotate
             </Menu.Item>,
             <Menu.Item
               key="delete"
