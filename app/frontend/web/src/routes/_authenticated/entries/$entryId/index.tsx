@@ -59,16 +59,17 @@ function EntryPage() {
 
   const updateBody = useMutation(
     orpc.entries.updateBody.mutationOptions({
-      onSuccess: async (updated) => {
-        // The mutation returns the saved piece, so the detail cache can be set
-        // outright instead of refetched. The Library's copy carries a derived
-        // excerpt and a fresh `updatedAt` (which reorders it), so that one is
-        // invalidated and left to refetch.
-        queryClient.setQueryData(
-          orpc.entries.get.queryOptions({ input: { id: entryId } }).queryKey,
-          updated,
-        );
-        await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
+      onSuccess: async () => {
+        // Both caches are invalidated and left to refetch rather than written
+        // from the mutation's result: writing means trusting that what came back
+        // is exactly what a fresh `get` would return, which stops being true the
+        // moment the read path derives or joins anything the write path doesn't.
+        // The detail is awaited so the drawer doesn't close onto stale text; the
+        // Library is off-screen and can settle on its own.
+        await queryClient.invalidateQueries({
+          queryKey: orpc.entries.get.key({ input: { id: entryId } }),
+        });
+        void queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
         setEditingText(false);
       },
     }),
