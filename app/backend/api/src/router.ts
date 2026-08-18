@@ -11,6 +11,7 @@ import {
   get as entriesGet,
   list as entriesList,
   remove as entriesRemove,
+  update as entriesUpdate,
 } from "./handlers/entries";
 
 export const router = os.router({
@@ -19,6 +20,7 @@ export const router = os.router({
     list: entriesList,
     create: entriesCreate,
     get: entriesGet,
+    update: entriesUpdate,
     delete: entriesRemove,
   },
 });

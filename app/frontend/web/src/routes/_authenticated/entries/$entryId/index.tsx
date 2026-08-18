@@ -1,8 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { Card, ConfirmationModal, Icon, InlineList, Menu, Text } from "@saintly-software/baritone";
-import { Trash2 } from "lucide-react";
+import {
+  Button,
+  Card,
+  ConfirmationModal,
+  Drawer,
+  Icon,
+  InlineList,
+  Menu,
+  Text,
+  TextInput,
+} from "@saintly-software/baritone";
+import { PenLine, Trash2 } from "lucide-react";
 import type { EntryDetail } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
@@ -40,6 +50,30 @@ function EntryPage() {
   // open state has to outlive its trigger.
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
+  // Same reason the delete dialog is controlled: the drawer opens from a menu
+  // item, which unmounts as the menu closes, so it can't be a `Drawer.Trigger`.
+  // `draft` is seeded from the entry each time the drawer opens rather than at
+  // mount, so a cancelled edit doesn't linger into the next one.
+  const [editingText, setEditingText] = useState(false);
+  const [draft, setDraft] = useState(entry.body);
+
+  const updateEntry = useMutation(
+    orpc.entries.update.mutationOptions({
+      onSuccess: async (updated) => {
+        // The mutation returns the saved piece, so the detail cache can be set
+        // outright instead of refetched. The Library's copy carries a derived
+        // excerpt and a fresh `updatedAt` (which reorders it), so that one is
+        // invalidated and left to refetch.
+        queryClient.setQueryData(
+          orpc.entries.get.queryOptions({ input: { id: entryId } }).queryKey,
+          updated,
+        );
+        await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
+        setEditingText(false);
+      },
+    }),
+  );
+
   const deleteEntry = useMutation(
     orpc.entries.delete.mutationOptions({
       onSuccess: async () => {
@@ -60,6 +94,19 @@ function EntryPage() {
         <Menu
           trigger={<Menu.Trigger saliency="low">Actions</Menu.Trigger>}
           items={[
+            {
+              children: "Edit Text",
+              icon: (
+                <Icon>
+                  <PenLine />
+                </Icon>
+              ),
+              onClick: () => {
+                updateEntry.reset();
+                setDraft(entry.body);
+                setEditingText(true);
+              },
+            },
             {
               children: "Delete Entry",
               intent: "negative",
@@ -86,6 +133,53 @@ function EntryPage() {
           {entry.body}
         </Text>
       </Card>
+
+      <Drawer
+        open={editingText}
+        onOpenChange={setEditingText}
+        // Closing mid-save would leave the drawer's draft and the request racing
+        // each other; hold it open until the write settles.
+        disabled={updateEntry.isPending}
+        header={<Drawer.Header title="Edit text" subtitle={entry.title} />}
+        footer={
+          <Drawer.Footer
+            actions={[
+              // A plain Button rather than `Drawer.Close`: `open` is controlled
+              // here, so closing is a state change either way, and the close
+              // part's dismissal wiring doesn't survive being handed to the
+              // footer's `ButtonGroup`.
+              <Button
+                key="cancel"
+                saliency="low"
+                disabled={updateEntry.isPending}
+                onClick={() => setEditingText(false)}
+              >
+                Cancel
+              </Button>,
+              <Button
+                key="save"
+                loading={updateEntry.isPending}
+                disabled={!draft.trim() || draft === entry.body}
+                onClick={() => updateEntry.mutate({ id: entryId, body: draft })}
+              >
+                Save
+              </Button>,
+            ]}
+          />
+        }
+      >
+        <TextInput
+          multiline
+          rows={18}
+          label="Text"
+          value={draft}
+          onChange={(value) => setDraft(value)}
+          required
+        />
+        {updateEntry.isError && (
+          <Text intent="negative">Couldn’t save your changes. Try again.</Text>
+        )}
+      </Drawer>
 
       <ConfirmationModal
         open={confirmingDelete}

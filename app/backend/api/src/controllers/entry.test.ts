@@ -16,6 +16,7 @@ function mockDb(
   const findMany = vi.fn().mockResolvedValue(rows);
   const create = vi.fn().mockResolvedValue(created);
   const findFirst = vi.fn().mockResolvedValue(found);
+  const update = vi.fn().mockResolvedValue(created);
   // `delete` goes through raw SQL (it needs the DB's `NOW()`, not Node's clock),
   // so the spy stands in for the tagged-template `$executeRaw` and resolves the
   // affected-row count.
@@ -24,10 +25,10 @@ function mockDb(
   // `create`/`getDetails`/`delete` use, not the whole PrismaClient /
   // TransactionClient.
   const client = {
-    entry: { findMany, create, findFirst },
+    entry: { findMany, create, findFirst, update },
     $executeRaw,
   } as unknown as PrismaClient & Prisma.TransactionClient;
-  return { client, findMany, create, findFirst, $executeRaw };
+  return { client, findMany, create, findFirst, update, $executeRaw };
 }
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
@@ -238,6 +239,50 @@ describe("EntryController.create", () => {
 
     expect(tx.create).toHaveBeenCalledTimes(1);
     expect(base.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("EntryController.updateBody", () => {
+  it("writes only the body, keyed by id, selecting the library columns back", async () => {
+    const { client, update } = mockDb();
+    await new EntryController(client).updateBody("entry-1", "New text");
+
+    expect(update).toHaveBeenCalledExactlyOnceWith({
+      where: { id: "entry-1" },
+      // `updatedAt` is the trigger's to set, and nothing else about the piece
+      // moves — an edit to the text can't quietly rewrite its metadata.
+      data: { body: "New text" },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  });
+
+  it("runs on the transaction client when one is passed", async () => {
+    const base = mockDb();
+    const tx = mockDb();
+
+    await new EntryController(base.client).updateBody("entry-1", "New text", tx.client);
+
+    expect(tx.update).toHaveBeenCalledTimes(1);
+    expect(base.update).not.toHaveBeenCalled();
+  });
+
+  it("runs on the base client when no transaction is passed", async () => {
+    const base = mockDb();
+
+    await new EntryController(base.client).updateBody("entry-1", "New text");
+
+    expect(base.update).toHaveBeenCalledTimes(1);
   });
 });
 
