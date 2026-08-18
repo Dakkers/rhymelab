@@ -78,8 +78,20 @@ export function deriveEntrySummaryFields(body: string): {
   };
 }
 
-/** List the current user's saved entries. The handler returns them newest-first. */
-export const list = oc.input(z.void()).output(z.array(EntrySummarySchema));
+/**
+ * List the current user's saved entries. The handler returns them newest-first.
+ *
+ * Served over REST as `GET /api/entries` — the `.route({ method, path })` here
+ * (and on every procedure below) is what lets oRPC's `OpenAPIHandler` map it to
+ * an HTTP verb and path; an un-annotated procedure would fall back to a default
+ * `POST /<key>` route.
+ *
+ * Takes no input, so it omits `.input()` rather than declaring `z.void()`: over
+ * OpenAPI a bodyless request decodes to `{}`, which `z.void()` would reject.
+ */
+export const list = oc
+  .route({ method: "GET", path: "/entries" })
+  .output(z.array(EntrySummarySchema));
 
 /**
  * Fields a single saved piece carries for the detail view — `EntryBaseSchema`
@@ -122,8 +134,14 @@ export type EntryDetail = z.infer<typeof EntryDetailSchema>;
  * Fetch a single saved piece by id. The handler 404s (`NOT_FOUND`) both when the
  * id doesn't exist and when it belongs to another user — the two look identical
  * to the caller, so existence can't be probed for a piece you don't own.
+ *
+ * Served as `GET /api/entries/{id}` — the `{id}` path segment binds to the `id`
+ * input field.
  */
-export const get = oc.input(z.object({ id: z.uuidv4() })).output(EntryDetailSchema);
+export const get = oc
+  .route({ method: "GET", path: "/entries/{id}" })
+  .input(z.object({ id: z.uuidv4() }))
+  .output(EntryDetailSchema);
 
 /**
  * Delete a saved piece. The delete is *soft* — the row is tombstoned and stops
@@ -132,9 +150,11 @@ export const get = oc.input(z.object({ id: z.uuidv4() })).output(EntryDetailSche
  * reason `get` does.
  *
  * Named `remove` here because `delete` is a reserved word and can't be an export
- * binding; it's exposed on the contract as `entries.delete`.
+ * binding; it's exposed on the contract as `entries.delete` and served as
+ * `DELETE /api/entries/{id}`.
  */
 export const remove = oc
+  .route({ method: "DELETE", path: "/entries/{id}" })
   .input(z.object({ id: z.uuidv4() }))
   .output(z.object({ ok: z.literal(true) }));
 
@@ -167,5 +187,11 @@ export const EntryCreateInputSchema = z.discriminatedUnion("kind", [
 ]);
 export type EntryCreateInput = z.infer<typeof EntryCreateInputSchema>;
 
-/** Save a new piece. Returns the saved entry's summary, as `list` would render it. */
-export const create = oc.input(EntryCreateInputSchema).output(EntrySummarySchema);
+/**
+ * Save a new piece. Returns the saved entry's summary, as `list` would render it.
+ * Served as `POST /api/entries`, answering `201 Created` on success.
+ */
+export const create = oc
+  .route({ method: "POST", path: "/entries", successStatus: 201 })
+  .input(EntryCreateInputSchema)
+  .output(EntrySummarySchema);

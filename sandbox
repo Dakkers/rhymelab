@@ -227,10 +227,10 @@ cmd_status() {
   # past an occupied base); otherwise show the preferred base ports up will try,
   # flagging a base already held by some other process.
   if sandbox_running; then
-    api_line="http://localhost:${SB_API_PORT}/rpc (listening)"
+    api_line="http://localhost:${SB_API_PORT}/api (listening)"
     web_line="http://localhost:${SB_WEB_PORT} (listening)"
   else
-    api_line="http://localhost:${API_BASE}/rpc ($(port_busy "$API_BASE" && echo 'busy (other process)' || echo free))"
+    api_line="http://localhost:${API_BASE}/api ($(port_busy "$API_BASE" && echo 'busy (other process)' || echo free))"
     web_line="http://localhost:${WEB_BASE} ($(port_busy "$WEB_BASE" && echo 'busy (other process)' || echo free))"
   fi
 
@@ -284,7 +284,7 @@ cmd_up() {
   if sandbox_running; then
     echo "This worktree's sandbox is already running:" >&2
     echo "  web  http://localhost:${SB_WEB_PORT}" >&2
-    echo "  api  http://localhost:${SB_API_PORT}/rpc" >&2
+    echo "  api  http://localhost:${SB_API_PORT}/api" >&2
     echo "Stop it first (Ctrl-C in its terminal) before starting another." >&2
     exit 1
   fi
@@ -307,7 +307,7 @@ cmd_up() {
   │ worktree : $slug
   │ database : $DB (isolated)
   │ web      : http://localhost:${WEB_PORT}
-  │ api      : http://localhost:${API_PORT}/rpc
+  │ api      : http://localhost:${API_PORT}/api
   │
   │ Ctrl-C stops both servers. The database persists — drop it
   │ with \`./sandbox down\` when you're done with this worktree.
@@ -321,7 +321,7 @@ BANNER
   export DATABASE_URL="$DB_URL"
   export PORT="$API_PORT"
   export FRONTEND_ORIGIN="http://localhost:${WEB_PORT}"
-  export VITE_API_URL="http://localhost:${API_PORT}/rpc"
+  export VITE_API_URL="http://localhost:${API_PORT}/api"
 
   # Record the real ports + our PID so `status` and the guard see the live stack.
   mkdir -p "$STATE_DIR"

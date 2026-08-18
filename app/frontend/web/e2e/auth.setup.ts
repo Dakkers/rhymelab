@@ -14,11 +14,12 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test as setup } from "@playwright/test";
 import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
-import type { contract } from "@rhymelab/api-contract";
+import type { JsonifiedClient } from "@orpc/openapi-client";
+import { OpenAPILink } from "@orpc/openapi-client/fetch";
+import { contract } from "@rhymelab/api-contract";
 
-const API_URL = process.env.VITE_API_URL ?? "http://localhost:4000/rpc";
+const API_URL = process.env.VITE_API_URL ?? "http://localhost:4000/api";
 const AUTH_FILE = fileURLToPath(new URL("./.auth/state.json", import.meta.url));
 
 setup("authenticate", async () => {
@@ -32,7 +33,7 @@ setup("authenticate", async () => {
   // so we can read the login response's Set-Cookie(s). This keeps us off oRPC's
   // wire format entirely — we send exactly what the app's own client would.
   const setCookies: string[] = [];
-  const link = new RPCLink({
+  const link = new OpenAPILink(contract, {
     url: API_URL,
     fetch: async (request, init) => {
       const res = await globalThis.fetch(request, init);
@@ -40,7 +41,7 @@ setup("authenticate", async () => {
       return res;
     },
   });
-  const client = createORPCClient(link) as ContractRouterClient<typeof contract>;
+  const client = createORPCClient(link) as JsonifiedClient<ContractRouterClient<typeof contract>>;
 
   const result = await client.auth.login({ password: password! });
   expect(result.ok, "Login was rejected — is E2E_APP_PASSWORD correct?").toBe(true);

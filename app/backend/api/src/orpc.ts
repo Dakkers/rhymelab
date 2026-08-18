@@ -11,7 +11,7 @@ import { contract } from "@rhymelab/api-contract";
 export type Session = { authed: true };
 
 export interface ORPCContext {
-  /** Parsed from the signed session cookie in the Fastify `/rpc/*` route. */
+  /** Parsed from the signed session cookie in the Fastify `/api/*` route. */
   session: Session | null;
   /** So auth procedures can set/clear the session cookie. */
   reply: FastifyReply;
