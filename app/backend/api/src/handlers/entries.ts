@@ -73,7 +73,7 @@ export const get = authed.entries.get.handler(async ({ input }) => {
 // `get` and `remove` use — `updateBody` is unscoped on both counts. The read and
 // the write aren't in one transaction: a delete landing in between makes this
 // rewrite the text of an already-tombstoned row, which stays invisible either way.
-export const update = authed.entries.update.handler(async ({ input }) => {
+export const updateBody = authed.entries.updateBody.handler(async ({ input }) => {
   const entry = await entryController.getDetails(input.id);
   if (!entry || entry.userId !== SINGLE_USER_ID) {
     throw new ORPCError("NOT_FOUND");

@@ -197,10 +197,13 @@ export const create = oc
   .output(EntrySummarySchema);
 
 /**
- * Rewrite a saved piece's text. Only `body` is editable here — the metadata
- * (title, credits, year) is a separate concern and stays put — so the input is
- * the id plus the replacement text, and the whole updated piece comes back as
- * the detail shape, ready to drop straight into the detail view's cache.
+ * Rewrite a saved piece's text. Named for the half of the entry it touches —
+ * `body` and nothing else — so the metadata edit that lands beside it can be
+ * `updateMetadata` and neither has to claim the bare `update` name.
+ *
+ * The input is the id plus the replacement text, and the whole updated piece
+ * comes back as the detail shape, ready to drop straight into the detail view's
+ * cache.
  *
  * Served as `PUT /api/entries/{id}/body`: the text is addressed as a sub-resource
  * and replaced whole, which is what this write does. That deliberately leaves
@@ -210,7 +213,7 @@ export const create = oc
  * 404s on an unknown id and on another user's piece alike, for the same reason
  * `get` does.
  */
-export const update = oc
+export const updateBody = oc
   .route({ method: "PUT", path: "/entries/{id}/body" })
   .input(z.object({ id: z.uuidv4(), body: z.string().trim().min(1) }))
   .output(EntryDetailSchema);

@@ -27,7 +27,7 @@ vi.mock("../controllers/entry", () => ({
 }));
 
 const { entryController } = await import("../controllers/entry");
-const { list, create, get, remove, update } = await import("./entries");
+const { list, create, get, remove, updateBody } = await import("./entries");
 
 const mockCtrlList = vi.mocked(entryController.listForLibrary);
 const mockCtrlCreate = vi.mocked(entryController.create);
@@ -69,9 +69,9 @@ function callGet(id: string) {
   return createProcedureClient(get, { context })({ id });
 }
 
-function callUpdate(id: string, body: string) {
+function callUpdateBody(id: string, body: string) {
   const context: ORPCContext = { session: { authed: true }, reply: {} as FastifyReply };
-  return createProcedureClient(update, { context })({ id, body });
+  return createProcedureClient(updateBody, { context })({ id, body });
 }
 
 function callRemove(id: string) {
@@ -209,7 +209,7 @@ describe("entries.get", () => {
   });
 });
 
-describe("entries.update", () => {
+describe("entries.updateBody", () => {
   const ID = "00000000-0000-4000-8000-000000000000";
 
   beforeEach(() => {
@@ -221,7 +221,7 @@ describe("entries.update", () => {
     mockCtrlGetDetails.mockResolvedValue(makeRow());
     mockCtrlUpdateBody.mockResolvedValue(makeRow({ body: "New text" }));
 
-    await expect(callUpdate(ID, "New text")).resolves.toMatchObject({
+    await expect(callUpdateBody(ID, "New text")).resolves.toMatchObject({
       id: ID,
       kind: "poem",
       body: "New text",
@@ -232,7 +232,7 @@ describe("entries.update", () => {
   it("404s on an unknown id, without attempting the write", async () => {
     mockCtrlGetDetails.mockResolvedValue(null);
 
-    await expect(callUpdate(ID, "New text")).rejects.toThrow(
+    await expect(callUpdateBody(ID, "New text")).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),
     );
     expect(mockCtrlUpdateBody).not.toHaveBeenCalled();
@@ -241,7 +241,7 @@ describe("entries.update", () => {
   it("404s — and writes nothing — when the piece belongs to another user", async () => {
     mockCtrlGetDetails.mockResolvedValue(makeRow({ userId: "someone-else" }));
 
-    await expect(callUpdate(ID, "New text")).rejects.toThrow(
+    await expect(callUpdateBody(ID, "New text")).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),
     );
     expect(mockCtrlUpdateBody).not.toHaveBeenCalled();

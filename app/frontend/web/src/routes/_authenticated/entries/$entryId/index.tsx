@@ -57,8 +57,8 @@ function EntryPage() {
   const [editingText, setEditingText] = useState(false);
   const [draft, setDraft] = useState(entry.body);
 
-  const updateEntry = useMutation(
-    orpc.entries.update.mutationOptions({
+  const updateBody = useMutation(
+    orpc.entries.updateBody.mutationOptions({
       onSuccess: async (updated) => {
         // The mutation returns the saved piece, so the detail cache can be set
         // outright instead of refetched. The Library's copy carries a derived
@@ -102,7 +102,7 @@ function EntryPage() {
                 </Icon>
               ),
               onClick: () => {
-                updateEntry.reset();
+                updateBody.reset();
                 setDraft(entry.body);
                 setEditingText(true);
               },
@@ -139,7 +139,7 @@ function EntryPage() {
         onOpenChange={setEditingText}
         // Closing mid-save would leave the drawer's draft and the request racing
         // each other; hold it open until the write settles.
-        disabled={updateEntry.isPending}
+        disabled={updateBody.isPending}
         header={<Drawer.Header title="Edit text" subtitle={entry.title} />}
         footer={
           <Drawer.Footer
@@ -151,16 +151,16 @@ function EntryPage() {
               <Button
                 key="cancel"
                 saliency="low"
-                disabled={updateEntry.isPending}
+                disabled={updateBody.isPending}
                 onClick={() => setEditingText(false)}
               >
                 Cancel
               </Button>,
               <Button
                 key="save"
-                loading={updateEntry.isPending}
+                loading={updateBody.isPending}
                 disabled={!draft.trim() || draft === entry.body}
-                onClick={() => updateEntry.mutate({ id: entryId, body: draft })}
+                onClick={() => updateBody.mutate({ id: entryId, body: draft })}
               >
                 Save
               </Button>,
@@ -176,7 +176,7 @@ function EntryPage() {
           onChange={(value) => setDraft(value)}
           required
         />
-        {updateEntry.isError && (
+        {updateBody.isError && (
           <Text intent="negative">Couldn’t save your changes. Try again.</Text>
         )}
       </Drawer>

@@ -7,7 +7,7 @@
  * request to that handler, so serialisation and routing (the same
  * `.route()`-annotated REST paths production serves) match exactly.
  *
- * `auth.me`, `entries.list`, `entries.create`, `entries.get`, `entries.update`, and
+ * `auth.me`, `entries.list`, `entries.create`, `entries.get`, `entries.updateBody`, and
  * `entries.delete` are mocked. Add procedures here as the new surface — and the
  * tests that exercise it — take shape.
  */
@@ -88,7 +88,7 @@ const router = {
       const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
       return detail;
     }),
-    update: os.entries.update.handler(({ input }) => {
+    updateBody: os.entries.updateBody.handler(({ input }) => {
       const entry = store.entries.find((candidate) => candidate.id === input.id);
       if (!entry) throw new ORPCError("NOT_FOUND");
       // The real API re-derives the list fields from the new text and lets the
