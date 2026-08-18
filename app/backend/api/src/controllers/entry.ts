@@ -3,7 +3,12 @@
  * their queries here, so the Prisma calls live in one place and can be reused
  * (and unit-tested) independently of the transport.
  */
-import type { EntryCreateInput } from "@rhymelab/api-contract";
+import {
+  initStructure,
+  resyncStructure,
+  type EntryCreateInput,
+  type SectionType,
+} from "@rhymelab/api-contract";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 
@@ -21,6 +26,7 @@ export type EntryForLibrary = Pick<
   | "author"
   | "year"
   | "body"
+  | "structure"
   | "artist"
   | "album"
   | "createdAt"
@@ -64,6 +70,7 @@ export class EntryController {
         author: true,
         year: true,
         body: true,
+        structure: true,
         artist: true,
         album: true,
         createdAt: true,
@@ -96,6 +103,7 @@ export class EntryController {
         author: true,
         year: true,
         body: true,
+        structure: true,
         artist: true,
         album: true,
         createdAt: true,
@@ -116,6 +124,11 @@ export class EntryController {
    * list columns (`author` / `artist`) are defaulted to `[]` by the contract, so
    * they always arrive as arrays — no coercion needed here either.
    *
+   * `structure` is seeded here, not by the client: one `verse` per section of
+   * the (contract-normalized) body, so the piece starts with the invariant
+   * `structure.length === section count` already holding and the user relabels
+   * afterward. `updateBody` keeps it in sync from then on.
+   *
    * @param data The row to write — see `EntryCreateInputSchema`, plus `userId`.
    * @param tx   Optional transaction client to run the write on.
    */
@@ -124,11 +137,20 @@ export class EntryController {
     tx?: Prisma.TransactionClient,
   ): Promise<Entry> {
     const db = tx ?? this.db;
-    return db.entry.create({ data });
+    return db.entry.create({ data: { ...data, structure: initStructure(data.body) } });
   }
 
   /**
-   * Replace an entry's text and return the updated row in the library shape.
+   * Replace an entry's text — and re-sync its `structure` to the new sections —
+   * returning the updated row in the library shape.
+   *
+   * The re-sync is what keeps `structure` from drifting: it reads the current
+   * body + structure, aligns the old and new sections by text
+   * (`resyncStructure`), and writes both columns together. Sections that survive
+   * the edit keep their label; an inserted section takes the default; a removed
+   * one drops its label. Because it reads then writes a derived value, it runs in
+   * a transaction — either the caller's `tx`, or one opened here — so a
+   * concurrent write can't wedge the two columns out of step.
    *
    * Unscoped by owner and by tombstone, like `getDetails` — the caller
    * establishes both (typically by reading `getDetails()` first, which only
@@ -140,18 +162,64 @@ export class EntryController {
    * `BEFORE UPDATE` trigger, which overwrites anything a statement sets anyway.
    *
    * @param id    The entry to rewrite.
-   * @param body  The replacement text.
-   * @param tx    Optional transaction client to run the write on.
+   * @param body  The replacement text (already contract-normalized).
+   * @param tx    Optional transaction client to run the read + write on.
    */
   async updateBody(
     id: string,
     body: string,
     tx?: Prisma.TransactionClient,
   ): Promise<EntryForLibrary> {
+    const run = async (client: Prisma.TransactionClient): Promise<EntryForLibrary> => {
+      const current = await client.entry.findUniqueOrThrow({
+        where: { id },
+        select: { body: true, structure: true },
+      });
+      const structure = resyncStructure(current.body, current.structure, body);
+      return client.entry.update({
+        where: { id },
+        data: { body, structure },
+        select: {
+          id: true,
+          kind: true,
+          title: true,
+          author: true,
+          year: true,
+          body: true,
+          structure: true,
+          artist: true,
+          album: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    };
+    return tx ? run(tx) : this.db.$transaction(run);
+  }
+
+  /**
+   * Replace an entry's `structure` — its section labels — leaving the body
+   * untouched. The mirror of `updateBody`.
+   *
+   * The caller must pass a full, correctly-sized array: `structure.length` has
+   * to equal the entry's current section count, or the invariant this whole
+   * feature maintains would break. That check needs the stored body, so it lives
+   * in the handler (see `handlers/entries.ts`) — this method just writes what
+   * it's given. Unscoped by owner and tombstone, like `updateBody`.
+   *
+   * @param id         The entry to relabel.
+   * @param structure  The replacement labels — one per body section, in order.
+   * @param tx         Optional transaction client to run the write on.
+   */
+  async updateStructure(
+    id: string,
+    structure: SectionType[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<EntryForLibrary> {
     const db = tx ?? this.db;
     return db.entry.update({
       where: { id },
-      data: { body },
+      data: { structure },
       select: {
         id: true,
         kind: true,
@@ -159,6 +227,7 @@ export class EntryController {
         author: true,
         year: true,
         body: true,
+        structure: true,
         artist: true,
         album: true,
         createdAt: true,

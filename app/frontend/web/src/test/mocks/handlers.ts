@@ -7,14 +7,19 @@
  * request to that handler, so serialisation and routing (the same
  * `.route()`-annotated REST paths production serves) match exactly.
  *
- * `auth.me`, `entries.list`, `entries.create`, `entries.get`, `entries.updateBody`, and
- * `entries.delete` are mocked. Add procedures here as the new surface — and the
- * tests that exercise it — take shape.
+ * `auth.me`, `entries.list`, `entries.create`, `entries.get`, `entries.updateBody`,
+ * `entries.updateStructure`, and `entries.delete` are mocked. Add procedures here
+ * as the new surface — and the tests that exercise it — take shape.
  */
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { implement, ORPCError } from "@orpc/server";
 import { http, passthrough } from "msw";
-import { contract, deriveEntrySummaryFields } from "@rhymelab/api-contract";
+import {
+  contract,
+  deriveEntrySummaryFields,
+  initStructure,
+  splitSections,
+} from "@rhymelab/api-contract";
 import { fakeEntries } from "@rhymelab/fixtures";
 
 /** Base URL the oRPC client targets (see `src/lib/orpc.ts`). */
@@ -84,9 +89,11 @@ const router = {
       const entry = store.entries.find((candidate) => candidate.id === input.id);
       if (!entry) throw new ORPCError("NOT_FOUND");
       // Every entry (fixture-seeded or created above) carries a real `body`; drop
-      // the list-view-only derived fields the detail shape doesn't want.
+      // the list-view-only derived fields the detail shape doesn't want, and add
+      // a section-count-correct `structure` (the fixtures are summary-shaped and
+      // carry none) so the detail matches what the real API returns.
       const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
-      return detail;
+      return { ...detail, structure: initStructure(detail.body) };
     }),
     updateBody: os.entries.updateBody.handler(({ input }) => {
       const entry = store.entries.find((candidate) => candidate.id === input.id);
@@ -109,7 +116,20 @@ const router = {
         wordCount: _wordCount,
         ...detail
       } = updated;
-      return detail;
+      // The real API re-syncs `structure` to the new sections; the mock has no
+      // stored labels to carry, so it stands in an all-default array of the right
+      // length — enough to keep the detail shape valid.
+      return { ...detail, structure: initStructure(detail.body) };
+    }),
+    updateStructure: os.entries.updateStructure.handler(({ input }) => {
+      const entry = store.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // Mirror the real handler's guard: the array must be one label per section.
+      if (input.structure.length !== splitSections(entry.body).length) {
+        throw new ORPCError("BAD_REQUEST");
+      }
+      const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
+      return { ...detail, structure: input.structure };
     }),
     delete: os.entries.delete.handler(({ input }) => {
       const entry = store.entries.find((candidate) => candidate.id === input.id);

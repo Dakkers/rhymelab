@@ -10,8 +10,10 @@
 import { ORPCError } from "@orpc/server";
 import {
   deriveEntrySummaryFields,
+  splitSections,
   type EntryDetail,
   type EntrySummary,
+  type SectionType,
 } from "@rhymelab/api-contract";
 import { entryController, type EntryForLibrary } from "../controllers/entry";
 import { authed } from "../orpc";
@@ -27,6 +29,12 @@ function toEntryDetail(entry: EntryForLibrary): EntryDetail {
     author: entry.author,
     year: entry.year ?? undefined,
     body: entry.body,
+    // Stored one-label-per-section. The column is a plain `string[]`; every
+    // write path constrains it to `SectionType` values (create/resync produce
+    // them, `updateStructure`'s input validates them, the backfill wrote
+    // `verse`), so narrowing to the contract's enum array is sound — and the
+    // output schema re-checks it on the wire regardless.
+    structure: entry.structure as SectionType[],
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
   };
@@ -40,10 +48,11 @@ function toEntryDetail(entry: EntryForLibrary): EntryDetail {
  * Map a Prisma `Entry` row onto the summary wire shape. Built on `toEntryDetail`
  * so the id/title/author/year/kind/artist/album mapping stays in one place —
  * just swaps the raw `body` for the derived preview fields
- * (`excerpt`/`lineCount`/`wordCount`) the list view actually renders.
+ * (`excerpt`/`lineCount`/`wordCount`) the list view actually renders, and drops
+ * `structure` (the card doesn't render it).
  */
 function toEntrySummary(entry: EntryForLibrary): EntrySummary {
-  const { body: _body, ...detail } = toEntryDetail(entry);
+  const { body: _body, structure: _structure, ...detail } = toEntryDetail(entry);
   return { ...detail, ...deriveEntrySummaryFields(entry.body) };
 }
 
@@ -79,6 +88,27 @@ export const updateBody = authed.entries.updateBody.handler(async ({ input }) =>
     throw new ORPCError("NOT_FOUND");
   }
   return toEntryDetail(await entryController.updateBody(input.id, input.body));
+});
+
+// Relabel a piece's sections. Ownership (and liveness) come from the same
+// `getDetails` read the others use. The array must be exactly one label per
+// current section — the invariant `structure` exists to keep — so a wrong-length
+// array is a `BAD_REQUEST`, not a silent partial write. The length is checked
+// against the body `getDetails` just read; as with `updateBody`, the read and
+// the write aren't one transaction, so a body edit landing in between could
+// leave them briefly out of step — vanishingly unlikely for the single alpha
+// user, and the next `updateBody` re-syncs it regardless.
+export const updateStructure = authed.entries.updateStructure.handler(async ({ input }) => {
+  const entry = await entryController.getDetails(input.id);
+  if (!entry || entry.userId !== SINGLE_USER_ID) {
+    throw new ORPCError("NOT_FOUND");
+  }
+  if (input.structure.length !== splitSections(entry.body).length) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "structure must have one label per section of the entry's body",
+    });
+  }
+  return toEntryDetail(await entryController.updateStructure(input.id, input.structure));
 });
 
 // Ownership is established the same way `get` does it — `delete` on the

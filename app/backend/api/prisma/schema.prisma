@@ -39,6 +39,15 @@ model Entry {
   // they can never drift from the body they summarize.
   body String
 
+  // One section label per body section, in order — the piece's structure. Its
+  // length is held equal to the number of sections in `body` (blank-line-
+  // separated blocks): a new piece defaults to one `verse` per section, and the
+  // API re-syncs the array on every body edit, so the two can't drift. The
+  // `@default([])` only fires for the create input's optional field; the write
+  // path always supplies a correctly-sized array. See `structure` helpers in
+  // `@rhymelab/api-contract`.
+  structure String[] @default([])
+
   // Lyrics-only fields; empty / null for poems. `artist` is a list for the same
   // reason as `author` — a track can credit more than one performer.
   artist String[] @default([])

@@ -12,23 +12,41 @@ function mockDb(
   created: Entry = makeEntry(),
   found: Entry | null = null,
   deletedCount = 1,
+  // What `updateBody`'s pre-write read (`findUniqueOrThrow`) yields — the current
+  // body + structure it re-syncs from.
+  current: Pick<Entry, "body" | "structure"> = makeEntry(),
 ) {
   const findMany = vi.fn().mockResolvedValue(rows);
   const create = vi.fn().mockResolvedValue(created);
   const findFirst = vi.fn().mockResolvedValue(found);
+  const findUniqueOrThrow = vi.fn().mockResolvedValue(current);
   const update = vi.fn().mockResolvedValue(created);
   // `delete` goes through raw SQL (it needs the DB's `NOW()`, not Node's clock),
   // so the spy stands in for the tagged-template `$executeRaw` and resolves the
   // affected-row count.
   const $executeRaw = vi.fn().mockResolvedValue(deletedCount);
-  // Cast through `unknown`: the mock implements only the surface `listForLibrary`/
-  // `create`/`getDetails`/`delete` use, not the whole PrismaClient /
-  // TransactionClient.
+  // `updateBody` reads-then-writes in a transaction; the stub just runs the
+  // callback against this same client, so the spies below record its calls.
+  const $transaction = vi.fn((fn: (c: PrismaClient & Prisma.TransactionClient) => unknown) =>
+    fn(client),
+  );
+  // Cast through `unknown`: the mock implements only the surface the controller
+  // uses, not the whole PrismaClient / TransactionClient.
   const client = {
-    entry: { findMany, create, findFirst, update },
+    entry: { findMany, create, findFirst, findUniqueOrThrow, update },
     $executeRaw,
+    $transaction,
   } as unknown as PrismaClient & Prisma.TransactionClient;
-  return { client, findMany, create, findFirst, update, $executeRaw };
+  return {
+    client,
+    findMany,
+    create,
+    findFirst,
+    findUniqueOrThrow,
+    update,
+    $executeRaw,
+    $transaction,
+  };
 }
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
@@ -40,6 +58,7 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
     author: ["Poet"],
     year: null,
     body: "Line one\nLine two",
+    structure: ["verse"],
     artist: [],
     album: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -65,6 +84,7 @@ describe("EntryController.listForLibrary", () => {
         author: true,
         year: true,
         body: true,
+        structure: true,
         artist: true,
         album: true,
         createdAt: true,
@@ -116,6 +136,7 @@ describe("EntryController.getDetails", () => {
         author: true,
         year: true,
         body: true,
+        structure: true,
         artist: true,
         album: true,
         createdAt: true,
@@ -157,7 +178,7 @@ describe("EntryController.getDetails", () => {
 });
 
 describe("EntryController.create", () => {
-  it("writes the raw fields scoped to userId, deriving nothing", async () => {
+  it("writes the raw fields scoped to userId, seeding one default label per section", async () => {
     const { client, create } = mockDb();
     await new EntryController(client).create({
       userId: "user-1",
@@ -174,6 +195,8 @@ describe("EntryController.create", () => {
         author: ["Poet"],
         userId: "user-1",
         body: "First line\nSecond line\n\nThird line",
+        // Two sections in the body → two `verse`s. The client never sends this.
+        structure: ["verse", "verse"],
       },
     });
   });
@@ -201,6 +224,7 @@ describe("EntryController.create", () => {
         userId: "user-1",
         body: "Verse one",
         year: 2020,
+        structure: ["verse"],
       },
     });
   });
@@ -224,6 +248,7 @@ describe("EntryController.create", () => {
         author: [],
         artist: [],
         body: "one",
+        structure: ["verse"],
       },
     });
   });
@@ -243,15 +268,24 @@ describe("EntryController.create", () => {
 });
 
 describe("EntryController.updateBody", () => {
-  it("writes only the body, keyed by id, selecting the library columns back", async () => {
-    const { client, update } = mockDb();
-    await new EntryController(client).updateBody("entry-1", "New text");
+  it("re-syncs structure to the new sections and writes both, keyed by id", async () => {
+    // Current piece: two sections labelled verse / chorus. The edit appends a
+    // third section, so the re-sync keeps the first two labels and defaults the
+    // new one — the drift-prevention the controller owns.
+    const current = makeEntry({ body: "A\n\nB", structure: ["verse", "chorus"] });
+    const { client, update, findUniqueOrThrow } = mockDb([], makeEntry(), null, 1, current);
 
+    await new EntryController(client).updateBody("entry-1", "A\n\nB\n\nC");
+
+    expect(findUniqueOrThrow).toHaveBeenCalledExactlyOnceWith({
+      where: { id: "entry-1" },
+      select: { body: true, structure: true },
+    });
     expect(update).toHaveBeenCalledExactlyOnceWith({
       where: { id: "entry-1" },
-      // `updatedAt` is the trigger's to set, and nothing else about the piece
-      // moves — an edit to the text can't quietly rewrite its metadata.
-      data: { body: "New text" },
+      // `updatedAt` is the trigger's to set; body + structure move together and
+      // nothing else about the piece does.
+      data: { body: "A\n\nB\n\nC", structure: ["verse", "chorus", "verse"] },
       select: {
         id: true,
         kind: true,
@@ -259,6 +293,56 @@ describe("EntryController.updateBody", () => {
         author: true,
         year: true,
         body: true,
+        structure: true,
+        artist: true,
+        album: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  });
+
+  it("does the read and the write in one transaction when none is passed", async () => {
+    const base = mockDb();
+
+    await new EntryController(base.client).updateBody("entry-1", "New text");
+
+    expect(base.$transaction).toHaveBeenCalledTimes(1);
+    expect(base.findUniqueOrThrow).toHaveBeenCalledTimes(1);
+    expect(base.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs directly on the passed transaction client, opening no nested transaction", async () => {
+    const base = mockDb();
+    const tx = mockDb();
+
+    await new EntryController(base.client).updateBody("entry-1", "New text", tx.client);
+
+    expect(tx.findUniqueOrThrow).toHaveBeenCalledTimes(1);
+    expect(tx.update).toHaveBeenCalledTimes(1);
+    expect(base.update).not.toHaveBeenCalled();
+    expect(base.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("EntryController.updateStructure", () => {
+  it("writes only the structure, keyed by id, selecting the library columns back", async () => {
+    const { client, update } = mockDb();
+
+    await new EntryController(client).updateStructure("entry-1", ["verse", "chorus"]);
+
+    expect(update).toHaveBeenCalledExactlyOnceWith({
+      where: { id: "entry-1" },
+      // Body untouched — only the labels change. `updatedAt` stays the trigger's.
+      data: { structure: ["verse", "chorus"] },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        author: true,
+        year: true,
+        body: true,
+        structure: true,
         artist: true,
         album: true,
         createdAt: true,
@@ -271,7 +355,7 @@ describe("EntryController.updateBody", () => {
     const base = mockDb();
     const tx = mockDb();
 
-    await new EntryController(base.client).updateBody("entry-1", "New text", tx.client);
+    await new EntryController(base.client).updateStructure("entry-1", ["verse"], tx.client);
 
     expect(tx.update).toHaveBeenCalledTimes(1);
     expect(base.update).not.toHaveBeenCalled();
@@ -280,7 +364,7 @@ describe("EntryController.updateBody", () => {
   it("runs on the base client when no transaction is passed", async () => {
     const base = mockDb();
 
-    await new EntryController(base.client).updateBody("entry-1", "New text");
+    await new EntryController(base.client).updateStructure("entry-1", ["verse"]);
 
     expect(base.update).toHaveBeenCalledTimes(1);
   });

@@ -13,7 +13,7 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { PenLine, Trash2 } from "lucide-react";
-import type { EntryDetail } from "@rhymelab/api-contract";
+import { normalizeEntryBody, type EntryDetail } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
 import { orpc } from "#/lib/orpc";
@@ -56,6 +56,10 @@ function EntryPage() {
   // mount, so a cancelled edit doesn't linger into the next one.
   const [editingText, setEditingText] = useState(false);
   const [draft, setDraft] = useState(entry.body);
+  // The server standardizes the body it stores, so compare the *normalized*
+  // draft against the stored (already-normalized) text: a whitespace-only edit
+  // is a no-op the Save button shouldn't offer, and an empty result can't save.
+  const normalizedDraft = normalizeEntryBody(draft);
 
   const updateBody = useMutation(
     orpc.entries.updateBody.mutationOptions({
@@ -160,7 +164,7 @@ function EntryPage() {
               <Button
                 key="save"
                 loading={updateBody.isPending}
-                disabled={!draft.trim() || draft === entry.body}
+                disabled={!normalizedDraft || normalizedDraft === entry.body}
                 onClick={() => updateBody.mutate({ id: entryId, body: draft })}
               >
                 Save
