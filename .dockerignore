@@ -1,0 +1,36 @@
+# Build context for the API image (app/backend/api/Dockerfile, context = repo
+# root). Keep the context lean and keep secrets out of the image.
+
+# VCS / tooling
+.git
+.github
+.claude
+.changeset
+.dummy
+
+# Dependencies — reinstalled inside the image
+**/node_modules
+
+# Build outputs / caches
+**/dist
+**/.wrangler
+**/coverage
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+
+# Generated Prisma client — regenerated inside the image
+app/backend/api/src/_generated
+
+# Local env files — never bake into the image; Render provides real env vars.
+# (Also prevents the committed localhost defaults in app/backend/api/.env from
+# shadowing production values.)
+app/backend/api/.env
+app/backend/api/.env.*
+app/frontend/web/.config/.env
+app/frontend/web/.config/.env.*
+**/*.local
+
+# Infra + docs — not needed in the app image
+infra
+**/*.md
