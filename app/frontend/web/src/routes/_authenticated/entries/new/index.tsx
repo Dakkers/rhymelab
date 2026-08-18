@@ -89,8 +89,13 @@ function NewEntryPage() {
 
   const form = useForm({
     defaultValues: DEFAULTS,
-    onSubmit: ({ value }) => {
-      createEntry.mutate(buildCreatePayload(value));
+    // `mutateAsync` (not `mutate`) so the form stays `isSubmitting` until the
+    // write settles — that's what drives the Save button below. The global
+    // `MutationCache.onError` in `#/router` already toasts a failed write, so
+    // swallow the rejection here to keep an unhandled promise from escaping
+    // `void form.handleSubmit()`; `onSuccess` owns invalidation and navigation.
+    onSubmit: async ({ value }) => {
+      await createEntry.mutateAsync(buildCreatePayload(value)).catch(() => {});
     },
   });
 
@@ -238,9 +243,13 @@ function NewEntryPage() {
         <Button type="button" appearance="text" onClick={() => form.setFieldValue("step", 1)}>
           Back
         </Button>
-        <Button type="submit" loading={createEntry.isPending}>
-          Save entry
-        </Button>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <Button type="submit" loading={isSubmitting}>
+              Save entry
+            </Button>
+          )}
+        </form.Subscribe>
       </Flex>
     </>
   );
