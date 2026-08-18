@@ -100,7 +100,7 @@ go through the Browser pane regardless. So boot it there:
      the true ports — re-point the launch config's `port` and restart preview if
      the pane was still waiting on the step-1 guess. (Once running, `./sandbox
      status` also reports the real bound ports.)
-   - `read_network_requests` — the app's `/rpc/*` calls hit `:<API_PORT>` and
+   - `read_network_requests` — the app's `/api/*` calls hit `:<API_PORT>` and
      return 2xx (a CORS failure means the ports/origin don't line up).
    - `read_page` + a `screenshot` as proof.
 5. **To stop:** `preview_stop`. That SIGTERMs the script, whose trap kills both

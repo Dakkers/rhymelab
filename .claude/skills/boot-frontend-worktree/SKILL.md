@@ -101,12 +101,12 @@ overrides — they beat the committed defaults and never dirty the worktree:
 ```bash
 printf 'PORT=%s\nFRONTEND_ORIGIN=http://localhost:%s\n' "$API_PORT" "$WEB_PORT" \
   >> app/backend/api/.config/.env.development.local
-printf 'VITE_API_URL=http://localhost:%s/rpc\n' "$API_PORT" \
+printf 'VITE_API_URL=http://localhost:%s/api\n' "$API_PORT" \
   >> app/frontend/web/.config/.env.development.local
 ```
 
 `.env.development.local` is the highest-priority file Vite loads in dev mode, so
-it wins over the `VITE_API_URL=http://localhost:4000/rpc` in the committed
+it wins over the `VITE_API_URL=http://localhost:4000/api` in the committed
 `.config/.env`. Skip the web-side write only when `API_PORT` is 4000 *and* that
 4000 is the API you just started from this worktree.
 
@@ -165,7 +165,7 @@ A rendered page is not proof. Confirm both processes are yours:
 - `preview_logs` for each server — the web log should print the `WEB_PORT` you
   chose, and the API log the `API_PORT`.
 - `read_console_messages` for startup errors, and `read_network_requests` to
-  confirm the app's calls go to `http://localhost:<API_PORT>/rpc` and come back
+  confirm the app's calls go to `http://localhost:<API_PORT>/api` and come back
   2xx, not CORS-rejected. A CORS failure means `FRONTEND_ORIGIN` doesn't match the
   web port.
 - `read_page` for rendered content, then a `screenshot` as proof.

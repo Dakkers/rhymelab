@@ -9,7 +9,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { worker } from "./mocks/browser";
-import { RPC_URL, resetStore } from "./mocks/handlers";
+import { API_URL, resetStore } from "./mocks/handlers";
 
 // Set by the `test:debug` script (VITEST_KEEP_DOM=1) and baked in via the config.
 // When on, the last test's rendered DOM is left mounted so you can inspect it in
@@ -22,7 +22,7 @@ beforeAll(async () => {
     // Vitest serves its own modules/assets through the page, so only complain
     // about API calls we forgot to mock — let everything else pass through.
     onUnhandledRequest(request, print) {
-      if (request.url.startsWith(RPC_URL)) print.error();
+      if (request.url.startsWith(API_URL)) print.error();
     },
   });
 });

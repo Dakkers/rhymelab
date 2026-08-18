@@ -1,7 +1,13 @@
 /**
  * The oRPC client + TanStack Query utils, typed from the shared contract (never
- * from backend code). Data now flows over HTTP to the API (`@rhymelab/api`)
- * instead of through TanStack server functions.
+ * from backend code). Data flows over HTTP to the API (`@rhymelab/api`) using
+ * oRPC's OpenAPI (REST) protocol — the same `.route()`-annotated contract the
+ * server serves, so calls land on real verbs + paths (`GET /api/entries`, …).
+ *
+ * The client type is wrapped in `JsonifiedClient` because the OpenAPI protocol
+ * serializes over plain JSON rather than oRPC's richer RPC envelope; for this
+ * contract every field is already JSON-native (ISO-string timestamps, numbers,
+ * arrays), so it's structurally identical to the bare `ContractRouterClient`.
  *
  * The link is isomorphic: in the browser it lets the browser attach the session
  * cookie (`credentials: "include"`); during SSR (inside the Cloudflare worker,
@@ -10,26 +16,27 @@
  * safe — only the per-request cookie read happens per request.
  */
 import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
+import type { JsonifiedClient } from "@orpc/openapi-client";
+import { OpenAPILink } from "@orpc/openapi-client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
-import type { contract } from "@rhymelab/api-contract";
+import { contract } from "@rhymelab/api-contract";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/rpc";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
 const getLink = createIsomorphicFn()
   .client(
     () =>
-      new RPCLink({
+      new OpenAPILink(contract, {
         url: API_URL,
         fetch: (request, init) => globalThis.fetch(request, { ...init, credentials: "include" }),
       }),
   )
   .server(
     () =>
-      new RPCLink({
+      new OpenAPILink(contract, {
         url: API_URL,
         // Forward ONLY the cookie — copying host/content-length/etc. onto the
         // outbound fetch would corrupt the oRPC request.
@@ -40,6 +47,7 @@ const getLink = createIsomorphicFn()
       }),
   );
 
-export const client: ContractRouterClient<typeof contract> = createORPCClient(getLink());
+export const client: JsonifiedClient<ContractRouterClient<typeof contract>> =
+  createORPCClient(getLink());
 
 export const orpc = createTanstackQueryUtils(client);
