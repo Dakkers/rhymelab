@@ -145,7 +145,10 @@ export class EntryController {
    * the other converts through whatever `TimeZone` the session happens to have,
    * so on a non-UTC server the tombstone would land in local wall time while
    * every other timestamp in the table is UTC. Converting explicitly makes the
-   * statement independent of the server's timezone setting.
+   * statement independent of the server's timezone setting. Connections now pin
+   * `TimeZone=UTC` as well (see `database-url.ts`), which makes this belt and
+   * braces — deliberately so: the conversion holds for any connection that
+   * reaches this table without that option.
    *
    * The statement doesn't mention `updated_at`: since the timestamps moved onto
    * the database clock, an unconditional `BEFORE UPDATE` trigger owns that
