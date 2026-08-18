@@ -17,15 +17,21 @@ import type { ORPCContext } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
 vi.mock("../controllers/entry", () => ({
-  entryController: { listForLibrary: vi.fn(), create: vi.fn(), getDetails: vi.fn() },
+  entryController: {
+    listForLibrary: vi.fn(),
+    create: vi.fn(),
+    getDetails: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
 const { entryController } = await import("../controllers/entry");
-const { list, create, get } = await import("./entries");
+const { list, create, get, remove } = await import("./entries");
 
 const mockCtrlList = vi.mocked(entryController.listForLibrary);
 const mockCtrlCreate = vi.mocked(entryController.create);
 const mockCtrlGetDetails = vi.mocked(entryController.getDetails);
+const mockCtrlDelete = vi.mocked(entryController.delete);
 
 /** A Prisma `Entry` row — `body` is the source the summary fields derive from. */
 function makeRow(overrides: Partial<Entry> = {}): Entry {
@@ -41,6 +47,7 @@ function makeRow(overrides: Partial<Entry> = {}): Entry {
     album: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    deletedAt: null,
     ...overrides,
   };
 }
@@ -58,6 +65,11 @@ function callCreate(input: EntryCreateInput) {
 function callGet(id: string) {
   const context: ORPCContext = { session: { authed: true }, reply: {} as FastifyReply };
   return createProcedureClient(get, { context })({ id });
+}
+
+function callRemove(id: string) {
+  const context: ORPCContext = { session: { authed: true }, reply: {} as FastifyReply };
+  return createProcedureClient(remove, { context })({ id });
 }
 
 describe("entries.list", () => {
@@ -185,6 +197,51 @@ describe("entries.get", () => {
     mockCtrlGetDetails.mockResolvedValue(makeRow({ userId: "someone-else" }));
 
     await expect(callGet("00000000-0000-4000-8000-000000000000")).rejects.toThrow(
+      expect.objectContaining(new ORPCError("NOT_FOUND")),
+    );
+  });
+});
+
+describe("entries.delete", () => {
+  const ID = "00000000-0000-4000-8000-000000000000";
+
+  beforeEach(() => {
+    mockCtrlGetDetails.mockReset();
+    mockCtrlDelete.mockReset();
+  });
+
+  it("deletes the piece once its owner checks out", async () => {
+    mockCtrlGetDetails.mockResolvedValue(makeRow());
+    mockCtrlDelete.mockResolvedValue(true);
+
+    await expect(callRemove(ID)).resolves.toEqual({ ok: true });
+    expect(mockCtrlDelete).toHaveBeenCalledExactlyOnceWith(ID);
+  });
+
+  it("404s on an unknown id, without attempting the delete", async () => {
+    mockCtrlGetDetails.mockResolvedValue(null);
+
+    await expect(callRemove(ID)).rejects.toThrow(
+      expect.objectContaining(new ORPCError("NOT_FOUND")),
+    );
+    expect(mockCtrlDelete).not.toHaveBeenCalled();
+  });
+
+  it("404s — and deletes nothing — when the piece belongs to another user", async () => {
+    mockCtrlGetDetails.mockResolvedValue(makeRow({ userId: "someone-else" }));
+
+    await expect(callRemove(ID)).rejects.toThrow(
+      expect.objectContaining(new ORPCError("NOT_FOUND")),
+    );
+    // The important half: another user's piece is never handed to the delete.
+    expect(mockCtrlDelete).not.toHaveBeenCalled();
+  });
+
+  it("404s when the row vanishes between the ownership check and the delete", async () => {
+    mockCtrlGetDetails.mockResolvedValue(makeRow());
+    mockCtrlDelete.mockResolvedValue(false);
+
+    await expect(callRemove(ID)).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),
     );
   });

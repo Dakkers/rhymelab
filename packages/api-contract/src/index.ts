@@ -17,6 +17,7 @@ export const contract = {
     list: entries.list,
     create: entries.create,
     get: entries.get,
+    delete: entries.remove,
   },
 };
 

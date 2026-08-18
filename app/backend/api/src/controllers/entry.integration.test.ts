@@ -19,6 +19,10 @@ import { EntryController, type EntryForLibrary } from "./entry";
  *   - `create`: the DB-assigned id/timestamps, columns round-tripping through the
  *     schema, omitted optionals landing as real NULLs, and a handed-in transaction
  *     rolling the write back.
+ *   - `delete`: that the soft delete is genuinely soft — the row is still
+ *     physically in the table afterwards while the read paths stop returning it —
+ *     and that the tombstone comes from Postgres's clock rather than Node's,
+ *     which only a real server-side `NOW()` can demonstrate.
  *
  * The env/DB ping/cleanup/disconnect hooks live in the shared `setupFiles`
  * handler (`../test-support/integration-setup`). Run with `pnpm test:integration`
@@ -453,5 +457,119 @@ describe("EntryController.create (DB-backed)", () => {
 
     // Had the write ignored `tx` and used the base client, this row would survive.
     expect(await controller.listForLibrary(user)).toEqual([]);
+  });
+});
+
+describe("EntryController.delete (DB-backed)", () => {
+  it("keeps the row in the table but drops it from both read paths", async () => {
+    const user = freshUser();
+    const [doomed, kept] = await Promise.all([
+      prisma.entry.create({ data: entryData(user, { title: "doomed" }) }),
+      prisma.entry.create({ data: entryData(user, { title: "kept" }) }),
+    ]);
+
+    expect(await controller.delete(doomed.id)).toBe(true);
+
+    // Still physically present, tombstoned — that's what makes it a *soft* delete.
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: doomed.id } });
+    expect(stored.deletedAt).toBeInstanceOf(Date);
+    expect(stored.body).toBe(doomed.body);
+
+    // ...and invisible to everything that reads entries.
+    expect(ids(await controller.listForLibrary(user))).toEqual([kept.id]);
+    expect(await controller.getDetails(doomed.id)).toBeNull();
+  });
+
+  it("stamps the tombstone from the database's clock, not this process's", async () => {
+    const user = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(user) });
+
+    // Shove Node's wall clock a year into the future. Had `delete` sent a JS
+    // `new Date()` as a bind parameter (what `updateMany` does), the tombstone
+    // would land in 2027; reading `NOW()` server-side, it can't.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2027-08-15T12:00:00.000Z"));
+    try {
+      expect(await controller.delete(entry.id)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const [{ deleted_at: deletedAt, db_now: dbNow }] = await prisma.$queryRaw<
+      { deleted_at: Date; db_now: Date }[]
+    >`SELECT "deleted_at", NOW() AS db_now FROM "entries" WHERE "id" = ${entry.id}::uuid`;
+
+    expect(deletedAt.getFullYear()).toBe(dbNow.getFullYear());
+    expect(Math.abs(dbNow.getTime() - deletedAt.getTime())).toBeLessThan(60_000);
+  });
+
+  it("stamps UTC even when the session's timezone isn't", async () => {
+    const user = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(user) });
+
+    // `deleted_at` is `timestamp` *without* a zone, so a bare `NOW()` (a
+    // `timestamptz`) would be converted using the session's TimeZone and land
+    // four hours off here, while every Prisma-written timestamp stays UTC.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL TIME ZONE 'America/New_York'");
+      expect(await controller.delete(entry.id, tx)).toBe(true);
+
+      const [{ deleted_at: deletedAt, utc_now: utcNow }] = await tx.$queryRaw<
+        { deleted_at: Date; utc_now: Date }[]
+      >`SELECT "deleted_at", (NOW() AT TIME ZONE 'UTC') AS utc_now
+          FROM "entries" WHERE "id" = ${entry.id}::uuid`;
+
+      // Both columns come back as zoneless timestamps decoded the same way, so
+      // comparing them to each other is what isolates the conversion.
+      expect(Math.abs(utcNow.getTime() - deletedAt.getTime())).toBeLessThan(60_000);
+    });
+  });
+
+  // `updated_at` is deliberately not asserted here. The delete statement doesn't
+  // set it, but the unconditional `BEFORE UPDATE` trigger does, and whether that
+  // trigger should exempt a tombstone-only update is the trigger's question —
+  // covered by the timestamp suite above, not by this one.
+
+  it("leaves other rows alone — only the id given is tombstoned", async () => {
+    const user = freshUser();
+    const other = freshUser();
+    const doomed = await prisma.entry.create({ data: entryData(user, { title: "doomed" }) });
+    const bystander = await prisma.entry.create({ data: entryData(other, { title: "theirs" }) });
+
+    expect(await controller.delete(doomed.id)).toBe(true);
+
+    const stored = await prisma.entry.findUniqueOrThrow({ where: { id: bystander.id } });
+    expect(stored.deletedAt).toBeNull();
+    expect(ids(await controller.listForLibrary(other))).toEqual([bystander.id]);
+  });
+
+  it("is idempotent — deleting twice reports false the second time and doesn't re-stamp", async () => {
+    const user = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(user) });
+
+    expect(await controller.delete(entry.id)).toBe(true);
+    const firstStamp = (await prisma.entry.findUniqueOrThrow({ where: { id: entry.id } }))
+      .deletedAt;
+
+    expect(await controller.delete(entry.id)).toBe(false);
+    const secondStamp = (await prisma.entry.findUniqueOrThrow({ where: { id: entry.id } }))
+      .deletedAt;
+
+    expect(secondStamp).toEqual(firstStamp);
+  });
+
+  it("runs the write on the passed transaction client — a rollback un-deletes", async () => {
+    const user = freshUser();
+    const entry = await prisma.entry.create({ data: entryData(user) });
+
+    await expect(
+      prisma.$transaction(async (tx) => {
+        expect(await controller.delete(entry.id, tx)).toBe(true);
+        throw new Error("abort");
+      }),
+    ).rejects.toThrow("abort");
+
+    // Had the delete ignored `tx`, the tombstone would have stuck.
+    expect(ids(await controller.listForLibrary(user))).toEqual([entry.id]);
   });
 });
