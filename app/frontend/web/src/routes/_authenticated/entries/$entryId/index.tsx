@@ -103,7 +103,6 @@ function EntryPage() {
                 </Icon>
               ),
               onClick: () => {
-                updateBody.reset();
                 setDraft(entry.body);
                 setEditingText(true);
               },
@@ -121,7 +120,6 @@ function EntryPage() {
                 </Icon>
               ),
               onClick: () => {
-                deleteEntry.reset();
                 setConfirmingDelete(true);
               },
             },
@@ -177,9 +175,6 @@ function EntryPage() {
           onChange={(value) => setDraft(value)}
           required
         />
-        {updateBody.isError && (
-          <Text intent="negative">Couldn’t save your changes. Try again.</Text>
-        )}
       </Drawer>
 
       <ConfirmationModal
@@ -191,7 +186,7 @@ function EntryPage() {
           children: "Delete Entry",
           // `preventDefault` keeps the dialog up while the request is in flight
           // — it closes by unmounting when the redirect lands, and stays open
-          // (showing the error below) if the delete fails.
+          // (a global error toast fires) if the delete fails.
           onClick: (event) => {
             event.preventDefault();
             deleteEntry.mutate({ id: entryId });
@@ -202,9 +197,6 @@ function EntryPage() {
           It won’t appear in your library any more. The text isn’t erased from the database, so this
           can be undone by hand — but not from the app.
         </Text>
-        {deleteEntry.isError && (
-          <Text intent="negative">Couldn’t delete this entry. Try again.</Text>
-        )}
       </ConfirmationModal>
     </Page>
   );
