@@ -21,6 +21,7 @@ vi.mock("../controllers/entry", () => ({
     listForLibrary: vi.fn(),
     create: vi.fn(),
     getDetails: vi.fn(),
+    getOwner: vi.fn(),
     updateBody: vi.fn(),
     lockForRelabel: vi.fn(),
     updateStructure: vi.fn(),
@@ -43,6 +44,7 @@ const { list, create, get, remove, updateBody, updateStructure } = await import(
 const mockCtrlList = vi.mocked(entryController.listForLibrary);
 const mockCtrlCreate = vi.mocked(entryController.create);
 const mockCtrlGetDetails = vi.mocked(entryController.getDetails);
+const mockCtrlGetOwner = vi.mocked(entryController.getOwner);
 const mockCtrlUpdateBody = vi.mocked(entryController.updateBody);
 const mockCtrlLockForRelabel = vi.mocked(entryController.lockForRelabel);
 const mockCtrlUpdateStructure = vi.mocked(entryController.updateStructure);
@@ -261,13 +263,15 @@ describe("entries.get", () => {
 describe("entries.updateBody", () => {
   const ID = "00000000-0000-4000-8000-000000000000";
 
+  // Ownership is gated on `getOwner` (just the userId), not the whole row — the
+  // controller's own transaction re-reads the body it rewrites.
   beforeEach(() => {
-    mockCtrlGetDetails.mockReset();
+    mockCtrlGetOwner.mockReset();
     mockCtrlUpdateBody.mockReset();
   });
 
   it("rewrites the body once its owner checks out, returning the updated detail with its structure", async () => {
-    mockCtrlGetDetails.mockResolvedValue(makeRow());
+    mockCtrlGetOwner.mockResolvedValue({ userId: SINGLE_USER_ID });
     mockCtrlUpdateBody.mockResolvedValue(makeRow({ body: "New text", structure: ["chorus"] }));
 
     await expect(callUpdateBody(ID, "New text")).resolves.toMatchObject({
@@ -281,7 +285,7 @@ describe("entries.updateBody", () => {
   });
 
   it("standardizes the replacement body before writing it", async () => {
-    mockCtrlGetDetails.mockResolvedValue(makeRow());
+    mockCtrlGetOwner.mockResolvedValue({ userId: SINGLE_USER_ID });
     mockCtrlUpdateBody.mockResolvedValue(makeRow({ body: "First line\n\nThird line" }));
 
     await callUpdateBody(ID, "  First line  \n\n\n  Third line\t\n");
@@ -290,7 +294,7 @@ describe("entries.updateBody", () => {
   });
 
   it("404s on an unknown id, without attempting the write", async () => {
-    mockCtrlGetDetails.mockResolvedValue(null);
+    mockCtrlGetOwner.mockResolvedValue(null);
 
     await expect(callUpdateBody(ID, "New text")).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),
@@ -299,7 +303,7 @@ describe("entries.updateBody", () => {
   });
 
   it("404s — and writes nothing — when the piece belongs to another user", async () => {
-    mockCtrlGetDetails.mockResolvedValue(makeRow({ userId: "someone-else" }));
+    mockCtrlGetOwner.mockResolvedValue({ userId: "someone-else" });
 
     await expect(callUpdateBody(ID, "New text")).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),

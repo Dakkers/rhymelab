@@ -114,6 +114,29 @@ export class EntryController {
   }
 
   /**
+   * Fetch just a live entry's owner — the `userId` a handler checks before it
+   * mutates the row. A soft-deleted or missing entry reads as `null`, the same as
+   * `getDetails`.
+   *
+   * This is the ownership check on its own, without the rest of the row. A caller
+   * that also renders or rewrites the body (`get`) loads the whole thing; one that
+   * only gates on ownership before a self-contained write — `updateBody`, whose
+   * own transaction re-reads the body and structure it re-syncs from — takes this
+   * instead, so the body (which can be the entire lyric) isn't read a second time
+   * just to find out who owns it.
+   *
+   * @param id  The entry's id.
+   * @param tx  Optional transaction client to run the query on.
+   */
+  async getOwner(id: string, tx?: Prisma.TransactionClient): Promise<Pick<Entry, "userId"> | null> {
+    const db = tx ?? this.db;
+    return db.entry.findFirst({
+      where: { id, deletedAt: null },
+      select: { userId: true },
+    });
+  }
+
+  /**
    * Save a new entry. `data` is the submitted piece plus its owning `userId`.
    * Only the raw fields are stored — the list view's excerpt / line count /
    * word count are derived from `body` on read (see the entries handler), so

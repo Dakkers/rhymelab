@@ -79,13 +79,16 @@ export const get = authed.entries.get.handler(async ({ input }) => {
   return toEntryDetail(entry);
 });
 
-// Ownership (and liveness) are established with the same `getDetails` read
-// `get` and `remove` use — `updateBody` is unscoped on both counts. The read and
-// the write aren't in one transaction: a delete landing in between makes this
-// rewrite the text of an already-tombstoned row, which stays invisible either way.
+// Ownership (and liveness) are established up front — `updateBody` is unscoped on
+// both counts. `getOwner`, not `getDetails`: this only gates on who owns the row,
+// and `updateBody`'s own transaction re-reads the body + structure it re-syncs
+// from, so loading the whole row here would read the body a second time for
+// nothing. The ownership read and the write aren't in one transaction: a delete
+// landing in between makes this rewrite the text of an already-tombstoned row,
+// which stays invisible either way.
 export const updateBody = authed.entries.updateBody.handler(async ({ input }) => {
-  const entry = await entryController.getDetails(input.id);
-  if (!entry || entry.userId !== SINGLE_USER_ID) {
+  const owner = await entryController.getOwner(input.id);
+  if (!owner || owner.userId !== SINGLE_USER_ID) {
     throw new ORPCError("NOT_FOUND");
   }
   return toEntryDetail(await entryController.updateBody(input.id, input.body));

@@ -177,6 +177,31 @@ describe("EntryController.getDetails", () => {
   });
 });
 
+describe("EntryController.getOwner", () => {
+  it("reads only the userId of a live row by id — the ownership check without the body", async () => {
+    const { client, findFirst } = mockDb();
+    await new EntryController(client).getOwner("entry-1");
+
+    expect(findFirst).toHaveBeenCalledTimes(1);
+    // Just userId: loading the body here would re-read it for nothing, since the
+    // caller's `updateBody` reads it again inside its own transaction.
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { id: "entry-1", deletedAt: null },
+      select: { userId: true },
+    });
+  });
+
+  it("runs on the transaction client when one is passed", async () => {
+    const base = mockDb();
+    const tx = mockDb();
+
+    await new EntryController(base.client).getOwner("entry-1", tx.client);
+
+    expect(tx.findFirst).toHaveBeenCalledTimes(1);
+    expect(base.findFirst).not.toHaveBeenCalled();
+  });
+});
+
 describe("EntryController.create", () => {
   it("writes the raw fields scoped to userId, seeding one default label per section", async () => {
     const { client, create } = mockDb();
