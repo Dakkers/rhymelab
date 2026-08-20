@@ -77,6 +77,8 @@ describe("EntryController.listForLibrary", () => {
     expect(findMany).toHaveBeenCalledWith({
       where: { userId: "user-1", deletedAt: null },
       orderBy: { updatedAt: "desc" },
+      // No `structure`: the library cards don't render it, so the list doesn't
+      // select the extra array (see `EntryForLibrary`).
       select: {
         id: true,
         kind: true,
@@ -84,7 +86,6 @@ describe("EntryController.listForLibrary", () => {
         author: true,
         year: true,
         body: true,
-        structure: true,
         artist: true,
         album: true,
         createdAt: true,
@@ -351,7 +352,7 @@ describe("EntryController.updateBody", () => {
 });
 
 describe("EntryController.updateStructure", () => {
-  it("writes only the structure, keyed by id, selecting the library columns back", async () => {
+  it("writes only the structure, keyed by id, selecting the detail columns back", async () => {
     const { client, update } = mockDb();
 
     await new EntryController(client).updateStructure("entry-1", ["verse", "chorus"]);
