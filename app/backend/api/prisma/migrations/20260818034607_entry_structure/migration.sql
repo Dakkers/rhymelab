@@ -22,8 +22,26 @@ ALTER TABLE "entries" ADD COLUMN "structure" TEXT[] DEFAULT ARRAY[]::TEXT[];
 -- Best-effort for exotic legacy whitespace the JS trim treats differently (e.g.
 -- a non-breaking-space-only line) — any such row self-heals on its next
 -- `updateBody`, which re-syncs `structure` with the same JS `splitSections`.
+--
+-- The trigger is disabled across the backfill. `entries_stamp_timestamps`
+-- (added in `entry_updated_at_db_clock`) is an unconditional `BEFORE UPDATE`
+-- that overwrites `updated_at` with `now()` on every row it touches, and — as
+-- that migration's own note warns — the column "is not settable any more, from
+-- a test or a backfill." A bare UPDATE here would therefore stamp *every*
+-- existing row with one identical migration-time `updated_at`, collapsing the
+-- library's newest-edited-first order (see `EntryController.listForLibrary`) and
+-- surfacing every piece as freshly edited. Disabling the trigger for the span of
+-- the write keeps each row's real `updated_at` (the value the trigger would copy
+-- from `NEW` is discarded, so a normal UPDATE can't preserve it — only silencing
+-- the trigger can). The named form needs only table ownership, not superuser
+-- (unlike `session_replication_role`); the whole migration runs in one
+-- transaction, so a failure rolls the re-enable back with everything else.
+ALTER TABLE "entries" DISABLE TRIGGER "entries_stamp_timestamps";
+
 UPDATE "entries"
 SET "structure" = array_fill('verse'::text, ARRAY[
   greatest(1, coalesce(array_length(
     regexp_split_to_array(btrim("body", E' \t\r\n'), E'\n[ \t\r]*\n+'), 1), 1))
 ]);
+
+ALTER TABLE "entries" ENABLE TRIGGER "entries_stamp_timestamps";
