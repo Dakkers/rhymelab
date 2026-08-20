@@ -198,14 +198,52 @@ export class EntryController {
   }
 
   /**
+   * Lock a live entry's row and return just what a `structure` relabel has to
+   * validate against: its `userId` (ownership) and `body` (section count). A
+   * soft-deleted row reads as `null`, like `getDetails`.
+   *
+   * `SELECT ... FOR UPDATE` is the whole point. The relabel checks the incoming
+   * array's length against the body and then writes `structure` — a read-derived
+   * write, so without a lock a concurrent `updateBody` could change the section
+   * count between the two and leave `structure.length` out of step with `body`,
+   * the exact drift this feature exists to prevent. Holding the row until the
+   * caller's transaction commits serializes the two: `updateBody`'s write can't
+   * land until this relabel is done (or this read blocks until that write
+   * commits and then sees the new count and rejects the stale array).
+   *
+   * `findFirst` can't express `FOR UPDATE`, so this is raw SQL; it selects only
+   * the two columns the check needs. Takes a required `tx` — the lock lives only
+   * as long as the surrounding transaction, so calling this outside one would
+   * lock nothing.
+   *
+   * @param id  The entry to lock.
+   * @param tx  The open transaction the lock is held on.
+   */
+  async lockForRelabel(
+    id: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<Pick<Entry, "userId" | "body"> | null> {
+    // Tagged template — `id` is bound as a parameter, never interpolated.
+    const rows = await tx.$queryRaw<Array<Pick<Entry, "userId" | "body">>>`
+      SELECT "user_id" AS "userId", "body"
+      FROM "entries"
+      WHERE "id" = ${id}::uuid AND "deleted_at" IS NULL
+      FOR UPDATE
+    `;
+    return rows[0] ?? null;
+  }
+
+  /**
    * Replace an entry's `structure` — its section labels — leaving the body
    * untouched. The mirror of `updateBody`.
    *
    * The caller must pass a full, correctly-sized array: `structure.length` has
    * to equal the entry's current section count, or the invariant this whole
-   * feature maintains would break. That check needs the stored body, so it lives
-   * in the handler (see `handlers/entries.ts`) — this method just writes what
-   * it's given. Unscoped by owner and tombstone, like `updateBody`.
+   * feature maintains would break. That check needs the stored body and has to
+   * be atomic with this write, so it lives in the handler inside the same
+   * transaction, reading the body under `lockForRelabel`'s row lock (see
+   * `handlers/entries.ts`) — this method just writes what it's given. Unscoped by
+   * owner and tombstone, like `updateBody`.
    *
    * @param id         The entry to relabel.
    * @param structure  The replacement labels — one per body section, in order.

@@ -16,6 +16,7 @@ import {
   type SectionType,
 } from "@rhymelab/api-contract";
 import { entryController, type EntryForLibrary } from "../controllers/entry";
+import { prisma } from "../db";
 import { authed } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
@@ -90,25 +91,30 @@ export const updateBody = authed.entries.updateBody.handler(async ({ input }) =>
   return toEntryDetail(await entryController.updateBody(input.id, input.body));
 });
 
-// Relabel a piece's sections. Ownership (and liveness) come from the same
-// `getDetails` read the others use. The array must be exactly one label per
-// current section — the invariant `structure` exists to keep — so a wrong-length
-// array is a `BAD_REQUEST`, not a silent partial write. The length is checked
-// against the body `getDetails` just read; as with `updateBody`, the read and
-// the write aren't one transaction, so a body edit landing in between could
-// leave them briefly out of step — vanishingly unlikely for the single alpha
-// user, and the next `updateBody` re-syncs it regardless.
+// Relabel a piece's sections. The array must be exactly one label per current
+// section — the invariant `structure` exists to keep — so a wrong-length array
+// is a `BAD_REQUEST`, not a silent partial write. That check is against the
+// stored body, and the check and the write have to be atomic: were they not, an
+// `updateBody` landing in between could change the section count and leave the
+// array it validated out of step with the body — the very drift this endpoint is
+// supposed to preserve. So the whole thing runs in one transaction and reads the
+// body under `lockForRelabel`'s `FOR UPDATE` lock, which holds the row until the
+// write commits (a concurrent `updateBody` write blocks behind it). Ownership and
+// liveness ride on that same locked read, so they can't go stale either.
 export const updateStructure = authed.entries.updateStructure.handler(async ({ input }) => {
-  const entry = await entryController.getDetails(input.id);
-  if (!entry || entry.userId !== SINGLE_USER_ID) {
-    throw new ORPCError("NOT_FOUND");
-  }
-  if (input.structure.length !== splitSections(entry.body).length) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "structure must have one label per section of the entry's body",
-    });
-  }
-  return toEntryDetail(await entryController.updateStructure(input.id, input.structure));
+  const updated = await prisma.$transaction(async (tx) => {
+    const entry = await entryController.lockForRelabel(input.id, tx);
+    if (!entry || entry.userId !== SINGLE_USER_ID) {
+      throw new ORPCError("NOT_FOUND");
+    }
+    if (input.structure.length !== splitSections(entry.body).length) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "structure must have one label per section of the entry's body",
+      });
+    }
+    return entryController.updateStructure(input.id, input.structure, tx);
+  });
+  return toEntryDetail(updated);
 });
 
 // Ownership is established the same way `get` does it — `delete` on the

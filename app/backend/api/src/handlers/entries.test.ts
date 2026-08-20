@@ -22,20 +22,32 @@ vi.mock("../controllers/entry", () => ({
     create: vi.fn(),
     getDetails: vi.fn(),
     updateBody: vi.fn(),
+    lockForRelabel: vi.fn(),
     updateStructure: vi.fn(),
     delete: vi.fn(),
   },
 }));
 
+// `updateStructure` runs its ownership + length check + write inside one
+// transaction; the stub just runs the callback so the mocked controller spies
+// record its calls. The real lock and rollback are a database concern, exercised
+// against Postgres, not here.
+vi.mock("../db", () => ({
+  prisma: { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({})) },
+}));
+
 const { entryController } = await import("../controllers/entry");
+const { prisma } = await import("../db");
 const { list, create, get, remove, updateBody, updateStructure } = await import("./entries");
 
 const mockCtrlList = vi.mocked(entryController.listForLibrary);
 const mockCtrlCreate = vi.mocked(entryController.create);
 const mockCtrlGetDetails = vi.mocked(entryController.getDetails);
 const mockCtrlUpdateBody = vi.mocked(entryController.updateBody);
+const mockCtrlLockForRelabel = vi.mocked(entryController.lockForRelabel);
 const mockCtrlUpdateStructure = vi.mocked(entryController.updateStructure);
 const mockCtrlDelete = vi.mocked(entryController.delete);
+const mockTransaction = vi.mocked(prisma.$transaction);
 
 /** A Prisma `Entry` row — `body` is the source the summary fields derive from. */
 function makeRow(overrides: Partial<Entry> = {}): Entry {
@@ -299,14 +311,18 @@ describe("entries.updateBody", () => {
 describe("entries.updateStructure", () => {
   const ID = "00000000-0000-4000-8000-000000000000";
 
+  // The handler locks + checks + writes inside one transaction; the ownership
+  // and section-count checks run against `lockForRelabel`'s locked read, so the
+  // spies below stand in for that read rather than `getDetails`.
   beforeEach(() => {
-    mockCtrlGetDetails.mockReset();
+    mockCtrlLockForRelabel.mockReset();
     mockCtrlUpdateStructure.mockReset();
+    mockTransaction.mockClear();
   });
 
   it("relabels the sections once its owner checks out, returning the updated detail", async () => {
-    // makeRow's body is a single section, so a one-label array is the right size.
-    mockCtrlGetDetails.mockResolvedValue(makeRow());
+    // A single-section body, so a one-label array is the right size.
+    mockCtrlLockForRelabel.mockResolvedValue({ userId: SINGLE_USER_ID, body: "just one section" });
     mockCtrlUpdateStructure.mockResolvedValue(makeRow({ structure: ["chorus"] }));
 
     await expect(callUpdateStructure(ID, ["chorus"])).resolves.toMatchObject({
@@ -314,12 +330,19 @@ describe("entries.updateStructure", () => {
       kind: "poem",
       structure: ["chorus"],
     });
-    expect(mockCtrlUpdateStructure).toHaveBeenCalledExactlyOnceWith(ID, ["chorus"]);
+    // Both the locked read and the write ran on the transaction client.
+    expect(mockTransaction).toHaveBeenCalledOnce();
+    expect(mockCtrlLockForRelabel).toHaveBeenCalledExactlyOnceWith(ID, expect.anything());
+    expect(mockCtrlUpdateStructure).toHaveBeenCalledExactlyOnceWith(
+      ID,
+      ["chorus"],
+      expect.anything(),
+    );
   });
 
   it("rejects a structure whose length doesn't match the body's section count, writing nothing", async () => {
     // One section in the body, but two labels offered.
-    mockCtrlGetDetails.mockResolvedValue(makeRow({ body: "just one section" }));
+    mockCtrlLockForRelabel.mockResolvedValue({ userId: SINGLE_USER_ID, body: "just one section" });
 
     await expect(callUpdateStructure(ID, ["verse", "chorus"])).rejects.toThrow(
       expect.objectContaining(new ORPCError("BAD_REQUEST")),
@@ -328,7 +351,7 @@ describe("entries.updateStructure", () => {
   });
 
   it("404s on an unknown id, without attempting the write", async () => {
-    mockCtrlGetDetails.mockResolvedValue(null);
+    mockCtrlLockForRelabel.mockResolvedValue(null);
 
     await expect(callUpdateStructure(ID, ["verse"])).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),
@@ -337,7 +360,7 @@ describe("entries.updateStructure", () => {
   });
 
   it("404s — and writes nothing — when the piece belongs to another user", async () => {
-    mockCtrlGetDetails.mockResolvedValue(makeRow({ userId: "someone-else" }));
+    mockCtrlLockForRelabel.mockResolvedValue({ userId: "someone-else", body: "just one section" });
 
     await expect(callUpdateStructure(ID, ["verse"])).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),
