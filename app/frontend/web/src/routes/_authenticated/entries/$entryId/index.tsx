@@ -6,6 +6,7 @@ import {
   Card,
   ConfirmationModal,
   Drawer,
+  Flex,
   Icon,
   InlineList,
   Menu,
@@ -13,7 +14,13 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { PenLine, Trash2 } from "lucide-react";
-import { normalizeEntryBody, type EntryDetail } from "@rhymelab/api-contract";
+import {
+  normalizeEntryBody,
+  splitSections,
+  type EntryDetail,
+  type SectionType,
+} from "@rhymelab/api-contract";
+import { Eyebrow } from "#/components/Eyebrow";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
 import { orpc } from "#/lib/orpc";
@@ -35,6 +42,20 @@ export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
 const KIND_LABEL: Record<EntryDetail["kind"], string> = {
   lyrics: "Lyrics",
   poem: "Poem",
+};
+
+/**
+ * Display labels for the closed set of section types — the raw values are lower-
+ * case slugs (`prechorus`), so this is where they get their human casing and the
+ * hyphen a reader expects.
+ */
+const SECTION_TYPE_LABEL: Record<SectionType, string> = {
+  intro: "Intro",
+  verse: "Verse",
+  prechorus: "Pre-Chorus",
+  chorus: "Chorus",
+  bridge: "Bridge",
+  outro: "Outro",
 };
 
 function EntryPage() {
@@ -138,9 +159,19 @@ function EntryPage() {
       }
     >
       <Card header={<Card.Header title={KIND_LABEL[entry.kind]} />}>
-        <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-          {entry.body}
-        </Text>
+        {/* One block per section, each labelled with its type. `structure` is
+            kept exactly one label per section by the API (`splitSections`), so
+            the two align index-for-index — no length guard needed. */}
+        <Flex direction="column" gap="6">
+          {splitSections(entry.body).map((section, index) => (
+            <Flex key={index} direction="column" gap="1">
+              <Eyebrow>{SECTION_TYPE_LABEL[entry.structure[index]]}</Eyebrow>
+              <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
+                {section}
+              </Text>
+            </Flex>
+          ))}
+        </Flex>
       </Card>
 
       <Drawer
