@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link as RouterLink, createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Box, Card, Flex, Icon, Link, Text, ToggleGroup } from "@saintly-software/baritone";
+import { Box, Button, Card, Flex, Icon, Link, Text, ToggleGroup } from "@saintly-software/baritone";
 import { ArrowLeft } from "lucide-react";
 import { splitSections, type SectionType } from "@rhymelab/api-contract";
 import { Eyebrow } from "#/components/Eyebrow";
@@ -80,43 +80,63 @@ function AnnotatePage() {
         </Link>
       }
     >
-      <Flex align="start" gap="6">
-        <Flex render={<aside />} direction="column" className="rl-annotate-aside">
-          <ToggleGroup
-            aria-label="Annotation type"
-            orientation="vertical"
-            width="fill"
-            value={mode}
-            onChange={setMode}
-            intent="primary"
-          >
-            {({ ToggleGroupItem }) => (
-              <>
-                <ToggleGroupItem value="read">Read</ToggleGroupItem>
-                <ToggleGroupItem value="rhyme-scheme">Rhyme Scheme</ToggleGroupItem>
-                <ToggleGroupItem value="enjambment">Enjambment</ToggleGroupItem>
-              </>
-            )}
-          </ToggleGroup>
+      <Flex direction="column" gap="6">
+        <Flex align="start" gap="6">
+          <Flex render={<aside />} direction="column" className="rl-annotate-aside">
+            <ToggleGroup
+              aria-label="Annotation type"
+              orientation="vertical"
+              width="fill"
+              value={mode}
+              onChange={setMode}
+              intent="primary"
+            >
+              {({ ToggleGroupItem }) => (
+                <>
+                  <ToggleGroupItem value="read">Read</ToggleGroupItem>
+                  <ToggleGroupItem value="rhyme-scheme">Rhyme Scheme</ToggleGroupItem>
+                  <ToggleGroupItem value="enjambment">Enjambment</ToggleGroupItem>
+                </>
+              )}
+            </ToggleGroup>
+          </Flex>
+
+          <Box style={{ flex: 1, minWidth: 0 }}>
+            <Card>
+              {/* One block per section, each labelled with its type. The API keeps
+                  `structure` at exactly one label per section (`splitSections`), so
+                  the two align index-for-index — no length guard needed. */}
+              <Flex direction="column" gap="6">
+                {splitSections(entry.body).map((section, index) => (
+                  <Flex key={index} direction="column" gap="1">
+                    <Eyebrow>{SECTION_TYPE_LABEL[entry.structure[index]]}</Eyebrow>
+                    <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
+                      {section}
+                    </Text>
+                  </Flex>
+                ))}
+              </Flex>
+            </Card>
+          </Box>
         </Flex>
 
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Card>
-            {/* One block per section, each labelled with its type. The API keeps
-                `structure` at exactly one label per section (`splitSections`), so
-                the two align index-for-index — no length guard needed. */}
-            <Flex direction="column" gap="6">
-              {splitSections(entry.body).map((section, index) => (
-                <Flex key={index} direction="column" gap="1">
-                  <Eyebrow>{SECTION_TYPE_LABEL[entry.structure[index]]}</Eyebrow>
-                  <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-                    {section}
-                  </Text>
-                </Flex>
-              ))}
-            </Flex>
-          </Card>
-        </Box>
+        {/* Sticky footer — pinned to the bottom of the viewport while the text
+            scrolls under it (the document body is the scroll container; the nav
+            bar owns the top). Only shown while an annotation tool is active:
+            `read` is a passive view with nothing to save, so it has no action
+            bar. The buttons are placeholders — no draft state is wired yet. */}
+        {mode !== "read" && (
+          <Flex
+            render={<footer />}
+            className="rl-annotate-footer"
+            align="center"
+            justify="end"
+            gap="3"
+          >
+            <Button saliency="low">Discard</Button>
+            <Button intent="primary">Save</Button>
+          </Flex>
+        )}
       </Flex>
     </Page>
   );
