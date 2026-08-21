@@ -10,6 +10,7 @@
 import { expect, test, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { splitSections } from "@rhymelab/api-contract";
 import type { FakeEntry } from "@rhymelab/fixtures";
 import { names } from "#/lib/format";
 import { renderRoute } from "#/test/render-route";
@@ -29,11 +30,25 @@ async function renderEntry(entry: FakeEntry): Promise<void> {
 
   expect(await screen.findByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
   expect(screen.getByText(entry.kind === "lyrics" ? "Lyrics" : "Poem")).toBeInTheDocument();
-  // `body` is multi-line; match on exact textContent rather than a string
-  // matcher, since RTL's default matcher normalizes embedded newlines to spaces.
-  expect(
-    screen.getByText((_content, element) => element?.textContent === entry.body),
-  ).toBeInTheDocument();
+  expectSectionsRendered(entry.body);
+}
+
+/**
+ * Assert the body renders as one labelled block per section: every section's
+ * text is on the page, and there's a section-type eyebrow for each. The mock
+ * defaults every section's type to `verse` (`initStructure`), so each block
+ * carries a "Verse" label. Sections are matched on exact `textContent` rather
+ * than a string matcher, since RTL's default normalizes embedded newlines to
+ * spaces and a section is itself multi-line.
+ */
+function expectSectionsRendered(body: string): void {
+  const sections = splitSections(body);
+  for (const section of sections) {
+    expect(
+      screen.getAllByText((_content, element) => element?.textContent === section).length,
+    ).toBeGreaterThan(0);
+  }
+  expect(screen.getAllByText("Verse")).toHaveLength(sections.length);
 }
 
 test("renders a lyrics entry, with the performer and record in the byline", async () => {
@@ -157,9 +172,7 @@ test("leaves the text alone when the edit drawer is cancelled", async () => {
   await user.click(within(drawer).getByRole("button", { name: "Cancel" }));
 
   await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-  expect(
-    screen.getByText((_content, element) => element?.textContent === entry.body),
-  ).toBeInTheDocument();
+  expectSectionsRendered(entry.body);
 });
 
 // A piece stored before body standardization existed still carries its raw text
