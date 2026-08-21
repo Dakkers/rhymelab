@@ -13,7 +13,7 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { PenLine, Trash2 } from "lucide-react";
-import type { EntryDetail } from "@rhymelab/api-contract";
+import { normalizeEntryBody, type EntryDetail } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
 import { orpc } from "#/lib/orpc";
@@ -56,6 +56,16 @@ function EntryPage() {
   // mount, so a cancelled edit doesn't linger into the next one.
   const [editingText, setEditingText] = useState(false);
   const [draft, setDraft] = useState(entry.body);
+  // Save offers a write only when the standardized draft differs from what a
+  // save would leave stored. The server standardizes the body it stores, so both
+  // sides are compared *normalized*: a whitespace-only edit collapses to the same
+  // text and is a no-op the button shouldn't offer, and an empty result can't
+  // save. `entry.body` is normalized too — not assumed already so: a piece
+  // written before body standardization existed still carries its raw text, and
+  // comparing the draft against that raw form would light Save up the instant the
+  // drawer opened, before anything was typed.
+  const normalizedDraft = normalizeEntryBody(draft);
+  const normalizedStored = normalizeEntryBody(entry.body);
 
   const updateBody = useMutation(
     orpc.entries.updateBody.mutationOptions({
@@ -158,7 +168,7 @@ function EntryPage() {
               <Button
                 key="save"
                 loading={updateBody.isPending}
-                disabled={!draft.trim() || draft === entry.body}
+                disabled={!normalizedDraft || normalizedDraft === normalizedStored}
                 onClick={() => updateBody.mutate({ id: entryId, body: draft })}
               >
                 Save

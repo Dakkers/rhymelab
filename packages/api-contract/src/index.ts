@@ -18,6 +18,7 @@ export const contract = {
     create: entries.create,
     get: entries.get,
     updateBody: entries.updateBody,
+    updateStructure: entries.updateStructure,
     delete: entries.remove,
   },
 };
@@ -28,6 +29,19 @@ export {
   EntrySummarySchema,
   EntryCreateInputSchema,
   EntryDetailSchema,
+  SectionTypeSchema,
+  SECTION_TYPES,
+  DEFAULT_SECTION_TYPE,
   deriveEntrySummaryFields,
+  normalizeEntryBody,
+  splitSections,
+  initStructure,
+  resyncStructure,
 } from "./entries.contract";
-export type { EntrySummary, EntryKind, EntryCreateInput, EntryDetail } from "./entries.contract";
+export type {
+  EntrySummary,
+  EntryKind,
+  EntryCreateInput,
+  EntryDetail,
+  SectionType,
+} from "./entries.contract";

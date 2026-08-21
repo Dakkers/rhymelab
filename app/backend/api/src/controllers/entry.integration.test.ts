@@ -1,3 +1,4 @@
+import { splitSections } from "@rhymelab/api-contract";
 import { fakeEntries } from "@rhymelab/fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -571,5 +572,123 @@ describe("EntryController.delete (DB-backed)", () => {
 
     // Had the delete ignored `tx`, the tombstone would have stuck.
     expect(ids(await controller.listForLibrary(user))).toEqual([entry.id]);
+  });
+});
+
+/**
+ * The one guarantee `structure` exists to give — `structure.length` always equals
+ * the body's section count — has to survive a relabel and a body edit landing at
+ * the same time. `updateStructure` validates the incoming labels against the body
+ * and then writes them; `updateBody` can change the section count. If the two
+ * interleave unguarded, a relabel commits a label array sized for a body that no
+ * longer exists, and the columns drift.
+ *
+ * `lockForRelabel` closes that with `SELECT ... FOR UPDATE`: the relabel holds the
+ * row from the moment it reads the body until it commits, so a concurrent
+ * `updateBody` write has to wait behind it. Only two real transactions contending
+ * for one row's lock can show this — a mock has nothing to block on — so it lives
+ * here rather than in `entry.test.ts`.
+ *
+ * The test reproduces the exact window the old check-then-write left open: it
+ * opens the relabel's transaction, takes the lock, and *parks* it, then fires an
+ * `updateBody` into that window and proves it cannot commit until the relabel
+ * lets go — and that the row is drift-free once both land. Remove the `FOR UPDATE`
+ * and the body edit no longer blocks: the "is it waiting on a lock" assertion
+ * fails, and the final length check drifts.
+ */
+describe("EntryController relabel vs. body edit don't drift under contention (DB-backed)", () => {
+  /**
+   * Poll `check` until it holds, without a fixed sleep — each attempt is a DB
+   * round-trip, so this paces itself. Returns false if it never does within the
+   * budget (which is itself the failure signal when the lock is gone).
+   */
+  async function waitUntil(check: () => Promise<boolean>, tries = 200): Promise<boolean> {
+    for (let i = 0; i < tries; i++) {
+      if (await check()) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Whether some backend is parked waiting on a lock another backend holds —
+   * `pg_blocking_pids` is non-empty only for a genuinely blocked session, so this
+   * is a real "is the body edit stuck behind the relabel" probe, not a timing
+   * guess. The integration DB has a single writer at a time, so the only thing
+   * this can catch is our own contention.
+   */
+  async function aBackendIsBlockedOnALock(): Promise<boolean> {
+    const [{ blocked }] = await prisma.$queryRaw<{ blocked: bigint }[]>`
+      SELECT count(*) AS blocked
+      FROM pg_stat_activity
+      WHERE wait_event_type = 'Lock' AND cardinality(pg_blocking_pids(pid)) > 0
+    `;
+    return Number(blocked) > 0;
+  }
+
+  it("makes a concurrent body edit wait behind the relabel, and neither drifts", async () => {
+    const user = freshUser();
+    // Two sections, seeded verse / verse.
+    const created = await controller.create({
+      userId: user,
+      kind: "poem",
+      title: "contention",
+      author: [],
+      body: "A\n\nB",
+    });
+    const id = created.id;
+
+    // Open the relabel's transaction, take its row lock, then hold it until the
+    // test opens `gate` — the same read-then-write window the lock-free version
+    // exposed. `locked` lets the test wait until the lock is actually held before
+    // it introduces the racing edit.
+    let openGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      openGate = resolve;
+    });
+    let lockTaken!: () => void;
+    const locked = new Promise<void>((resolve) => {
+      lockTaken = resolve;
+    });
+
+    const relabel = prisma.$transaction(async (tx) => {
+      // The handler runs the ownership + length check here too (both pass for
+      // this input); the unit tests pin that. What only a database can show is
+      // the lock, so that's what this exercises.
+      await controller.lockForRelabel(id, tx);
+      lockTaken();
+      await gate;
+      return controller.updateStructure(id, ["intro", "outro"], tx);
+    });
+    await locked;
+
+    // A body edit that grows the piece to three sections. Its write needs the row
+    // lock the relabel is holding, so it must block rather than slip in.
+    const bodyEdit = controller.updateBody(id, "A\n\nB\n\nC");
+    let bodyEditSettled = false;
+    void bodyEdit.finally(() => {
+      bodyEditSettled = true;
+    });
+
+    // Proof it's genuinely blocked on the lock — not merely slow — and hasn't
+    // written anything yet.
+    expect(await waitUntil(aBackendIsBlockedOnALock)).toBe(true);
+    expect(bodyEditSettled).toBe(false);
+
+    // Release the relabel; the queued body edit can now proceed.
+    openGate();
+    const relabelled = await relabel;
+    const editted = await bodyEdit;
+
+    // Each write, on its own, left the columns consistent: the relabel committed
+    // two labels against the two-section body it was validated against, and the
+    // body edit then grew both sides together. There is no ordering in which one
+    // observes the other mid-flight, so the invariant is never briefly broken.
+    expect(relabelled.structure).toHaveLength(splitSections(relabelled.body).length);
+    expect(editted.body).toBe("A\n\nB\n\nC");
+    expect(editted.structure).toHaveLength(splitSections(editted.body).length);
+
+    // And the persisted row holds the invariant the whole feature rests on.
+    const final = await controller.getDetails(id);
+    expect(final?.structure).toHaveLength(splitSections(final!.body).length);
   });
 });

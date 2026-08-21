@@ -161,3 +161,41 @@ test("leaves the text alone when the edit drawer is cancelled", async () => {
     screen.getByText((_content, element) => element?.textContent === entry.body),
   ).toBeInTheDocument();
 });
+
+// A piece stored before body standardization existed still carries its raw text
+// — ragged blank lines, trailing spaces. Opening its Edit drawer must not offer
+// Save when nothing's been typed: the draft normalizes to what a save would
+// already store, so the write would be a no-op. (Save compares the normalized
+// draft against the *normalized* stored body, not the raw stored text.)
+test("doesn't offer Save on open when the stored body only needs re-standardizing", async () => {
+  const user = userEvent.setup();
+  const entry = {
+    ...store.entries[0],
+    id: crypto.randomUUID(),
+    title: "Ragged draft",
+    body: "First line  \n\n\n  Second line ",
+  };
+  store.entries = [entry, ...store.entries];
+
+  renderRoute(Route, {
+    path: "/entries/$entryId",
+    initialEntries: [`/entries/${entry.id}`],
+  });
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Ragged draft" }),
+  ).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Edit Text" }));
+  const drawer = await screen.findByRole("dialog");
+
+  // Untouched, Save stays disabled — even though the raw draft isn't byte-equal
+  // to the raw stored body. (Baritone soft-disables with `aria-disabled` rather
+  // than the native attribute, so assert on that.)
+  const saveButton = () => within(drawer).getByRole("button", { name: "Save" });
+  expect(saveButton()).toHaveAttribute("aria-disabled", "true");
+
+  // A genuine change to the text enables it.
+  await user.type(within(drawer).getByRole("textbox", { name: /text/i }), " changed");
+  expect(saveButton()).not.toHaveAttribute("aria-disabled", "true");
+});
