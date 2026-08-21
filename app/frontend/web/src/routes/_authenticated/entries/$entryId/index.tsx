@@ -126,34 +126,38 @@ function EntryPage() {
         <Menu
           trigger={<Menu.Trigger saliency="low">Actions</Menu.Trigger>}
           items={[
-            {
-              children: "Edit Text",
-              icon: (
+            <Menu.Item
+              key="edit"
+              icon={
                 <Icon>
                   <PenLine />
                 </Icon>
-              ),
-              onClick: () => {
+              }
+              onClick={() => {
                 setDraft(entry.body);
                 setEditingText(true);
-              },
-            },
-            {
-              children: "Delete Entry",
-              intent: "negative",
+              }}
+            >
+              Edit Text
+            </Menu.Item>,
+            <Menu.Item
+              key="delete"
+              intent="negative"
               // Baritone's `Icon` sizes the glyph to the row's text (its CSS
               // stretches the child svg to the 1em box) and tints it via
               // `currentColor`, which is what Lucide's svg strokes with — so the
               // icon follows the item's `negative` intent without being told.
-              icon: (
+              icon={
                 <Icon>
                   <Trash2 />
                 </Icon>
-              ),
-              onClick: () => {
+              }
+              onClick={() => {
                 setConfirmingDelete(true);
-              },
-            },
+              }}
+            >
+              Delete Entry
+            </Menu.Item>,
           ]}
         />
       }

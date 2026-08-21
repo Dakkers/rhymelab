@@ -38,8 +38,12 @@ export function NavBar() {
             />
           }
           items={[
-            { children: "Settings", render: <RouterLink to="/account/settings" /> },
-            { children: "Profile", render: <RouterLink to="/account/profile" /> },
+            <Menu.Item key="settings" render={<RouterLink to="/account/settings" />}>
+              Settings
+            </Menu.Item>,
+            <Menu.Item key="profile" render={<RouterLink to="/account/profile" />}>
+              Profile
+            </Menu.Item>,
           ]}
         />
         {/* preload=false so a hover-preload of the logout route doesn't sign out. */}
