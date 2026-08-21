@@ -376,3 +376,39 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------------------------------------------------------------- */
+/* Annotate sidebar                                                 */
+/* ---------------------------------------------------------------- */
+
+.rl-annotate-aside {
+  width: 200px;
+  flex: none;
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-hairline);
+  border-radius: var(--rl-radius);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* ---------------------------------------------------------------- */
+/* Annotate sticky footer                                          */
+/* ---------------------------------------------------------------- */
+
+/* Pinned to the bottom of the viewport while the body scrolls under it (the
+   document is the scroll container; `.rl-navbar` owns the top). The negative
+   margins cancel `Page`'s `p="8"` (32px) so the bar spans the column edge-to-
+   edge and sits flush with the bottom, and the re-added horizontal padding
+   restores the content inset. That 32px is the one coupling to `Page` — revisit
+   if its padding changes. `z-index` keeps the bar above the text sliding beneath
+   it; the upward shadow sells the layering. */
+.rl-annotate-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 -32px -32px;
+  padding: 14px 32px;
+  background: var(--rl-surface);
+  border-top: 1px solid var(--rl-hairline);
+  box-shadow: 0 -6px 16px -10px rgba(28, 25, 23, 0.22);
+}
