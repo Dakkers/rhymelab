@@ -82,15 +82,10 @@ function AnnotatePage() {
     >
       <Flex align="start" gap="6">
         <Flex render={<aside />} direction="column" className="rl-annotate-aside">
-          {/* `ToggleGroup` is a single-line `inline-flex` toolbar; `rl-toggle-column`
-              turns it down the page and stretches the segments to the sidebar's
-              width. Same override seam the rhyme-group grid used — one class on
-              each side, winning only because app.css is linked after Baritone's
-              stylesheet (see __root.tsx). Segment box, colour and focus ring stay
-              Baritone's; drop this if ToggleGroup grows an `orientation` prop. */}
           <ToggleGroup
             aria-label="Annotation type"
-            className="rl-toggle-column"
+            orientation="vertical"
+            width="fill"
             value={mode}
             onChange={setMode}
             intent="primary"

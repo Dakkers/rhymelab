@@ -390,16 +390,3 @@
   padding: 16px;
   box-sizing: border-box;
 }
-
-/* Baritone's `ToggleGroup` root is a one-line `inline-flex` toolbar
-   (`align-items: center`). This stands it up as a column and lets the segments
-   fill the sidebar instead of hugging their labels. Single-class specificity on
-   both sides, so it only wins because app.css is linked after baritone's
-   stylesheet (see __root.tsx) — the same seam `.rl-group-grid` uses. Delete in
-   favour of the prop if ToggleGroup ever grows an `orientation`. */
-.rl-toggle-column {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  width: 100%;
-}
