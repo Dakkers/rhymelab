@@ -29,9 +29,11 @@
  *
  * ## Idempotency
  *
- * Safe to re-run: a piece whose title already exists (live) for the seed user is
- * skipped rather than duplicated. To reseed from scratch, wipe the database first
- * (`./sandbox reset`, or drop the rows) and run again.
+ * Safe to re-run: a piece whose title already exists for the seed user is skipped
+ * rather than duplicated. The check counts tombstoned (soft-deleted) rows too, so
+ * re-seeding after deleting a demo piece in the app doesn't resurrect it as a
+ * second *live* copy alongside the tombstone. To reseed from scratch, wipe the
+ * database first (`./sandbox reset`, or drop the rows) and run again.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -105,11 +107,20 @@ const SEEDS: Seed[] = [
 /** `<repo>/.dummy` — this file is `<repo>/app/backend/api/src/seed.ts`. */
 const DUMMY_DIR = resolve(import.meta.dirname, "../../../../.dummy");
 
-/** Drop any line that is only a bracketed section header, e.g. `[Chorus]`. */
+/**
+ * Blank out any line that is only a bracketed section header, e.g. `[Chorus]`.
+ *
+ * The header is replaced with a blank line rather than deleted, so it still
+ * *separates* the sections around it. Deleting it would rely on a blank line
+ * already being present: a header-delimited file with no blank lines
+ * (`[Verse]\na\n[Chorus]\nb`) would otherwise collapse into a single section and
+ * fail the count check below. `normalizeEntryBody` then collapses any doubled
+ * blank (a header that already had a blank line beside it) back to one.
+ */
 function stripSectionHeaders(raw: string): string {
   return raw
     .split("\n")
-    .filter((line) => !/^\s*\[[^\]]*\]\s*$/.test(line))
+    .map((line) => (/^\s*\[[^\]]*\]\s*$/.test(line) ? "" : line))
     .join("\n");
 }
 
@@ -125,27 +136,43 @@ function readBody(file: string): string | null {
   return normalizeEntryBody(stripSectionHeaders(raw));
 }
 
+/** The Prisma `entry.create` payload a validated seed turns into. */
+type EntryCreateData = {
+  userId: string;
+  kind: string;
+  title: string;
+  author: string[];
+  year?: number;
+  body: string;
+  structure: SectionType[];
+  artist: string[];
+  album?: string;
+};
+
 async function main() {
   const { prisma } = await import("./db");
 
   // Skip pieces already seeded (by title) for the single user, so re-runs don't
-  // duplicate. One query up front rather than a lookup per piece.
+  // duplicate. Tombstoned rows count too (no `deletedAt` filter): a soft-deleted
+  // demo piece stays "already seeded" rather than coming back as a live dup.
+  // One query up front rather than a lookup per piece.
   const existing = new Set(
     (
       await prisma.entry.findMany({
-        where: {
-          userId: SINGLE_USER_ID,
-          deletedAt: null,
-          title: { in: SEEDS.map((s) => s.title) },
-        },
+        where: { userId: SINGLE_USER_ID, title: { in: SEEDS.map((s) => s.title) } },
         select: { title: true },
       })
     ).map((e) => e.title),
   );
 
-  let created = 0;
+  // Validate every piece *before* writing anything: a bad piece (missing file or
+  // a label count that doesn't match its body) is reported and skipped, never
+  // aborting the run or leaving a partial seed. The survivors are created
+  // together in one transaction below, so the seed is all-or-nothing.
+  const toCreate: EntryCreateData[] = [];
   let skipped = 0;
   let missing = 0;
+  let invalid = 0;
 
   for (const seed of SEEDS) {
     if (existing.has(seed.title)) {
@@ -163,36 +190,47 @@ async function main() {
 
     const sections = splitSections(body);
     if (sections.length !== seed.structure.length) {
-      throw new Error(
-        `${seed.title}: parsed ${sections.length} sections but ${seed.structure.length} ` +
-          `labels (${seed.structure.join(", ")}). Fix the label list in seed.ts to match ` +
-          `the body of .dummy/${seed.file}.`,
+      console.error(
+        `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
+          `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
+          `in seed.ts to match. Skipping.`,
       );
+      invalid++;
+      continue;
     }
 
-    await prisma.entry.create({
-      data: {
-        userId: SINGLE_USER_ID,
-        kind: seed.kind,
-        title: seed.title,
-        author: seed.author ?? [],
-        year: seed.year,
-        body,
-        structure: seed.structure,
-        artist: seed.artist ?? [],
-        album: seed.album,
-      },
+    toCreate.push({
+      userId: SINGLE_USER_ID,
+      kind: seed.kind,
+      title: seed.title,
+      author: seed.author ?? [],
+      year: seed.year,
+      body,
+      structure: seed.structure,
+      artist: seed.artist ?? [],
+      album: seed.album,
     });
-    console.log(`✓ ${seed.title} (${seed.kind}) — ${seed.structure.length} sections`);
-    created++;
   }
 
-  console.log(`\nSeed complete: ${created} created, ${skipped} skipped, ${missing} missing.`);
-  if (missing > 0 && created === 0 && skipped === 0) {
+  await prisma.$transaction(
+    toCreate.map((data) => {
+      console.log(`✓ ${data.title} (${data.kind}) — ${data.structure.length} sections`);
+      return prisma.entry.create({ data });
+    }),
+  );
+
+  console.log(
+    `\nSeed complete: ${toCreate.length} created, ${skipped} skipped, ` +
+      `${missing} missing, ${invalid} invalid.`,
+  );
+  if (missing === SEEDS.length) {
     console.log(`No demo files found in ${DUMMY_DIR}. Drop the DEMO_*.txt files there and re-run.`);
   }
 
   await prisma.$disconnect();
+  // A mislabeled piece is a real misconfiguration — surface it in the exit code
+  // (after seeding everything valid) so a caller or CI notices.
+  if (invalid > 0) process.exit(1);
 }
 
 main().catch(async (err) => {
