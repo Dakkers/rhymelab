@@ -20,6 +20,7 @@
     "cf-typegen": "pnpm --filter @rhymelab/web cf-typegen",
     "db:generate": "pnpm --filter @rhymelab/api db:generate",
     "db:migrate": "pnpm --filter @rhymelab/api db:migrate",
+    "db:seed": "pnpm --filter @rhymelab/api db:seed",
     "db:studio": "pnpm --filter @rhymelab/api db:studio",
     "test:unit": "pnpm --filter @rhymelab/core --filter @rhymelab/api test",
     "test:integration": "pnpm --filter @rhymelab/api test:integration",
