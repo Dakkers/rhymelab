@@ -47,12 +47,39 @@ const SECTION_TYPE_LABEL: Record<SectionType, string> = {
   outro: "Outro",
 };
 
+/**
+ * Identity of a single line within the body — `"<sectionIndex>:<lineIndex>"`.
+ * Sections and their lines are both positional (the body has no per-line id), so
+ * a composite of the two indices is the stable key while a piece is on screen.
+ */
+type LineKey = `${number}:${number}`;
+
 function AnnotatePage() {
   const { entryId } = Route.useParams();
   const [mode, setMode] = useState<Mode>("read");
+  // Which lines the reader has marked while in enjambment mode. Local-only for
+  // now — no draft is persisted yet; toggling a line just flips its pressed
+  // state. Keyed by `LineKey` so it survives re-renders without leaning on
+  // array identity.
+  const [enjambed, setEnjambed] = useState<ReadonlySet<LineKey>>(new Set());
   const { data: entry } = useSuspenseQuery(
     orpc.entries.get.queryOptions({ input: { id: entryId } }),
   );
+
+  const toggleLine = (key: LineKey) =>
+    setEnjambed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+
+  // Hoisted so the render can ask which section is the last one — the very last
+  // line of the piece has nothing to run on into, so it isn't a mark target.
+  const sections = splitSections(entry.body);
 
   return (
     <Page
@@ -107,14 +134,67 @@ function AnnotatePage() {
                   `structure` at exactly one label per section (`splitSections`), so
                   the two align index-for-index — no length guard needed. */}
               <Flex direction="column" gap="6">
-                {splitSections(entry.body).map((section, index) => (
-                  <Flex key={index} direction="column" gap="1">
-                    <Eyebrow>{SECTION_TYPE_LABEL[entry.structure[index]]}</Eyebrow>
-                    <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-                      {section}
-                    </Text>
-                  </Flex>
-                ))}
+                {sections.map((section, sectionIndex) => {
+                  // A section is a run of non-blank lines joined by `\n`
+                  // (`splitSections`), so splitting on `\n` yields the lines with
+                  // no blanks to guard.
+                  const lines = section.split("\n");
+                  const isLastSection = sectionIndex === sections.length - 1;
+                  return (
+                    <Flex key={sectionIndex} direction="column" gap="1">
+                      <Eyebrow>{SECTION_TYPE_LABEL[entry.structure[sectionIndex]]}</Eyebrow>
+                      {mode === "enjambment" ? (
+                        <Flex direction="column">
+                          {lines.map((line, lineIndex) => {
+                            // The final line of the whole piece runs on into
+                            // nothing, so it can't be enjambed — render it as
+                            // plain text with no target.
+                            if (isLastSection && lineIndex === lines.length - 1) {
+                              return (
+                                <Text key={lineIndex} className="rl-line-static" lineHeight="lyric">
+                                  {line}
+                                </Text>
+                              );
+                            }
+                            // The mark lives at the line's end — where the run-on
+                            // into the next line happens — so only the last word
+                            // plus the trailing gap is the hit target, not the
+                            // whole line. Split the line there.
+                            // Keep the natural space in the lead (outside the
+                            // target) so word spacing reads normally; the target
+                            // is just the last word + the gap out to the end.
+                            const splitAt = line.lastIndexOf(" ");
+                            const lead = splitAt === -1 ? "" : line.slice(0, splitAt + 1);
+                            const tail = splitAt === -1 ? line : line.slice(splitAt + 1);
+                            const key: LineKey = `${sectionIndex}:${lineIndex}`;
+                            return (
+                              <Text
+                                key={lineIndex}
+                                className="rl-line-row"
+                                style={{ display: "flex", alignItems: "baseline" }}
+                                lineHeight="lyric"
+                              >
+                                {lead && <span className="rl-line-lead">{lead}</span>}
+                                <button
+                                  type="button"
+                                  className="rl-enj-target"
+                                  aria-pressed={enjambed.has(key)}
+                                  onClick={() => toggleLine(key)}
+                                >
+                                  {tail}
+                                </button>
+                              </Text>
+                            );
+                          })}
+                        </Flex>
+                      ) : (
+                        <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
+                          {section}
+                        </Text>
+                      )}
+                    </Flex>
+                  );
+                })}
               </Flex>
             </Card>
           </Box>
