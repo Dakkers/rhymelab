@@ -392,6 +392,64 @@
 }
 
 /* ---------------------------------------------------------------- */
+/* Annotate enjambment line-end targets                            */
+/* ---------------------------------------------------------------- */
+
+/* An enjambment mark lives at the *end* of a line — the run-on happens in the
+   break into the next line — so the hit target is just the last word plus the
+   trailing gap, not the whole line. Each line is a row: the plain lead beside
+   that target. Baseline-align so the target's padded box doesn't nudge the text
+   off the line (`display: flex` is set inline, to beat Text's own display). */
+.rl-line-row {
+  align-items: baseline;
+}
+
+.rl-line-lead {
+  white-space: pre-wrap;
+}
+
+/* The end-of-line target: last word + the gap after it. Reset the button chrome
+   so it reads as text, not a control — the only affordance is a soft hairline
+   that firms up on hover and a brand-tinted fill when pressed (`aria-pressed`).
+   `flex: 1` makes it swallow the gap out to the line's end, so that whole run is
+   clickable. The space before the last word stays in the lead (outside the box)
+   and the left padding is zero, so the highlight starts right at the word and
+   word spacing stays natural. */
+.rl-enj-target {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 1px 0;
+  padding: 2px 8px 2px 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--rl-radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.rl-enj-target:hover {
+  border-color: var(--rl-hairline-strong);
+  background: var(--rl-surface-2);
+}
+
+.rl-enj-target[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--rl-brand) 45%, transparent);
+  background: color-mix(in srgb, var(--rl-brand) 10%, transparent);
+}
+
+/* The final line of the piece has nothing to run on into, so it carries no
+   target — plain text, padded to sit on the same rhythm as the rows above it. */
+.rl-line-static {
+  margin: 1px 0;
+  padding: 2px 0;
+}
+
+/* ---------------------------------------------------------------- */
 /* Annotate sticky footer                                          */
 /* ---------------------------------------------------------------- */
 
