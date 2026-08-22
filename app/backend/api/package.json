@@ -10,6 +10,7 @@
     "build": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx src/seed.ts",
     "db:studio": "prisma studio",
     "test": "vitest run --config .config/vitest.config.ts --project unit",
     "test:watch": "vitest --config .config/vitest.config.ts --project unit",
