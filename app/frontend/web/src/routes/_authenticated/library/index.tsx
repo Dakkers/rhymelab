@@ -1,11 +1,21 @@
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Badge, Card, CardList, Flex, Link, Text } from "@saintly-software/baritone";
+import {
+  Badge,
+  Card,
+  CardList,
+  Flex,
+  Icon,
+  InlineList,
+  Link,
+  Text,
+} from "@saintly-software/baritone";
+import { AlignLeft, Clock, PenLine, Plus, CaseSensitive } from "lucide-react";
 import type { EntrySummary } from "@rhymelab/api-contract";
 import { Page } from "../../../components/Page";
 import { orpc } from "../../../lib/orpc";
-import { pluralize, since } from "../../../lib/format";
+import { names, pluralize, since } from "../../../lib/format";
 import { useMounted } from "../../../lib/hooks";
 
 /**
@@ -28,7 +38,15 @@ function LibraryPage() {
       title="Library"
       subtitle={entries.length > 0 ? pluralize(entries.length, "saved piece") : undefined}
       actions={
-        <Link appearance="button" href="/entries/new">
+        <Link
+          appearance="button"
+          href="/entries/new"
+          startIcon={
+            <Icon>
+              <Plus />
+            </Icon>
+          }
+        >
           New entry
         </Link>
       }
@@ -63,52 +81,43 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
       href={`/entries/${entry.id}`}
       render={<RouterLink to="/entries/$entryId" params={{ entryId: entry.id }} />}
     >
-      <MetaRow>
-        <Text size="sm" saliency="low">
-          {pluralize(entry.lineCount, "line")}
-        </Text>
-        <Text size="sm" saliency="low">
-          {pluralize(entry.wordCount, "word")}
-        </Text>
-        {/* The writer, surfaced for lyrics (a poem already names them in the byline). */}
-        {entry.kind === "lyrics" && (
+      <InlineList
+        separator={
           <Text size="sm" saliency="low">
-            Words by {entry.author}
+            ·
           </Text>
+        }
+      >
+        <Stat icon={<AlignLeft />}>{pluralize(entry.lineCount, "line")}</Stat>
+        <Stat icon={<CaseSensitive />}>{pluralize(entry.wordCount, "word")}</Stat>
+        {/* The writer, surfaced for lyrics (a poem already names them in the
+            byline) — and only when there is one: the `&&` yields "" for an
+            unattributed piece, which InlineList drops along with its separator
+            rather than printing a bare "Words by". */}
+        {entry.kind === "lyrics" && names(entry.author) && (
+          <Stat icon={<PenLine />}>Words by {names(entry.author)}</Stat>
         )}
         <Updated at={entry.updatedAt} />
-      </MetaRow>
+      </InlineList>
     </Card>
   );
 }
 
 /**
  * The identity line under the title: who made it and when. A poem leads with its
- * author; lyrics lead with the performer and the record it's on.
+ * author; lyrics lead with the performer and the record it's on. Every part is
+ * optional — an unattributed piece, a single with no album, a year we don't know
+ * — so the parts go in as bare strings and `InlineList` drops the empty ones
+ * along with their separators. Typography is inherited from the `subheader`
+ * slot, so nothing here imposes its own.
  */
-function byline(entry: EntrySummary): string {
-  const parts =
-    entry.kind === "lyrics" ? [entry.artist, entry.album, entry.year] : [entry.author, entry.year];
-  // `year` is optional, so drop it (and any other gap) rather than print "undefined".
-  return parts.filter((part) => part !== undefined).join(" · ");
-}
-
-/** A row of low-saliency metadata, dot-separated and wrapping on narrow cards. */
-function MetaRow({ children }: { children: ReactNode }) {
-  const items = Array.isArray(children) ? children.filter(Boolean) : [children];
+function byline(entry: EntrySummary): ReactNode {
   return (
-    <Flex gap="2" align="center" wrap>
-      {items.map((item, i) => (
-        <Fragment key={i}>
-          {i > 0 && (
-            <Text size="sm" saliency="low" aria-hidden>
-              ·
-            </Text>
-          )}
-          {item}
-        </Fragment>
-      ))}
-    </Flex>
+    <InlineList>
+      {entry.kind === "lyrics" ? names(entry.artist) : names(entry.author)}
+      {entry.kind === "lyrics" && entry.album}
+      {entry.year}
+    </InlineList>
   );
 }
 
@@ -118,9 +127,24 @@ function MetaRow({ children }: { children: ReactNode }) {
  */
 function Updated({ at }: { at: string }) {
   const mounted = useMounted();
+  return <Stat icon={<Clock />}>{mounted ? `Edited ${since(at)}` : "Edited recently"}</Stat>;
+}
+
+/**
+ * One metadata item in a card's stat line: a small icon ahead of its label.
+ *
+ * The icons are decorative — `Icon` without a `label` is `aria-hidden`, so a
+ * screen reader hears "12 lines", not "document icon, 12 lines". The words are
+ * what carry the meaning; the glyph only makes the line scannable. Colour is
+ * inherited: `Icon` inside a `Text` picks up that text's resolved colour via
+ * `--iconColor`, so the icon dims with the label rather than needing its own
+ * `saliency`.
+ */
+function Stat({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <Text size="sm" saliency="low">
-      {mounted ? `Edited ${since(at)}` : "Edited recently"}
+    <Text size="sm" saliency="low" render={<Flex inline align="center" gap="1" />}>
+      <Icon size="sm">{icon}</Icon>
+      {children}
     </Text>
   );
 }

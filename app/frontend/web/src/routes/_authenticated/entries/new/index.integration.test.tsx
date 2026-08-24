@@ -25,9 +25,10 @@ test("saves a new lyrics entry via entries.create, then heads to the library", a
   await user.type(screen.getByLabelText("Lyrics"), "First line\nSecond line");
   await user.click(screen.getByRole("button", { name: "Next" }));
 
-  // Step 2 — metadata; artist and album are required on the lyrics arm.
-  await user.type(await screen.findByLabelText("Author"), "A. Writer");
-  await user.type(screen.getByLabelText("Artist"), "The Band");
+  // Step 2 — metadata. On the lyrics arm the writer field is labelled "Lyricist"
+  // (it's "Author" for a poem) and the performer sits above it.
+  await user.type(await screen.findByLabelText("Artist"), "The Band");
+  await user.type(screen.getByLabelText("Lyricist"), "A. Writer");
   await user.type(screen.getByLabelText("Album"), "The Record");
   await user.type(screen.getByLabelText("Year"), "2021");
   await user.click(screen.getByRole("button", { name: "Save entry" }));
@@ -37,8 +38,8 @@ test("saves a new lyrics entry via entries.create, then heads to the library", a
     expect(db.entries[0]).toMatchObject({
       kind: "lyrics",
       title: "My Song",
-      author: "A. Writer",
-      artist: "The Band",
+      author: ["A. Writer"],
+      artist: ["The Band"],
       album: "The Record",
       year: 2021,
       excerpt: "First line / Second line",

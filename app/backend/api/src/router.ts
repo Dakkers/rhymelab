@@ -10,9 +10,19 @@ import {
   create as entriesCreate,
   get as entriesGet,
   list as entriesList,
+  remove as entriesRemove,
+  updateBody as entriesUpdateBody,
+  updateStructure as entriesUpdateStructure,
 } from "./handlers/entries";
 
 export const router = os.router({
   auth: { login, logout, me },
-  entries: { list: entriesList, create: entriesCreate, get: entriesGet },
+  entries: {
+    list: entriesList,
+    create: entriesCreate,
+    get: entriesGet,
+    updateBody: entriesUpdateBody,
+    updateStructure: entriesUpdateStructure,
+    delete: entriesRemove,
+  },
 });

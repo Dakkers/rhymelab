@@ -1,8 +1,9 @@
 /**
- * The mock oRPC API: a real server-side `RPCHandler`, built by `implement`-ing the
+ * The mock API: a real server-side `OpenAPIHandler`, built by `implement`-ing the
  * shared contract and backed by the in-memory `db`. Sharing the contract means the
- * mock speaks the exact wire protocol the real API does — serialisation and
- * routing can't drift from production.
+ * mock speaks the exact wire protocol the real API does — the same
+ * `.route()`-annotated REST paths and serialisation — so it can't drift from
+ * production.
  *
  * `dispatchMock` runs a request through that handler. It is transport-agnostic on
  * purpose: the browser worker (`./handlers`, via MSW) and the SSR link
@@ -11,20 +12,25 @@
  * imports `msw` or any browser-only API, so it is also safe to load in the
  * Cloudflare Worker SSR runtime.
  */
+import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { implement, ORPCError } from "@orpc/server";
-import { RPCHandler } from "@orpc/server/fetch";
-import { contract, deriveEntrySummaryFields } from "@rhymelab/api-contract";
+import {
+  contract,
+  deriveEntrySummaryFields,
+  initStructure,
+  splitSections,
+} from "@rhymelab/api-contract";
 import { db } from "./db";
 
 /** Where the oRPC client sends requests — kept in step with `#/lib/orpc`. */
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/rpc";
+export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
 /**
- * The path oRPC procedures hang off, derived from the URL so the two stay in
- * step. `URL.pathname` always starts with `/`, which is the shape oRPC's
- * `prefix` option demands.
+ * The path the REST API hangs off, derived from the URL so the two stay in step.
+ * `URL.pathname` always starts with `/`, which is the shape oRPC's `prefix`
+ * option demands.
  */
-const RPC_PREFIX = new URL(API_URL).pathname as `/${string}`;
+const API_PREFIX = new URL(API_URL).pathname as `/${string}`;
 
 const os = implement(contract);
 
@@ -48,12 +54,14 @@ const router = {
     ),
     create: os.entries.create.handler(({ input }) => {
       const now = new Date().toISOString();
-      // The optional input fields collapse to "" on the wire shape, matching how
-      // the real API stores/returns them (author non-null; artist/album `?? ""`).
+      // The optional scalar (`album`) collapses to "" on the wire shape, matching
+      // the real API (it stores it nullable and maps NULL to "" on read). The list
+      // fields `author`/`artist` are already defaulted to `[]` by the contract, so
+      // they pass straight through.
       const base = {
         id: crypto.randomUUID(),
         title: input.title,
-        author: input.author ?? "",
+        author: input.author,
         year: input.year,
         body: input.body,
         ...deriveEntrySummaryFields(input.body),
@@ -65,7 +73,7 @@ const router = {
           ? {
               ...base,
               kind: "lyrics" as const,
-              artist: input.artist ?? "",
+              artist: input.artist,
               album: input.album ?? "",
             }
           : { ...base, kind: "poem" as const };
@@ -77,21 +85,66 @@ const router = {
       const entry = db.entries.find((candidate) => candidate.id === input.id);
       if (!entry) throw new ORPCError("NOT_FOUND");
       // Every stored entry (fixture-seeded or created above) carries a real
-      // `body`; drop the list-view-only derived fields the detail shape omits.
+      // `body`; drop the list-view-only derived fields the detail shape omits, and
+      // add a section-count-correct `structure` (the fixtures carry none) so the
+      // detail matches what the real API returns.
       const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
-      return detail;
+      return { ...detail, structure: initStructure(detail.body) };
+    }),
+    updateBody: os.entries.updateBody.handler(({ input }) => {
+      const entry = db.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // The real API re-derives the list fields from the new text and lets the
+      // database bump `updatedAt`; mirror both so the Library sees what it would
+      // after a real edit.
+      const updated = {
+        ...entry,
+        body: input.body,
+        ...deriveEntrySummaryFields(input.body),
+        updatedAt: new Date().toISOString(),
+      };
+      db.entries = db.entries.map((candidate) => (candidate.id === input.id ? updated : candidate));
+      const {
+        excerpt: _excerpt,
+        lineCount: _lineCount,
+        wordCount: _wordCount,
+        ...detail
+      } = updated;
+      // The real API re-syncs `structure` to the new sections; the mock has no
+      // stored labels to carry, so it stands in an all-default array of the right
+      // length — enough to keep the detail shape valid.
+      return { ...detail, structure: initStructure(detail.body) };
+    }),
+    updateStructure: os.entries.updateStructure.handler(({ input }) => {
+      const entry = db.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // Mirror the real handler's guard: the array must be one label per section.
+      if (input.structure.length !== splitSections(entry.body).length) {
+        throw new ORPCError("BAD_REQUEST");
+      }
+      const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
+      return { ...detail, structure: input.structure };
+    }),
+    delete: os.entries.delete.handler(({ input }) => {
+      const entry = db.entries.find((candidate) => candidate.id === input.id);
+      if (!entry) throw new ORPCError("NOT_FOUND");
+      // The real delete is soft, but the tombstone is invisible over the wire — a
+      // deleted piece is simply gone from every response, so dropping it from the
+      // store is a faithful mock of what a client can observe.
+      db.entries = db.entries.filter((candidate) => candidate.id !== input.id);
+      return { ok: true } as const;
     }),
   },
 };
 
-const rpcHandler = new RPCHandler(router);
+const apiHandler = new OpenAPIHandler(router);
 
 /**
- * Answer one request with the mock API. Returns the oRPC `Response` when the
- * request targets a known procedure, or `null` when it doesn't — letting the
- * caller fall back (pass through to the network, or 404).
+ * Answer one request with the mock API. Returns the `Response` when the request
+ * targets a known REST route, or `null` when it doesn't — letting the caller fall
+ * back (pass through to the network, or 404).
  */
 export async function dispatchMock(request: Request): Promise<Response | null> {
-  const { matched, response } = await rpcHandler.handle(request, { prefix: RPC_PREFIX });
+  const { matched, response } = await apiHandler.handle(request, { prefix: API_PREFIX });
   return matched ? response : null;
 }

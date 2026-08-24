@@ -21,7 +21,7 @@ pnpm dev:web                   # web on :3000
 ```
 
 Set the app password so the auth step can sign in (same value as `PASSWORD` in
-`app/backend/api/.env`):
+`app/backend/api/.config/.env`):
 
 ```bash
 export E2E_APP_PASSWORD='your-app-password'

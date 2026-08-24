@@ -152,8 +152,8 @@ Read from the environment (surfaced on `process.env` under `nodejs_compat`):
 - `SESSION_SECRET` — signs the session cookie (use ≥ 32 random chars).
 - `APP_PASSWORD` — the password that unlocks the site (defaults to `password`).
 
-Locally, copy `.config/.dev.vars.example` → `.config/.dev.vars` and fill them in
-(the app also runs without them, using insecure dev defaults).
+Locally, create `.config/.dev.vars` with those two keys (the app also runs
+without it, using insecure dev defaults). It's gitignored.
 
 ## Notes & known alpha limits
 

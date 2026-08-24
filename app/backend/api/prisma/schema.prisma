@@ -18,8 +18,8 @@ datasource db {
 
 /// A saved piece — a poem or a song's lyrics. Shape follows the api-contract's
 /// `EntrySummarySchema`: `kind` discriminates the two, and `artist`/`album` are
-/// present only for lyrics. Every optional field is nullable, `artist`/`album`
-/// included. `userId` scopes every query — the app is moving toward multi-user,
+/// present only for lyrics. Optional scalars are nullable; the list columns
+/// (`author`/`artist`) record absence as `[]`. `userId` scopes every query — the app is moving toward multi-user,
 /// and entries are always listed per user.
 model Entry {
   id     String @id @default(uuid()) @db.Uuid
@@ -28,10 +28,10 @@ model Entry {
   kind  String // "poem" | "lyrics"
   title String
 
-  // Optional metadata. All nullable — NULL means "not provided" — and coerced to
-  // the contract's shape on read (see `toEntrySummary`), so absence is recorded
-  // one way rather than as "" here and NULL there.
-  author String?
+  // Optional metadata. A piece can have several writers, so `author` is a list —
+  // ordered, and empty when none was given (lists can't be NULL, so absence is
+  // `[]` rather than NULL). `year` is nullable; NULL means "not provided".
+  author String[] @default([])
   year   Int?
 
   // The full text as saved. The list view's excerpt / line count / word count
@@ -39,14 +39,43 @@ model Entry {
   // they can never drift from the body they summarize.
   body String
 
-  // Lyrics-only fields; null for poems.
-  artist String?
+  // One section label per body section, in order — the piece's structure. Its
+  // length is held equal to the number of sections in `body` (blank-line-
+  // separated blocks): a new piece defaults to one `verse` per section, and the
+  // API re-syncs the array on every body edit, so the two can't drift. The
+  // `@default([])` only fires for the create input's optional field; the write
+  // path always supplies a correctly-sized array. See `structure` helpers in
+  // `@rhymelab/api-contract`.
+  structure String[] @default([])
+
+  // Lyrics-only fields; empty / null for poems. `artist` is a list for the same
+  // reason as `author` — a track can credit more than one performer.
+  artist String[] @default([])
   album  String?
 
+  // Both stamps are the database's to set, never the app's. Neither attribute
+  // below achieves that on its own — `@updatedAt` is client-side outright, and
+  // this generator resolves `@default(now())` client-side too, so the column
+  // default never fires. A `BEFORE INSERT OR UPDATE` trigger is what actually
+  // maintains them; see the `entry_updated_at_db_clock` migration. `@updatedAt`
+  // is deliberately absent, and the `@default(now())`s survive only to keep the
+  // fields optional in the generated create input — the trigger overwrites
+  // whatever the client binds, and holds `createdAt` immutable across updates.
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
 
-  @@index([userId])
+  // Soft-delete tombstone: NULL means live, a timestamp means the user deleted
+  // it. Every read path filters on `deletedAt: null` (see `EntryController`), so
+  // a deleted piece disappears from the app while the row — and anything that
+  // references it — survives, and the delete stays reversible.
+  deletedAt DateTime? @map("deleted_at")
+
   @@index([kind])
+  // The library lists one user's live entries, so the filter is (user, live) —
+  // pairing the columns keeps that read on a single index as tombstones pile up.
+  // This replaces the plain `[userId]` index rather than joining it: `userId` is
+  // this one's leading column, so a lookup on it alone is served here too, and
+  // keeping both would just cost a second b-tree update on every write.
+  @@index([userId, deletedAt])
   @@map("entries")
 }

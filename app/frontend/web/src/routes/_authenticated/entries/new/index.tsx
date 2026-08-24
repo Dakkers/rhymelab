@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Flex, Text, TextInput, ToggleGroup } from "@saintly-software/baritone";
 import type { EntryKind } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
-import { client, orpc } from "#/lib/orpc";
+import { orpc } from "#/lib/orpc";
 
 export const Route = createFileRoute("/_authenticated/entries/new/")({
   component: NewEntryPage,
@@ -44,43 +44,58 @@ const DEFAULTS: NewEntryForm = {
 };
 
 /**
- * Build the create payload and send it over oRPC. Drops the UI-only `step`,
- * coerces `year`, and narrows the lyrics-only fields off `kind` so the shape
- * matches the contract's `EntryCreateInput` union. The optional text fields
- * (author, artist, album) go out as `undefined` when blank rather than "", so
- * they're stored absent. The server derives excerpt / line count / word count
- * from `body`, so none of those are sent.
+ * Build the create payload from the form. Drops the UI-only `step`, coerces
+ * `year`, and narrows the lyrics-only fields off `kind` so the shape matches the
+ * contract's `EntryCreateInput` union. Blank `album` goes out as
+ * `undefined` rather than "", so it's stored absent. `author` and `artist` are
+ * lists on the wire — the form still collects one value each, so a blank one
+ * becomes `[]` (see `toList`). The server derives excerpt / line count / word
+ * count from `body`, so none of those are sent.
  */
-function createEntry({ step: _step, ...values }: NewEntryForm) {
+const toList = (value: string) => (value.trim() ? [value.trim()] : []);
+
+function buildCreatePayload({ step: _step, ...values }: NewEntryForm) {
   const base = {
     title: values.title.trim(),
-    author: values.author.trim() || undefined,
+    author: toList(values.author),
     body: values.body,
     year: values.year.trim() ? Number(values.year) : undefined,
   };
-  const payload =
-    values.kind === "lyrics"
-      ? {
-          ...base,
-          kind: "lyrics" as const,
-          artist: values.artist.trim() || undefined,
-          album: values.album.trim() || undefined,
-        }
-      : { ...base, kind: "poem" as const };
-  return client.entries.create(payload);
+  return values.kind === "lyrics"
+    ? {
+        ...base,
+        kind: "lyrics" as const,
+        artist: toList(values.artist),
+        album: values.album.trim() || undefined,
+      }
+    : { ...base, kind: "poem" as const };
 }
 
 function NewEntryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // A real mutation (rather than a bare `client.entries.create` in the submit
+  // handler) so a failed create rides the global error toast wired in `#/router`.
+  const createEntry = useMutation(
+    orpc.entries.create.mutationOptions({
+      onSuccess: async () => {
+        // Invalidate the cached entries list so the Library refetches with the new piece.
+        await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
+        await navigate({ to: "/library" });
+      },
+    }),
+  );
+
   const form = useForm({
     defaultValues: DEFAULTS,
+    // `mutateAsync` (not `mutate`) so the form stays `isSubmitting` until the
+    // write settles — that's what drives the Save button below. The global
+    // `MutationCache.onError` in `#/router` already toasts a failed write, so
+    // swallow the rejection here to keep an unhandled promise from escaping
+    // `void form.handleSubmit()`; `onSuccess` owns invalidation and navigation.
     onSubmit: async ({ value }) => {
-      await createEntry(value);
-      // Invalidate the cached entries list so the Library refetches with the new piece.
-      await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
-      await navigate({ to: "/library" });
+      await createEntry.mutateAsync(buildCreatePayload(value)).catch(() => {});
     },
   });
 
@@ -160,24 +175,15 @@ function NewEntryPage() {
   // Step 2 — the metadata; the lyrics-only fields appear only for the lyrics kind.
   const metadataStep = (
     <>
-      <form.Field name="author">
-        {(field) => (
-          <TextInput
-            label="Author"
-            helpText="The writer — a poem's poet, or a song's lyricist."
-            value={field.state.value}
-            onChange={(value) => field.handleChange(value)}
-            onBlur={field.handleBlur}
-            placeholder="Optional"
-          />
-        )}
-      </form.Field>
-
-      {/* Lyrics-only fields — hidden for poems, matching the contract's union. */}
+      {/* Kind is settled in step 1, so the writer field can just name itself for
+          the kind at hand — "Author" for a poem, "Lyricist" for a song — instead
+          of carrying help text explaining that it means both. For lyrics the
+          performer comes first: it's the credit you'd reach for to identify the
+          song, with the lyricist a level of detail below it. */}
       <form.Subscribe selector={(state) => state.values.kind}>
-        {(kind) =>
-          kind === "lyrics" ? (
-            <>
+        {(kind) => (
+          <>
+            {kind === "lyrics" ? (
               <form.Field name="artist">
                 {(field) => (
                   <TextInput
@@ -189,6 +195,21 @@ function NewEntryPage() {
                   />
                 )}
               </form.Field>
+            ) : null}
+
+            <form.Field name="author">
+              {(field) => (
+                <TextInput
+                  label={kind === "lyrics" ? "Lyricist" : "Author"}
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Optional"
+                />
+              )}
+            </form.Field>
+
+            {kind === "lyrics" ? (
               <form.Field name="album">
                 {(field) => (
                   <TextInput
@@ -200,9 +221,9 @@ function NewEntryPage() {
                   />
                 )}
               </form.Field>
-            </>
-          ) : null
-        }
+            ) : null}
+          </>
+        )}
       </form.Subscribe>
 
       <form.Field name="year">
@@ -223,8 +244,8 @@ function NewEntryPage() {
           Back
         </Button>
         <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(submitting) => (
-            <Button type="submit" loading={submitting}>
+          {(isSubmitting) => (
+            <Button type="submit" loading={isSubmitting}>
               Save entry
             </Button>
           )}
