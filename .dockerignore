@@ -35,6 +35,7 @@ app/frontend/web/.config/.env.*
 # Dev-only tooling not needed in the app image
 sandbox
 compose.yaml
+compose.sandbox.yaml
 infra
 
 # Docs

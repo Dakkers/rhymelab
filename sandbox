@@ -17,6 +17,7 @@
 #
 #   ./sandbox            # up: provision + migrate the DB, then run API + web
 #   ./sandbox up         # (same as no args)
+#   ./sandbox prod-like  # run the API as its real container (Dockerfile, prod env) — mirrors Render
 #   ./sandbox status     # show this worktree's slug, database, ports
 #   ./sandbox migrate    # ensure the DB exists and apply migrations (no servers)
 #   ./sandbox reset      # drop + recreate + migrate (wipes this worktree's data)
@@ -364,6 +365,53 @@ BANNER
   exit 1
 }
 
+# Prod-like flavor: run the API as the real container image (compose.sandbox.yaml)
+# instead of the host `tsx watch` process — NODE_ENV=production, bound to 0.0.0.0,
+# migrations applied in-container, real secrets. It mirrors how Render runs the
+# service. The web isn't started here; run `./sandbox up` in another terminal for
+# the UI, or hit the API directly. See compose.sandbox.yaml for the OrbStack HTTPS
+# note (needed for the Secure session cookie in a browser).
+cmd_prod_like() {
+  ensure_pg
+  ensure_db # create the empty per-worktree DB; the migrate container fills it
+
+  local API_PORT
+  API_PORT="$(free_port "$API_BASE")"
+
+  # Env consumed by compose.sandbox.yaml. Secrets fall back to sandbox defaults
+  # there; export SANDBOX_SESSION_SECRET / SANDBOX_APP_PASSWORD in your shell to
+  # override. FRONTEND_ORIGIN defaults to this worktree's web base port.
+  export SANDBOX_DB="$DB"
+  export SANDBOX_API_PORT="$API_PORT"
+  export SANDBOX_FRONTEND_ORIGIN="${SANDBOX_FRONTEND_ORIGIN:-http://localhost:${WEB_BASE}}"
+
+  cat <<BANNER
+
+  ┌─ RhymeLab sandbox (prod-like) ────────────────────────────
+  │ worktree : $slug
+  │ database : $DB (isolated)
+  │ api      : http://localhost:${API_PORT}/api   (container)
+  │ image    : built from app/backend/api/Dockerfile
+  │ env      : NODE_ENV=production, HOST=0.0.0.0, real secrets
+  │
+  │ On OrbStack the container also gets an automatic HTTPS URL
+  │ (~https://api.<project>.orb.local) — needed for the Secure
+  │ session cookie in a browser. Verify it with \`orb list\`.
+  │
+  │ Ctrl-C stops the stack. The database persists — drop it with
+  │ \`./sandbox down\` when you're done.
+  └───────────────────────────────────────────────────────────
+
+BANNER
+
+  # Per-worktree project name so two worktrees' prod-like stacks (and their
+  # OrbStack domains) don't collide. `compose down` on exit removes the api +
+  # migrate containers; the shared Postgres is a separate project, left running.
+  local project="rhymelab-sbx-${slug}"
+  trap 'docker compose -p "'"$project"'" -f compose.sandbox.yaml down --remove-orphans >/dev/null 2>&1 || true' EXIT
+  docker compose -p "$project" -f compose.sandbox.yaml up --build
+}
+
 usage() {
   # Print the leading comment block (skip the shebang, stop at the first line of
   # code), stripping the "# " prefix.
@@ -371,7 +419,10 @@ usage() {
 }
 
 case "${1:-up}" in
-  up | "") cmd_up ;;
+  up | "")
+    if [[ "${2:-}" == "--prod-like" || "${2:-}" == "--prod" ]]; then cmd_prod_like; else cmd_up; fi
+    ;;
+  prod-like | prod) cmd_prod_like ;;
   status) cmd_status ;;
   migrate) cmd_migrate ;;
   reset)
