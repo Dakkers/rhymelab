@@ -1,0 +1,69 @@
+# Prod-like sandbox for @rhymelab/api. Where compose.yaml just runs Postgres and
+# `./sandbox` runs the API as a host `tsx watch` dev process, this runs the API
+# the way Render actually will: the real container image built from
+# app/backend/api/Dockerfile, NODE_ENV=production, bound to 0.0.0.0, with
+# migrations applied in-container first (mirroring Render's pre-deploy command).
+#
+# It does NOT define Postgres — it reuses the shared `rhymelab-postgres` container
+# that compose.yaml / `./sandbox` already manage, reached over the host-published
+# port via host.docker.internal. The per-worktree database must already exist;
+# `./sandbox prod-like` guarantees that (ensure_pg + ensure_db) before invoking
+# this file, and passes the env vars below.
+#
+# Run it through the wrapper (recommended — sets the per-worktree DB, a free
+# port, and the origin):
+#
+#   ./sandbox prod-like
+#
+# …or directly, overriding any of the ${...} vars from your shell:
+#
+#   SANDBOX_DB=rhymelab_myslug SANDBOX_API_PORT=4100 \
+#     docker compose -f compose.sandbox.yaml up --build
+#
+# On OrbStack the api container is also reachable over automatic HTTPS at roughly
+# https://api.<project>.orb.local — the only way to exercise the NODE_ENV=production
+# Secure-cookie path in a browser (see the note in README/handoff). Confirm the
+# exact domain with `orb list` or the OrbStack UI.
+
+# Shared build + env for both the one-shot migrator and the long-running API.
+# BuildKit layer caching makes the second build effectively free.
+x-api: &api
+  build:
+    context: .
+    dockerfile: app/backend/api/Dockerfile
+  environment: &api-env
+    NODE_ENV: production
+    HOST: 0.0.0.0
+    # The shared Postgres is published on the host at :5433; reach it from inside
+    # the container via host.docker.internal (native on OrbStack; the extra_hosts
+    # mapping below covers Docker Desktop / Linux).
+    DATABASE_URL: "postgresql://rhymelab:rhymelab@host.docker.internal:5433/${SANDBOX_DB:-rhymelab}"
+    # Real (non-dev-fallback) secret so the production auth path runs: session.ts
+    # only treats SESSION_SECRET as real at >= 32 chars, and issues a Secure
+    # cookie when NODE_ENV=production.
+    SESSION_SECRET: "${SANDBOX_SESSION_SECRET:-sandbox-insecure-session-secret-change-me-0123456789}"
+    APP_PASSWORD: "${SANDBOX_APP_PASSWORD:-sandbox-password}"
+    # CORS allowlist — the web origin. Credentials mode needs an exact origin.
+    FRONTEND_ORIGIN: "${SANDBOX_FRONTEND_ORIGIN:-http://localhost:3000}"
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  # One-shot: apply migrations to the worktree DB, then exit — the same
+  # `prisma migrate deploy` Render runs as its pre-deploy command.
+  migrate:
+    <<: *api
+    command: ["pnpm", "--filter", "@rhymelab/api", "exec", "prisma", "migrate", "deploy"]
+    restart: "no"
+
+  # The Fastify service. Starts only after migrate exits 0. The app listens on
+  # 4000 inside the container (main.ts's PORT default); we publish it on the
+  # host port the wrapper picked.
+  api:
+    <<: *api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${SANDBOX_API_PORT:-4000}:4000"
+    restart: unless-stopped
