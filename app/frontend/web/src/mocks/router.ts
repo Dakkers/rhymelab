@@ -22,7 +22,9 @@ import {
   type EntryDetail,
   type SectionType,
 } from "@rhymelab/api-contract";
+import type { z } from "zod";
 import { db, type MockEntry } from "./db";
+import { fakeSchema } from "./fake-schema";
 
 /** Where the oRPC client sends requests — kept in step with `#/lib/orpc`. */
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
@@ -150,12 +152,61 @@ const router = {
 
 const apiHandler = new OpenAPIHandler(router);
 
+/** A leaf contract node carries oRPC's `~orpc` definition; a namespace is a plain
+ *  object of them. Used to walk the contract in parallel with `os`. */
+function isProcedure(node: unknown): node is { "~orpc": { outputSchema?: z.ZodType } } {
+  return typeof node === "object" && node !== null && "~orpc" in node;
+}
+
+/** The shape of an `os.*` leaf — the builder whose `.handler()` mounts a procedure. */
+interface Implementer {
+  handler(handler: () => unknown): unknown;
+}
+
 /**
- * Answer one request with the mock API. Returns the `Response` when the request
- * targets a known REST route, or `null` when it doesn't — letting the caller fall
- * back (pass through to the network, or 404).
+ * A parallel router that answers *every* contract procedure with a
+ * `fakeSchema`-generated, schema-valid stub. It's consulted only as a fallback
+ * (see `dispatchMock`), so a contract procedure not hand-written above keeps the
+ * mock working — an obvious placeholder response — instead of 404-ing, until it's
+ * given real stateful behaviour here. Walks the contract and `os` in lockstep.
+ */
+function buildStubRouter(
+  contractNode: Record<string, unknown>,
+  osNode: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(contractNode)) {
+    const node = contractNode[key];
+    if (isProcedure(node)) {
+      const schema = node["~orpc"].outputSchema;
+      out[key] = (osNode[key] as Implementer).handler(() =>
+        schema ? fakeSchema(schema) : undefined,
+      );
+    } else {
+      out[key] = buildStubRouter(
+        node as Record<string, unknown>,
+        osNode[key] as Record<string, unknown>,
+      );
+    }
+  }
+  return out;
+}
+
+const stubRouter = buildStubRouter(
+  contract as unknown as Record<string, unknown>,
+  os as unknown as Record<string, unknown>,
+) as ConstructorParameters<typeof OpenAPIHandler>[0];
+const stubHandler = new OpenAPIHandler(stubRouter);
+
+/**
+ * Answer one request with the mock API. The hand-written handlers answer first;
+ * a request they don't recognise but the contract still declares falls to the
+ * stub handler. Returns `null` only when the request targets no contract route at
+ * all — letting the caller pass through to the network.
  */
 export async function dispatchMock(request: Request): Promise<Response | null> {
-  const { matched, response } = await apiHandler.handle(request, { prefix: API_PREFIX });
-  return matched ? response : null;
+  const real = await apiHandler.handle(request, { prefix: API_PREFIX });
+  if (real.matched) return real.response;
+  const stub = await stubHandler.handle(request, { prefix: API_PREFIX });
+  return stub.matched ? stub.response : null;
 }
