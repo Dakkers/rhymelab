@@ -19,8 +19,10 @@ import {
   deriveEntrySummaryFields,
   initStructure,
   splitSections,
+  type EntryDetail,
+  type SectionType,
 } from "@rhymelab/api-contract";
-import { db } from "./db";
+import { db, type MockEntry } from "./db";
 
 /** Where the oRPC client sends requests — kept in step with `#/lib/orpc`. */
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
@@ -33,6 +35,29 @@ export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/ap
 const API_PREFIX = new URL(API_URL).pathname as `/${string}`;
 
 const os = implement(contract);
+
+/**
+ * Look a stored entry up by id, or 404 the way the real API does — which also
+ * 404s a piece owned by another user, so "not yours" and "doesn't exist" look
+ * identical to the caller. Shared by every by-id procedure (`get`, the updates,
+ * `delete`).
+ */
+function entryOr404(id: string): MockEntry {
+  const entry = db.entries.find((candidate) => candidate.id === id);
+  if (!entry) throw new ORPCError("NOT_FOUND");
+  return entry;
+}
+
+/**
+ * Project a stored row onto the detail shape: drop the list-view-only derived
+ * fields (`excerpt`/`lineCount`/`wordCount`) and attach the `structure` the
+ * detail view renders. The stored row always carries a real `body`, so the
+ * result is a complete `EntryDetail`.
+ */
+function toDetail(entry: MockEntry, structure: SectionType[]): EntryDetail {
+  const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
+  return { ...detail, structure };
+}
 
 const router = {
   auth: {
@@ -82,18 +107,13 @@ const router = {
       return entry;
     }),
     get: os.entries.get.handler(({ input }) => {
-      const entry = db.entries.find((candidate) => candidate.id === input.id);
-      if (!entry) throw new ORPCError("NOT_FOUND");
-      // Every stored entry (fixture-seeded or created above) carries a real
-      // `body`; drop the list-view-only derived fields the detail shape omits, and
-      // add a section-count-correct `structure` (the fixtures carry none) so the
-      // detail matches what the real API returns.
-      const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
-      return { ...detail, structure: initStructure(detail.body) };
+      // Fixtures carry no labels, so stand in a section-count-correct default
+      // `structure` — what the real API returns for a never-labelled entry.
+      const entry = entryOr404(input.id);
+      return toDetail(entry, initStructure(entry.body));
     }),
     updateBody: os.entries.updateBody.handler(({ input }) => {
-      const entry = db.entries.find((candidate) => candidate.id === input.id);
-      if (!entry) throw new ORPCError("NOT_FOUND");
+      const entry = entryOr404(input.id);
       // The real API re-derives the list fields from the new text and lets the
       // database bump `updatedAt`; mirror both so the Library sees what it would
       // after a real edit.
@@ -104,30 +124,21 @@ const router = {
         updatedAt: new Date().toISOString(),
       };
       db.entries = db.entries.map((candidate) => (candidate.id === input.id ? updated : candidate));
-      const {
-        excerpt: _excerpt,
-        lineCount: _lineCount,
-        wordCount: _wordCount,
-        ...detail
-      } = updated;
       // The real API re-syncs `structure` to the new sections; the mock has no
-      // stored labels to carry, so it stands in an all-default array of the right
-      // length — enough to keep the detail shape valid.
-      return { ...detail, structure: initStructure(detail.body) };
+      // stored labels to carry, so an all-default array of the right length stands
+      // in — enough to keep the detail shape valid.
+      return toDetail(updated, initStructure(updated.body));
     }),
     updateStructure: os.entries.updateStructure.handler(({ input }) => {
-      const entry = db.entries.find((candidate) => candidate.id === input.id);
-      if (!entry) throw new ORPCError("NOT_FOUND");
+      const entry = entryOr404(input.id);
       // Mirror the real handler's guard: the array must be one label per section.
       if (input.structure.length !== splitSections(entry.body).length) {
         throw new ORPCError("BAD_REQUEST");
       }
-      const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
-      return { ...detail, structure: input.structure };
+      return toDetail(entry, input.structure);
     }),
     delete: os.entries.delete.handler(({ input }) => {
-      const entry = db.entries.find((candidate) => candidate.id === input.id);
-      if (!entry) throw new ORPCError("NOT_FOUND");
+      entryOr404(input.id); // 404 first, so deleting a missing piece isn't a silent no-op.
       // The real delete is soft, but the tombstone is invisible over the wire — a
       // deleted piece is simply gone from every response, so dropping it from the
       // store is a faithful mock of what a client can observe.
