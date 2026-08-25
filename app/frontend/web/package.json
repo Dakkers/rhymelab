@@ -29,16 +29,12 @@
   "dependencies": {
     "@base-ui/react": "1.6.0",
     "@cloudflare/vite-plugin": "1.44.0",
-    "@faker-js/faker": "10.5.0",
     "@orpc/client": "1.14.5",
     "@orpc/contract": "1.14.5",
-    "@orpc/openapi": "1.14.5",
     "@orpc/openapi-client": "1.14.5",
-    "@orpc/server": "1.14.5",
     "@orpc/tanstack-query": "1.14.5",
     "@rhymelab/api-contract": "workspace:*",
     "@rhymelab/core": "workspace:*",
-    "@rhymelab/fixtures": "workspace:*",
     "@saintly-software/baritone": "1.0.0-alpha.6",
     "@tanstack/react-form": "1.33.5",
     "@tanstack/react-query": "5.101.2",
@@ -50,14 +46,16 @@
     "@vanilla-extract/css": "1.21.1",
     "@vanilla-extract/css-utils": "0.1.6",
     "lucide-react": "1.25.0",
-    "msw": "2.15.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "zod": "4.4.3",
-    "zod-schema-faker": "2.1.1"
+    "zod": "4.4.3"
   },
   "devDependencies": {
+    "@faker-js/faker": "10.5.0",
+    "@orpc/openapi": "1.14.5",
+    "@orpc/server": "1.14.5",
     "@playwright/test": "1.62.0",
+    "@rhymelab/fixtures": "workspace:*",
     "@tanstack/router-cli": "1.167.18",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "7.0.0",
@@ -70,13 +68,15 @@
     "@vitejs/plugin-react": "6.0.3",
     "@vitest/browser": "4.1.10",
     "@vitest/browser-playwright": "4.1.10",
+    "msw": "2.15.0",
     "oxfmt": "0.50.0",
     "oxlint": "1.64.0",
     "playwright": "1.62.0",
     "typescript": "6.0.3",
     "vite": "8.1.4",
     "vitest": "4.1.10",
-    "wrangler": "4.110.0"
+    "wrangler": "4.110.0",
+    "zod-schema-faker": "2.1.1"
   },
   "msw": {
     "workerDirectory": [

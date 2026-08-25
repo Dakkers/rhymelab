@@ -15,12 +15,14 @@
  * loaders authenticate. The header function is lazy so a module-level client is
  * safe — only the per-request cookie read happens per request.
  *
- * Mock mode: append `?__mock` to any URL and every API call is answered by the
- * in-memory mock API (`#/mocks`) instead of the real backend — no server needed.
- * In the browser that's a real MSW Service Worker intercepting the fetch; during
- * SSR (where MSW can't run in the Cloudflare Worker runtime) the same handler is
- * invoked in-process. Either way the mock code is loaded lazily — behind a
- * dynamic `import()` gated on the flag — so it never ships in a normal page load.
+ * Mock mode (dev only): append `?__mock` to any URL under `vite dev` and every
+ * API call is answered by the in-memory mock API (`#/mocks`) instead of the real
+ * backend — no server needed. In the browser that's a real MSW Service Worker
+ * intercepting the fetch; during SSR (where MSW can't run in the Cloudflare
+ * Worker runtime) the same handler is invoked in-process. Both paths sit behind a
+ * dynamic `import()` guarded by `import.meta.env.DEV`, so a production build
+ * eliminates the branch — and with it the mock and its dev-only deps (MSW, the
+ * fixture/faker generators, the oRPC server handler) never reach the bundle.
  */
 import { createORPCClient } from "@orpc/client";
 import type { ContractRouterClient } from "@orpc/contract";
@@ -57,8 +59,10 @@ const getLink = createIsomorphicFn()
       url: API_URL,
       fetch: async (request, init) => {
         // Register MSW before the first mocked fetch; the Service Worker then
-        // intercepts this call — and every later one — in the page itself.
-        if (mockEnabled) {
+        // intercepts this call — and every later one — in the page itself. The
+        // `import.meta.env.DEV` guard is what drops the mock from production
+        // builds (Vite folds it to `false`, so the dynamic import is stripped).
+        if (import.meta.env.DEV && mockEnabled) {
           const { startMockWorker } = await import("#/mocks/browser");
           await startMockWorker();
         }
@@ -79,8 +83,9 @@ const getLink = createIsomorphicFn()
         fetch: async (request, init) => {
           // MSW can't run in the Cloudflare Worker SSR runtime, so mock mode is
           // served in-process here — the same handler the browser worker wraps,
-          // answering the request without touching the network.
-          if (serverMockEnabled()) {
+          // answering the request without touching the network. `import.meta.env.DEV`
+          // strips this whole branch (and the mock) from production builds.
+          if (import.meta.env.DEV && serverMockEnabled()) {
             const { dispatchMock } = await import("#/mocks/router");
             const response = await dispatchMock(
               request instanceof Request ? request : new Request(request, init),
