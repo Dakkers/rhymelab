@@ -14,7 +14,7 @@ import { splitSections } from "@rhymelab/api-contract";
 import type { FakeEntry } from "@rhymelab/fixtures";
 import { names } from "#/lib/format";
 import { renderRoute } from "#/test/render-route";
-import { store } from "#/test/mocks/handlers";
+import { db } from "#/mocks/db";
 import { Route } from "./index";
 
 /**
@@ -52,7 +52,7 @@ function expectSectionsRendered(body: string): void {
 }
 
 test("renders a lyrics entry, with the performer and record in the byline", async () => {
-  const entry = store.entries.find((candidate) => candidate.kind === "lyrics");
+  const entry = db.entries.find((candidate) => candidate.kind === "lyrics");
   // Narrows to the lyrics arm as well as asserting the fixtures cover it.
   if (entry?.kind !== "lyrics") throw new Error("expected a lyrics fixture entry");
 
@@ -66,7 +66,7 @@ test("renders a lyrics entry, with the performer and record in the byline", asyn
 });
 
 test("renders a poem entry, with the author in the byline", async () => {
-  const entry = store.entries.find((candidate) => candidate.kind === "poem");
+  const entry = db.entries.find((candidate) => candidate.kind === "poem");
   // Narrows to the poem arm as well as asserting the fixtures cover it.
   if (entry?.kind !== "poem") throw new Error("expected a poem fixture entry");
 
@@ -91,7 +91,7 @@ test("surfaces the router's default error UI for an unknown id", async () => {
 
 test("deletes the piece from the Actions menu, once the confirmation is accepted", async () => {
   const user = userEvent.setup();
-  const [entry] = store.entries;
+  const [entry] = db.entries;
   const { router } = renderRoute(Route, {
     path: "/entries/$entryId",
     initialEntries: [`/entries/${entry.id}`],
@@ -103,18 +103,18 @@ test("deletes the piece from the Actions menu, once the confirmation is accepted
 
   // Nothing is gone yet — the menu item only asks.
   const dialog = await screen.findByRole("dialog");
-  expect(store.entries).toContain(entry);
+  expect(db.entries).toContain(entry);
 
   await user.click(within(dialog).getByRole("button", { name: "Delete Entry" }));
 
-  await vi.waitFor(() => expect(store.entries).not.toContain(entry));
+  await vi.waitFor(() => expect(db.entries).not.toContain(entry));
   // ...and the now-deleted page sends us back to the library.
   await vi.waitFor(() => expect(router.state.location.pathname).toBe("/library"));
 });
 
 test("keeps the piece when the confirmation is cancelled", async () => {
   const user = userEvent.setup();
-  const [entry] = store.entries;
+  const [entry] = db.entries;
   renderRoute(Route, {
     path: "/entries/$entryId",
     initialEntries: [`/entries/${entry.id}`],
@@ -126,13 +126,13 @@ test("keeps the piece when the confirmation is cancelled", async () => {
   const dialog = await screen.findByRole("dialog");
   await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
-  expect(store.entries).toContain(entry);
+  expect(db.entries).toContain(entry);
   expect(screen.getByRole("heading", { level: 1, name: entry.title })).toBeInTheDocument();
 });
 
 test("edits the text from the Actions menu, and shows the saved version on the page", async () => {
   const user = userEvent.setup();
-  const [entry] = store.entries;
+  const [entry] = db.entries;
   renderRoute(Route, {
     path: "/entries/$entryId",
     initialEntries: [`/entries/${entry.id}`],
@@ -158,7 +158,7 @@ test("edits the text from the Actions menu, and shows the saved version on the p
 
 test("leaves the text alone when the edit drawer is cancelled", async () => {
   const user = userEvent.setup();
-  const [entry] = store.entries;
+  const [entry] = db.entries;
   renderRoute(Route, {
     path: "/entries/$entryId",
     initialEntries: [`/entries/${entry.id}`],
@@ -183,12 +183,12 @@ test("leaves the text alone when the edit drawer is cancelled", async () => {
 test("doesn't offer Save on open when the stored body only needs re-standardizing", async () => {
   const user = userEvent.setup();
   const entry = {
-    ...store.entries[0],
+    ...db.entries[0],
     id: crypto.randomUUID(),
     title: "Ragged draft",
     body: "First line  \n\n\n  Second line ",
   };
-  store.entries = [entry, ...store.entries];
+  db.entries = [entry, ...db.entries];
 
   renderRoute(Route, {
     path: "/entries/$entryId",
