@@ -16,4 +16,7 @@ const port = Number(process.env.PORT ?? 4000);
 const host = process.env.HOST ?? "127.0.0.1";
 
 await app.listen({ port, host });
-console.log(`API listening on http://${host}:${port}/api`);
+// 0.0.0.0 is a bind wildcard, not a dialable address — show a usable host in
+// the log line so the URL can be clicked/curled as-is.
+const displayHost = host === "0.0.0.0" ? "localhost" : host;
+console.log(`API listening on http://${displayHost}:${port}/api`);
