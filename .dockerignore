@@ -24,8 +24,9 @@ app/backend/api/src/_generated
 
 # Local env files — never bake into the image; Render provides real env vars.
 # (Also keeps the committed localhost/dev defaults in .config/.env — including
-# APP_PASSWORD="password" — from silently shadowing production values: a var the
-# host forgets to set then fails loudly instead of falling back to a dev value.)
+# APP_PASSWORD="password" — out of the image entirely. The app enforces the rest:
+# session.ts throws in production if SESSION_SECRET/APP_PASSWORD are unset, so a
+# var the host forgets to set fails loudly instead of falling back to a dev value.)
 app/backend/api/.config/.env
 app/backend/api/.config/.env.*
 app/frontend/web/.config/.env
