@@ -3,18 +3,18 @@
  *
  * The loader calls `client.entries.list()` over oRPC, answered here by the MSW
  * mock. The mock's rows are generated (`@rhymelab/fixtures`) rather than
- * hand-written, so the assertions read expectations off `store.entries` instead
+ * hand-written, so the assertions read expectations off `db.entries` instead
  * of hard-coding titles — the test verifies the rendering, not specific fixtures.
  */
 import { expect, test } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { names } from "#/lib/format";
 import { renderRoute } from "#/test/render-route";
-import { store } from "#/test/mocks/handlers";
+import { db } from "#/mocks/db";
 import { Route } from "./index";
 
 /** The order the Library should render: newest-edited first. */
-const newestFirst = [...store.entries].sort(
+const newestFirst = [...db.entries].sort(
   (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
 );
 
@@ -24,7 +24,7 @@ test("renders every saved entry as a card, newest-edited first", async () => {
   expect(await screen.findByRole("heading", { level: 1, name: "Library" })).toBeInTheDocument();
 
   const list = screen.getByRole("list", { name: "Saved pieces" });
-  expect(within(list).getAllByRole("listitem")).toHaveLength(store.entries.length);
+  expect(within(list).getAllByRole("listitem")).toHaveLength(db.entries.length);
 
   const headings = within(list)
     .getAllByRole("heading")
@@ -34,13 +34,13 @@ test("renders every saved entry as a card, newest-edited first", async () => {
 
 test("each card shows its kind, byline, and stats", async () => {
   // The generated fixtures cover both arms, so both rendering paths get exercised.
-  expect(store.entries.some((entry) => entry.kind === "lyrics")).toBe(true);
-  expect(store.entries.some((entry) => entry.kind === "poem")).toBe(true);
+  expect(db.entries.some((entry) => entry.kind === "lyrics")).toBe(true);
+  expect(db.entries.some((entry) => entry.kind === "poem")).toBe(true);
 
   renderRoute(Route, { path: "/library", initialEntries: ["/library"] });
   const list = await screen.findByRole("list", { name: "Saved pieces" });
 
-  for (const entry of store.entries) {
+  for (const entry of db.entries) {
     const card = within(list).getByRole("heading", { name: entry.title }).closest("li")!;
     const text = card.textContent ?? "";
 

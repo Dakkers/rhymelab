@@ -4,6 +4,7 @@ import {
   Link as RouterLink,
   Scripts,
   createRootRouteWithContext,
+  retainSearchParams,
 } from "@tanstack/react-router";
 import { BaritoneProvider, BaritoneTheme, LinkProvider } from "@saintly-software/baritone";
 
@@ -23,7 +24,19 @@ import appCss from "../styles/app.css?url";
 
 const APP_NAME = "RhymeLab";
 
+/** The app-wide mock switch (`?__mock`). See `#/lib/orpc` for what it flips on. */
+interface RootSearch {
+  __mock?: string;
+}
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  // `__mock` is a global, sticky query param. Declaring it here and retaining it
+  // in every navigation and redirect makes it ride along for the whole session:
+  // add `?__mock` once and it survives the signed-out → login bounce and every
+  // client navigation, so the mock stays on until a full reload without it.
+  validateSearch: (search: Record<string, unknown>): RootSearch =>
+    "__mock" in search ? { __mock: String(search.__mock ?? "") } : {},
+  search: { middlewares: [retainSearchParams(["__mock"])] },
   head: () => ({
     meta: [
       { charSet: "utf-8" },

@@ -51,6 +51,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@faker-js/faker": "10.5.0",
     "@orpc/openapi": "1.14.5",
     "@orpc/server": "1.14.5",
     "@playwright/test": "1.62.0",
@@ -74,7 +75,8 @@
     "typescript": "6.0.3",
     "vite": "8.1.4",
     "vitest": "4.1.10",
-    "wrangler": "4.110.0"
+    "wrangler": "4.110.0",
+    "zod-schema-faker": "2.1.1"
   },
   "msw": {
     "workerDirectory": [
