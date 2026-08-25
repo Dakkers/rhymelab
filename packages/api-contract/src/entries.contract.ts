@@ -245,6 +245,67 @@ export const list = oc
   .route({ method: "GET", path: "/entries" })
   .output(z.array(EntrySummarySchema));
 
+/* ------------------------------------------------------------------ */
+/* Annotations — a user's marks over a slice of an entry's body        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How an annotation's range is measured. `line` addresses whole lines of the
+ * body; `word` addresses a character range within it. The units are fixed by
+ * this field *alone* — never by `type` — so a reader interprets the half-open
+ * `[startIndex, endIndex)` range off `granularity` and nothing else.
+ */
+export const ANNOTATION_GRANULARITIES = ["line", "word"] as const;
+export type AnnotationGranularity = (typeof ANNOTATION_GRANULARITIES)[number];
+export const AnnotationGranularitySchema = z.enum(ANNOTATION_GRANULARITIES);
+
+/**
+ * What an annotation asserts about the slice it covers. A closed set, like
+ * {@link SECTION_TYPES} — validated at the API, and easy to extend as the
+ * workbench grows more marks.
+ */
+export const ANNOTATION_TYPES = ["rhyme", "enjambment"] as const;
+export type AnnotationType = (typeof ANNOTATION_TYPES)[number];
+export const AnnotationTypeSchema = z.enum(ANNOTATION_TYPES);
+
+/**
+ * A single annotation as the detail view receives it. The anchor is the
+ * half-open range `[startIndex, endIndex)`, measured in the units `granularity`
+ * names — so an empty selection is unrepresentable and the covered length is
+ * just `endIndex - startIndex`. `quote` is the exact text that range covered
+ * when the mark was written, kept so the client (and a future re-anchor pass)
+ * can tell whether a later body edit has drifted the offsets off their target;
+ * `detached` is `true` once that anchor can no longer be located and the mark is
+ * shown unanchored. `value` is the mark's payload — a rhyme group's label, a
+ * note — absent for a mark that carries none.
+ *
+ * No `entryId`, owner, or timestamps on the wire: an annotation is nested under
+ * the entry that owns it, over a per-user scoped read, so none of the three add
+ * anything the caller doesn't already have.
+ *
+ * This is the *shape*, deliberately ahead of its storage: there is no
+ * annotations table yet, so `entries.get` returns `[]` for now. The field ships
+ * so the workbench UI can be built against the real wire contract before the DB
+ * model is committed to.
+ */
+export const AnnotationSchema = z
+  .object({
+    id: z.uuidv4(),
+    granularity: AnnotationGranularitySchema,
+    type: AnnotationTypeSchema,
+    startIndex: z.number().int().nonnegative(),
+    endIndex: z.number().int().positive(),
+    quote: z.string(),
+    value: z.string().optional(),
+    detached: z.boolean(),
+  })
+  .refine((a) => a.endIndex > a.startIndex, {
+    message: "endIndex must be greater than startIndex",
+    path: ["endIndex"],
+  });
+
+export type Annotation = z.infer<typeof AnnotationSchema>;
+
 /**
  * Fields a single saved piece carries for the detail view — `EntryBaseSchema`
  * with the derived preview fields (`excerpt`/`lineCount`/`wordCount`) swapped
@@ -266,6 +327,12 @@ const EntryDetailBaseSchema = EntryBaseSchema.pick({
    * every body edit, so it can't drift.
    */
   structure: z.array(SectionTypeSchema),
+  /**
+   * The user's marks over this piece — rhyme groupings, enjambments, and so on.
+   * Order is not significant; each carries its own anchor. Empty until the
+   * annotation store lands (see {@link AnnotationSchema}).
+   */
+  annotations: z.array(AnnotationSchema),
 });
 
 /** A poem's detail shape — carries none of the lyrics-only fields. */
