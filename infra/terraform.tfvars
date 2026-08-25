@@ -7,8 +7,9 @@
 # cf_zone_id      = "<your-cloudflare-zone-id>"
 # render_owner_id = "<your-render-owner-id>"
 
-api_domain = "api.dakota-stlaurent.com"
-web_domain = "rhymelab.dakota-stlaurent.com"
+# api_domain / web_domain are NOT repeated here — their defaults live in
+# variables.tf (single source of truth). Override there, or uncomment here only
+# if you actually need a different host than the committed default.
 
 render_region = "virginia"
 render_plan   = "starter"
