@@ -46,11 +46,11 @@ resource "render_web_service" "api" {
     # CORS runs in credentials mode against this exact origin.
     FRONTEND_ORIGIN = { value = "https://${var.web_domain}" }
 
-    # The Dockerfile already sets HOST=0.0.0.0 so the container binds all
-    # interfaces (Render's router/health checks can't reach a 127.0.0.1 bind);
-    # set here too so the behavior is visible in the service config.
-    HOST = { value = "0.0.0.0" }
-
+    # NOTE: HOST is intentionally NOT set here. The Dockerfile owns it
+    # (ENV HOST=0.0.0.0) as the single source of truth so the container binds
+    # all interfaces (Render's router/health checks can't reach a 127.0.0.1
+    # bind); duplicating it in the service env only invites the two drifting.
+    #
     # NOTE: PORT is intentionally NOT set — Render injects its own PORT, and the
     # app already reads process.env.PORT.
   }
