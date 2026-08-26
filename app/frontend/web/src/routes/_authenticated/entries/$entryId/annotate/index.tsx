@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link as RouterLink, createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Box, Button, Card, Flex, Icon, Link, Text, ToggleGroup } from "@saintly-software/baritone";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BookOpen, CornerDownLeft, Music } from "lucide-react";
 import { splitSections, type SectionType } from "@rhymelab/api-contract";
 import { Eyebrow } from "#/components/Eyebrow";
 import { Page } from "#/components/Page";
@@ -54,6 +54,31 @@ function AnnotatePage() {
     orpc.entries.get.queryOptions({ input: { id: entryId } }),
   );
 
+  // Line-level annotations are indexed into `entry.body.split("\n")` — the same
+  // coordinate space they were authored in. Collect the line indices an
+  // enjambment covers so the card can mark their trailing edge.
+  const enjambedLines = new Set<number>();
+  for (const annotation of entry.annotations) {
+    if (annotation.type === "enjambment" && annotation.granularity === "line") {
+      for (let i = annotation.startIndex; i < annotation.endIndex; i++) enjambedLines.add(i);
+    }
+  }
+
+  // Sections as the card renders them (one labelled block each), every line
+  // tagged with its global index so the enjambment marks can be placed. The body
+  // is normalized, so `splitSections` round-trips it and sections are separated
+  // by exactly one blank line — hence `+ 1` per section to skip that separator.
+  let lineCursor = 0;
+  const sections = splitSections(entry.body).map((section, index) => {
+    const lines = section.split("\n").map((text, i) => ({ text, globalIndex: lineCursor + i }));
+    lineCursor += lines.length + 1;
+    return { label: entry.structure[index], lines };
+  });
+
+  // Read is the passive view where existing annotations surface; the editing
+  // tools own their own rendering, so gate the marks on it.
+  const showAnnotations = mode === "read";
+
   return (
     <Page
       title="Annotate"
@@ -93,9 +118,24 @@ function AnnotatePage() {
             >
               {({ ToggleGroupItem }) => (
                 <>
-                  <ToggleGroupItem value="read">Read</ToggleGroupItem>
-                  <ToggleGroupItem value="rhyme-scheme">Rhyme Scheme</ToggleGroupItem>
-                  <ToggleGroupItem value="enjambment">Enjambment</ToggleGroupItem>
+                  <ToggleGroupItem value="read">
+                    <Icon>
+                      <BookOpen />
+                    </Icon>
+                    Read
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="rhyme-scheme">
+                    <Icon>
+                      <Music />
+                    </Icon>
+                    Rhyme Scheme
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="enjambment">
+                    <Icon>
+                      <CornerDownLeft />
+                    </Icon>
+                    Enjambment
+                  </ToggleGroupItem>
                 </>
               )}
             </ToggleGroup>
@@ -105,13 +145,33 @@ function AnnotatePage() {
             <Card>
               {/* One block per section, each labelled with its type. The API keeps
                   `structure` at exactly one label per section (`splitSections`), so
-                  the two align index-for-index — no length guard needed. */}
+                  the two align index-for-index — no length guard needed. Lines are
+                  rendered individually (interleaved with the `\n` that `pre-wrap`
+                  breaks on) so an enjambment mark can hang off a line's end. */}
               <Flex direction="column" gap="6">
-                {splitSections(entry.body).map((section, index) => (
+                {sections.map(({ label, lines }, index) => (
                   <Flex key={index} direction="column" gap="1">
-                    <Eyebrow>{SECTION_TYPE_LABEL[entry.structure[index]]}</Eyebrow>
+                    <Eyebrow>{SECTION_TYPE_LABEL[label]}</Eyebrow>
                     <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-                      {section}
+                      {lines.map((line, i) => (
+                        <Fragment key={i}>
+                          {i > 0 && "\n"}
+                          {line.text}
+                          {showAnnotations && enjambedLines.has(line.globalIndex) && (
+                            <Icon
+                              label="Enjambed line"
+                              size="sm"
+                              style={{
+                                marginInlineStart: "0.35em",
+                                verticalAlign: "middle",
+                                opacity: 0.55,
+                              }}
+                            >
+                              <CornerDownLeft />
+                            </Icon>
+                          )}
+                        </Fragment>
+                      ))}
                     </Text>
                   </Flex>
                 ))}
