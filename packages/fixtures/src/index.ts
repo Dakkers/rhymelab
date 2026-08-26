@@ -35,12 +35,29 @@ const DEFAULT_SEED = 20260812;
 /** A generated fixture row: the list-view `EntrySummary` plus the `body` it derives from. */
 export type FakeEntry = EntrySummary & { body: string };
 
+/** One short, capitalized lyric-style line (no trailing punctuation). */
+function fakeLine(): string {
+  const words = faker.lorem.words({ min: 3, max: 7 });
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * A multi-section body: several stanzas (blank-line-separated, the delimiter
+ * `splitSections` keys off), each a handful of short lines. This gives
+ * `structure` a real length to label and lets line-level annotations (rhyme
+ * couplets, enjambment) fall *within* a stanza instead of one unbroken block.
+ */
+function fakeBody(): string {
+  const stanzaCount = faker.number.int({ min: 2, max: 5 });
+  return Array.from({ length: stanzaCount }, () =>
+    Array.from({ length: faker.number.int({ min: 2, max: 6 }) }, fakeLine).join("\n"),
+  ).join("\n\n");
+}
+
 function makeEntry(rank: number): FakeEntry {
   // zod-schema-faker chooses the arm and produces a schema-valid skeleton.
   const skeleton = fake(EntrySummarySchema);
-  // One line per faker.lorem.lines() call, so `deriveEntrySummaryFields` sees a
-  // realistic line/word shape rather than one giant unbroken line.
-  const body = faker.lorem.lines({ min: 8, max: 80 });
+  const body = fakeBody();
   const shared = {
     id: faker.string.uuid(),
     title: faker.music.songName(),
