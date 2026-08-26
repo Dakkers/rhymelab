@@ -50,19 +50,29 @@ const SECTION_TYPE_LABEL: Record<SectionType, string> = {
 function AnnotatePage() {
   const { entryId } = Route.useParams();
   const [mode, setMode] = useState<Mode>("read");
+  // Which enjambment (by id) is currently hovered/focused — the pair of lines it
+  // binds gets outlined while it is.
+  const [hoveredEnjambment, setHoveredEnjambment] = useState<string | null>(null);
   const { data: entry } = useSuspenseQuery(
     orpc.entries.get.queryOptions({ input: { id: entryId } }),
   );
 
   // Line-level annotations are indexed into `entry.body.split("\n")` — the same
-  // coordinate space they were authored in. Collect the line indices an
-  // enjambment covers so the card can mark their trailing edge.
-  const enjambedLines = new Set<number>();
+  // coordinate space they were authored in. For each enjambment, the icon hangs
+  // off its *first* line (the run-on point), and hovering it outlines the whole
+  // pair of lines the annotation binds. `iconByLine` maps that first line to the
+  // annotation id; `linesById` is the set of lines to outline while it's hovered.
+  const iconByLine = new Map<number, string>();
+  const linesById = new Map<string, Set<number>>();
   for (const annotation of entry.annotations) {
     if (annotation.type === "enjambment" && annotation.granularity === "line") {
-      for (let i = annotation.startIndex; i < annotation.endIndex; i++) enjambedLines.add(i);
+      iconByLine.set(annotation.startIndex, annotation.id);
+      const covered = new Set<number>();
+      for (let i = annotation.startIndex; i < annotation.endIndex; i++) covered.add(i);
+      linesById.set(annotation.id, covered);
     }
   }
+  const outlinedLines = hoveredEnjambment ? linesById.get(hoveredEnjambment) : undefined;
 
   // Sections as the card renders them (one labelled block each), every line
   // tagged with its global index so the enjambment marks can be placed. The body
@@ -153,25 +163,47 @@ function AnnotatePage() {
                   <Flex key={index} direction="column" gap="1">
                     <Eyebrow>{SECTION_TYPE_LABEL[label]}</Eyebrow>
                     <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-                      {lines.map((line, i) => (
-                        <Fragment key={i}>
-                          {i > 0 && "\n"}
-                          {line.text}
-                          {showAnnotations && enjambedLines.has(line.globalIndex) && (
-                            <Icon
-                              label="Enjambed line"
-                              size="sm"
-                              style={{
-                                marginInlineStart: "0.35em",
-                                verticalAlign: "middle",
-                                opacity: 0.55,
-                              }}
+                      {lines.map((line, i) => {
+                        const enjambmentId = iconByLine.get(line.globalIndex);
+                        const outlined = outlinedLines?.has(line.globalIndex) ?? false;
+                        return (
+                          <Fragment key={i}>
+                            {i > 0 && "\n"}
+                            <span
+                              style={
+                                outlined
+                                  ? {
+                                      outline: "1px dashed currentColor",
+                                      outlineOffset: "3px",
+                                      borderRadius: "2px",
+                                    }
+                                  : undefined
+                              }
                             >
-                              <CornerDownLeft />
-                            </Icon>
-                          )}
-                        </Fragment>
-                      ))}
+                              {line.text}
+                            </span>
+                            {showAnnotations && enjambmentId !== undefined && (
+                              <Icon
+                                label="Enjambment — hover to see both lines"
+                                size="sm"
+                                tabIndex={0}
+                                onMouseEnter={() => setHoveredEnjambment(enjambmentId)}
+                                onMouseLeave={() => setHoveredEnjambment(null)}
+                                onFocus={() => setHoveredEnjambment(enjambmentId)}
+                                onBlur={() => setHoveredEnjambment(null)}
+                                style={{
+                                  marginInlineStart: "0.35em",
+                                  verticalAlign: "middle",
+                                  opacity: 0.55,
+                                  cursor: "help",
+                                }}
+                              >
+                                <CornerDownLeft />
+                              </Icon>
+                            )}
+                          </Fragment>
+                        );
+                      })}
                     </Text>
                   </Flex>
                 ))}
