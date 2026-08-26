@@ -154,19 +154,22 @@ export function fakeAnnotations(
   const isContent = (i: number) => lines[i]?.trim() !== "";
   const annotations: Annotation[] = [];
 
-  // One enjambment on the first non-blank line, so the Enjambment mode has
-  // something to render too. Half-open `[i, i+1)` covers that single line.
-  const firstContent = lines.findIndex((_, i) => isContent(i));
-  if (firstContent !== -1) {
-    annotations.push({
-      id: faker.string.uuid(),
-      granularity: "line",
-      type: "enjambment",
-      startIndex: firstContent,
-      endIndex: firstContent + 1,
-      quote: lines[firstContent],
-      detached: false,
-    });
+  // One enjambment over the first adjacent pair of non-blank lines — the two
+  // lines it binds (a line running on into the next). Half-open `[i, i+2)`, so
+  // the pair never straddles a stanza's blank-line gap.
+  for (let i = 0; i + 1 < lines.length; i++) {
+    if (isContent(i) && isContent(i + 1)) {
+      annotations.push({
+        id: faker.string.uuid(),
+        granularity: "line",
+        type: "enjambment",
+        startIndex: i,
+        endIndex: i + 2,
+        quote: lines.slice(i, i + 2).join("\n"),
+        detached: false,
+      });
+      break;
+    }
   }
 
   // Rhyme couplets: pair consecutive non-blank lines, advancing past both so a
