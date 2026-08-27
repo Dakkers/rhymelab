@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link as RouterLink, createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Box, Button, Card, Flex, Icon, Link, Text, ToggleGroup } from "@saintly-software/baritone";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BookOpen, CornerDownLeft, Music } from "lucide-react";
 import { splitSections, type SectionType } from "@rhymelab/api-contract";
 import { Eyebrow } from "#/components/Eyebrow";
 import { Page } from "#/components/Page";
@@ -50,9 +50,44 @@ const SECTION_TYPE_LABEL: Record<SectionType, string> = {
 function AnnotatePage() {
   const { entryId } = Route.useParams();
   const [mode, setMode] = useState<Mode>("read");
+  // Which enjambment (by id) is currently hovered/focused — the pair of lines it
+  // binds gets outlined while it is.
+  const [hoveredEnjambment, setHoveredEnjambment] = useState<string | null>(null);
   const { data: entry } = useSuspenseQuery(
     orpc.entries.get.queryOptions({ input: { id: entryId } }),
   );
+
+  // Line-level annotations are indexed into `entry.body.split("\n")` — the same
+  // coordinate space they were authored in. For each enjambment, the icon hangs
+  // off its *first* line (the run-on point), and hovering it outlines the whole
+  // pair of lines the annotation binds. `iconByLine` maps that first line to the
+  // annotation id; `linesById` is the set of lines to outline while it's hovered.
+  const iconByLine = new Map<number, string>();
+  const linesById = new Map<string, Set<number>>();
+  for (const annotation of entry.annotations) {
+    if (annotation.type === "enjambment" && annotation.granularity === "line") {
+      iconByLine.set(annotation.startIndex, annotation.id);
+      const covered = new Set<number>();
+      for (let i = annotation.startIndex; i < annotation.endIndex; i++) covered.add(i);
+      linesById.set(annotation.id, covered);
+    }
+  }
+  const outlinedLines = hoveredEnjambment ? linesById.get(hoveredEnjambment) : undefined;
+
+  // Sections as the card renders them (one labelled block each), every line
+  // tagged with its global index so the enjambment marks can be placed. The body
+  // is normalized, so `splitSections` round-trips it and sections are separated
+  // by exactly one blank line — hence `+ 1` per section to skip that separator.
+  let lineCursor = 0;
+  const sections = splitSections(entry.body).map((section, index) => {
+    const lines = section.split("\n").map((text, i) => ({ text, globalIndex: lineCursor + i }));
+    lineCursor += lines.length + 1;
+    return { label: entry.structure[index], lines };
+  });
+
+  // Read is the passive view where existing annotations surface; the editing
+  // tools own their own rendering, so gate the marks on it.
+  const showAnnotations = mode === "read";
 
   return (
     <Page
@@ -93,9 +128,24 @@ function AnnotatePage() {
             >
               {({ ToggleGroupItem }) => (
                 <>
-                  <ToggleGroupItem value="read">Read</ToggleGroupItem>
-                  <ToggleGroupItem value="rhyme-scheme">Rhyme Scheme</ToggleGroupItem>
-                  <ToggleGroupItem value="enjambment">Enjambment</ToggleGroupItem>
+                  <ToggleGroupItem value="read">
+                    <Icon>
+                      <BookOpen />
+                    </Icon>
+                    Read
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="rhyme-scheme">
+                    <Icon>
+                      <Music />
+                    </Icon>
+                    Rhyme Scheme
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="enjambment">
+                    <Icon>
+                      <CornerDownLeft />
+                    </Icon>
+                    Enjambment
+                  </ToggleGroupItem>
                 </>
               )}
             </ToggleGroup>
@@ -105,13 +155,55 @@ function AnnotatePage() {
             <Card>
               {/* One block per section, each labelled with its type. The API keeps
                   `structure` at exactly one label per section (`splitSections`), so
-                  the two align index-for-index — no length guard needed. */}
+                  the two align index-for-index — no length guard needed. Lines are
+                  rendered individually (interleaved with the `\n` that `pre-wrap`
+                  breaks on) so an enjambment mark can hang off a line's end. */}
               <Flex direction="column" gap="6">
-                {splitSections(entry.body).map((section, index) => (
+                {sections.map(({ label, lines }, index) => (
                   <Flex key={index} direction="column" gap="1">
-                    <Eyebrow>{SECTION_TYPE_LABEL[entry.structure[index]]}</Eyebrow>
+                    <Eyebrow>{SECTION_TYPE_LABEL[label]}</Eyebrow>
                     <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-                      {section}
+                      {lines.map((line, i) => {
+                        const enjambmentId = iconByLine.get(line.globalIndex);
+                        const outlined = outlinedLines?.has(line.globalIndex) ?? false;
+                        return (
+                          <Fragment key={i}>
+                            {i > 0 && "\n"}
+                            <span
+                              style={
+                                outlined
+                                  ? {
+                                      outline: "1px dashed currentColor",
+                                      outlineOffset: "3px",
+                                      borderRadius: "2px",
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {line.text}
+                            </span>
+                            {showAnnotations && enjambmentId !== undefined && (
+                              <Icon
+                                label="Enjambment — hover to see both lines"
+                                size="sm"
+                                tabIndex={0}
+                                onMouseEnter={() => setHoveredEnjambment(enjambmentId)}
+                                onMouseLeave={() => setHoveredEnjambment(null)}
+                                onFocus={() => setHoveredEnjambment(enjambmentId)}
+                                onBlur={() => setHoveredEnjambment(null)}
+                                style={{
+                                  marginInlineStart: "0.35em",
+                                  verticalAlign: "middle",
+                                  opacity: 0.55,
+                                  cursor: "help",
+                                }}
+                              >
+                                <CornerDownLeft />
+                              </Icon>
+                            )}
+                          </Fragment>
+                        );
+                      })}
                     </Text>
                   </Flex>
                 ))}

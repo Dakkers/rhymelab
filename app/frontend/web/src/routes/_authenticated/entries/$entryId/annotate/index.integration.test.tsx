@@ -8,11 +8,11 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { splitSections } from "@rhymelab/api-contract";
 import { renderRoute } from "#/test/render-route";
-import { store } from "#/test/mocks/handlers";
+import { db } from "#/mocks/db";
 import { Route } from "./index";
 
 test("renders the entry's text as one labelled block per section", async () => {
-  const entry = store.entries[0];
+  const entry = db.entries[0];
   if (entry === undefined) throw new Error("expected a fixture entry");
 
   renderRoute(Route, {
@@ -36,7 +36,7 @@ test("renders the entry's text as one labelled block per section", async () => {
 });
 
 test("offers the annotation-type picker in the sidebar", async () => {
-  const entry = store.entries[0];
+  const entry = db.entries[0];
   if (entry === undefined) throw new Error("expected a fixture entry");
 
   renderRoute(Route, {
@@ -50,7 +50,7 @@ test("offers the annotation-type picker in the sidebar", async () => {
 });
 
 test("shows the footer's actions only once an annotation tool is active", async () => {
-  const entry = store.entries[0];
+  const entry = db.entries[0];
   if (entry === undefined) throw new Error("expected a fixture entry");
 
   renderRoute(Route, {

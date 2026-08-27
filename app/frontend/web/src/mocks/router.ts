@@ -23,6 +23,7 @@ import {
   type SectionType,
 } from "@rhymelab/api-contract";
 import type { z } from "zod";
+import { fakeAnnotations } from "@rhymelab/fixtures";
 import { db, type MockEntry } from "./db";
 import { fakeSchema } from "./fake-schema";
 
@@ -51,14 +52,37 @@ function entryOr404(id: string): MockEntry {
 }
 
 /**
+ * A stable numeric seed derived from an entry's id, so each piece gets its own
+ * reproducible annotation set — and marks never collide on `id` across entries.
+ * A plain rolling hash; reproducibility, not cryptographic strength.
+ */
+function annotationSeed(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (Math.imul(hash, 31) + id.charCodeAt(i)) | 0;
+  }
+  return hash >>> 0;
+}
+
+/**
  * Project a stored row onto the detail shape: drop the list-view-only derived
  * fields (`excerpt`/`lineCount`/`wordCount`) and attach the `structure` the
  * detail view renders. The stored row always carries a real `body`, so the
  * result is a complete `EntryDetail`.
+ *
+ * `annotations` are derived on read from the body (like `structure` is via
+ * `initStructure`): there's no annotations table yet, so the mock stands in a
+ * seeded set from the fixtures — real marks for the workbench to render,
+ * anchored to this body and stable across reads (seeded off the entry's id).
+ * The real API returns `[]` until that store lands.
  */
 function toDetail(entry: MockEntry, structure: SectionType[]): EntryDetail {
   const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
-  return { ...detail, structure };
+  return {
+    ...detail,
+    structure,
+    annotations: fakeAnnotations(entry.body, { seed: annotationSeed(entry.id) }),
+  };
 }
 
 const router = {
