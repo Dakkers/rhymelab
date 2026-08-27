@@ -4,7 +4,7 @@
 #
 # The pain this solves: every worktree's `pnpm dev` points at the ONE shared
 # Postgres (compose.yaml, host :5433, database "rhymelab"). Two worktrees editing
-# data step on each other. `./sandbox` gives each worktree its own dedicated
+# data step on each other. `./rhymelab-sandbox` gives each worktree its own dedicated
 # database inside that same container — `rhymelab_<worktree-slug>` — plus API and
 # web servers on free ports, all wired together. Full data isolation, instant
 # create/drop, negligible overhead (one shared Postgres server, many databases).
@@ -15,13 +15,13 @@
 # so the values exported here win over the committed defaults, and `git status`
 # stays clean.
 #
-#   ./sandbox            # up: provision + migrate the DB, then run API + web
-#   ./sandbox up         # (same as no args)
-#   ./sandbox status     # show this worktree's slug, database, ports
-#   ./sandbox migrate    # ensure the DB exists and apply migrations (no servers)
-#   ./sandbox reset      # drop + recreate + migrate (wipes this worktree's data)
-#   ./sandbox down       # drop this worktree's database
-#   ./sandbox psql       # open a psql shell on this worktree's database
+#   ./rhymelab-sandbox            # up: provision + migrate the DB, then run API + web
+#   ./rhymelab-sandbox up         # (same as no args)
+#   ./rhymelab-sandbox status     # show this worktree's slug, database, ports
+#   ./rhymelab-sandbox migrate    # ensure the DB exists and apply migrations (no servers)
+#   ./rhymelab-sandbox reset      # drop + recreate + migrate (wipes this worktree's data)
+#   ./rhymelab-sandbox down       # drop this worktree's database
+#   ./rhymelab-sandbox psql       # open a psql shell on this worktree's database
 #
 # `down`/`reset` refuse to touch the shared default "rhymelab" database. Add
 # --yes / -y to skip their confirmation prompt.
@@ -275,7 +275,7 @@ cmd_down() {
 cmd_psql() {
   ensure_pg
   if ! db_exists; then
-    echo "error: database \"$DB\" doesn't exist yet. Run \`./sandbox migrate\` first." >&2
+    echo "error: database \"$DB\" doesn't exist yet. Run \`./rhymelab-sandbox migrate\` first." >&2
     exit 1
   fi
   docker exec -it "$PG_CONTAINER" psql -U "$PG_USER" -d "$DB"
@@ -314,7 +314,7 @@ cmd_up() {
   │ api      : http://localhost:${API_PORT}/api
   │
   │ Ctrl-C stops both servers. The database persists — drop it
-  │ with \`./sandbox down\` when you're done with this worktree.
+  │ with \`./rhymelab-sandbox down\` when you're done with this worktree.
   └───────────────────────────────────────────────────────────
 
 BANNER
@@ -388,7 +388,7 @@ case "${1:-up}" in
   -h | --help | help) usage ;;
   *)
     echo "unknown command: $1" >&2
-    echo "run \`./sandbox help\` for usage." >&2
+    echo "run \`./rhymelab-sandbox help\` for usage." >&2
     exit 1
     ;;
 esac

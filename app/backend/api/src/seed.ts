@@ -33,7 +33,7 @@
  * rather than duplicated. The check counts tombstoned (soft-deleted) rows too, so
  * re-seeding after deleting a demo piece in the app doesn't resurrect it as a
  * second *live* copy alongside the tombstone. To reseed from scratch, wipe the
- * database first (`./sandbox reset`, or drop the rows) and run again.
+ * database first (`./rhymelab-sandbox reset`, or drop the rows) and run again.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
