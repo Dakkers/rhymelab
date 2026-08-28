@@ -7,50 +7,46 @@
  * them is a type error until you've narrowed, the same XOR the frontend relied on
  * when this shape lived as a local stub.
  */
+
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 
-/** Fields every saved piece carries, whatever its kind. */
-const EntryBaseSchema = z.object({
-  id: z.uuidv4(),
-  title: z.string().trim().min(1),
-  /**
-   * The writers — a poem's poet(s), or a song's lyricist(s). Ordered as credited;
-   * empty when no author was given.
-   */
-  author: z.array(z.string().trim()),
-  /** Publication / release year, when known. */
-  year: z.number().int().positive().optional(),
-  /** A short preview of the opening lines, for the card body. */
-  excerpt: z.string().trim(),
-  lineCount: z.number().int().positive(),
-  wordCount: z.number().int().positive(),
-  /** ISO-8601 timestamps. */
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-});
+/**
+ * The section labels a `structure` array is built from. A closed set so the
+ * column is validated at the API and a future picker is a plain dropdown;
+ * `verse` doubles as the generic stanza label and is the default a section takes
+ * before anyone assigns it. Poem-specific vocabulary can be added later — the
+ * set is easy to extend.
+ */
+export const SECTION_TYPES = ["intro", "verse", "prechorus", "chorus", "bridge", "outro"] as const;
 
-/** A poem — carries none of the lyrics-only fields. */
-export const PoemEntrySchema = EntryBaseSchema.extend({
-  kind: z.literal("poem"),
-});
+/** The label a section carries until it's assigned one — see `initStructure`. */
+export const DEFAULT_SECTION_TYPE: SectionType = "verse";
 
-/** A song's lyrics — adds the performer and the record it appears on. */
-export const LyricsEntrySchema = EntryBaseSchema.extend({
-  kind: z.literal("lyrics"),
-  /** The performing artists or bands, ordered as credited; empty when unknown. */
-  artist: z.array(z.string().trim()),
-  album: z.string(),
-});
+const SECTION_TYPE_SET: ReadonlySet<string> = new Set(SECTION_TYPES);
 
-/** A saved piece: a poem or a song's lyrics, discriminated by `kind`. */
-export const EntrySummarySchema = z.discriminatedUnion("kind", [
-  PoemEntrySchema,
-  LyricsEntrySchema,
-]);
+/**
+ * The `structure` a freshly-saved body gets: one {@link DEFAULT_SECTION_TYPE}
+ * per section, so the invariant holds from the first write and the user assigns
+ * real labels afterward.
+ */
+export function initStructure(body: string): SectionType[] {
+  return Array.from({ length: splitSections(body).length }, () => DEFAULT_SECTION_TYPE);
+}
 
-export type EntrySummary = z.infer<typeof EntrySummarySchema>;
-export type EntryKind = EntrySummary["kind"];
+/**
+ * Split a `body` into its sections — the units a `structure` array labels. One
+ * definition of "a section" for every path: normalize first (so a section is a
+ * run of non-blank lines, delimited by exactly one blank line), then split on
+ * the blank line. An empty body has no sections.
+ *
+ * The invariant the whole feature rests on is `structure.length ===
+ * splitSections(body).length`; this is the right-hand side.
+ */
+export function splitSections(body: string): string[] {
+  const normalized = normalizeEntryBody(body);
+  return normalized === "" ? [] : normalized.split("\n\n");
+}
 
 /**
  * Standardize a submitted `body` before it's stored: trim every line, and
@@ -81,67 +77,6 @@ export function normalizeEntryBody(body: string): string {
     normalized.pop();
   }
   return normalized.join("\n");
-}
-
-/* ------------------------------------------------------------------ */
-/* Structure — one section label per body section                      */
-/* ------------------------------------------------------------------ */
-
-/**
- * The section labels a `structure` array is built from. A closed set so the
- * column is validated at the API and a future picker is a plain dropdown;
- * `verse` doubles as the generic stanza label and is the default a section takes
- * before anyone assigns it. Poem-specific vocabulary can be added later — the
- * set is easy to extend.
- */
-export const SECTION_TYPES = ["intro", "verse", "prechorus", "chorus", "bridge", "outro"] as const;
-export type SectionType = (typeof SECTION_TYPES)[number];
-
-/** The label a section carries until it's assigned one — see `initStructure`. */
-export const DEFAULT_SECTION_TYPE: SectionType = "verse";
-
-/** Zod form of {@link SECTION_TYPES}, for the schemas below. */
-export const SectionTypeSchema = z.enum(SECTION_TYPES);
-
-const SECTION_TYPE_SET: ReadonlySet<string> = new Set(SECTION_TYPES);
-
-function isSectionType(value: string | undefined): value is SectionType {
-  return value !== undefined && SECTION_TYPE_SET.has(value);
-}
-
-/**
- * Split a `body` into its sections — the units a `structure` array labels. One
- * definition of "a section" for every path: normalize first (so a section is a
- * run of non-blank lines, delimited by exactly one blank line), then split on
- * the blank line. An empty body has no sections.
- *
- * The invariant the whole feature rests on is `structure.length ===
- * splitSections(body).length`; this is the right-hand side.
- */
-export function splitSections(body: string): string[] {
-  const normalized = normalizeEntryBody(body);
-  return normalized === "" ? [] : normalized.split("\n\n");
-}
-
-/**
- * The `structure` a freshly-saved body gets: one {@link DEFAULT_SECTION_TYPE}
- * per section, so the invariant holds from the first write and the user assigns
- * real labels afterward.
- */
-export function initStructure(body: string): SectionType[] {
-  return Array.from({ length: splitSections(body).length }, () => DEFAULT_SECTION_TYPE);
-}
-
-/**
- * Coerce a stored `structure` to a clean array of exactly `length` labels —
- * padding short arrays (a legacy row that predates the column reads as `[]`) and
- * mapping any value that isn't a current section type to the default. Keeps the
- * alignment below working on trustworthy input.
- */
-function coerceStructure(structure: readonly string[], length: number): SectionType[] {
-  return Array.from({ length }, (_, i) =>
-    isSectionType(structure[i]) ? structure[i] : DEFAULT_SECTION_TYPE,
-  );
 }
 
 /**
@@ -205,6 +140,22 @@ export function resyncStructure(
 }
 
 /**
+ * Coerce a stored `structure` to a clean array of exactly `length` labels —
+ * padding short arrays (a legacy row that predates the column reads as `[]`) and
+ * mapping any value that isn't a current section type to the default. Keeps the
+ * alignment below working on trustworthy input.
+ */
+function coerceStructure(structure: readonly string[], length: number): SectionType[] {
+  return Array.from({ length }, (_, i) =>
+    isSectionType(structure[i]) ? structure[i] : DEFAULT_SECTION_TYPE,
+  );
+}
+
+function isSectionType(value: string | undefined): value is SectionType {
+  return value !== undefined && SECTION_TYPE_SET.has(value);
+}
+
+/**
  * Derive the list-view fields (`excerpt`, `lineCount`, `wordCount`) from an
  * entry's `body`. Kept beside the schema they populate and shared by the API
  * handler (which derives them on read) and the web MSW mock (which mirrors it),
@@ -229,6 +180,48 @@ export function deriveEntrySummaryFields(body: string): {
     wordCount: body.split(/\s+/).filter(Boolean).length,
   };
 }
+
+/** Fields every saved piece carries, whatever its kind. */
+const EntryBaseSchema = z.object({
+  id: z.uuidv4(),
+  title: z.string().trim().min(1),
+  /**
+   * The writers — a poem's poet(s), or a song's lyricist(s). Ordered as credited;
+   * empty when no author was given.
+   */
+  author: z.array(z.string().trim()),
+  /** Publication / release year, when known. */
+  year: z.number().int().positive().optional(),
+  /** A short preview of the opening lines, for the card body. */
+  excerpt: z.string().trim(),
+  lineCount: z.number().int().positive(),
+  wordCount: z.number().int().positive(),
+  /** ISO-8601 timestamps. */
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+/** A poem — carries none of the lyrics-only fields. */
+export const PoemEntrySchema = EntryBaseSchema.extend({
+  kind: z.literal("poem"),
+});
+
+/** A song's lyrics — adds the performer and the record it appears on. */
+export const LyricsEntrySchema = EntryBaseSchema.extend({
+  kind: z.literal("lyrics"),
+  /** The performing artists or bands, ordered as credited; empty when unknown. */
+  artist: z.array(z.string().trim()),
+  album: z.string(),
+});
+
+/** A saved piece: a poem or a song's lyrics, discriminated by `kind`. */
+export const EntrySummarySchema = z.discriminatedUnion("kind", [
+  PoemEntrySchema,
+  LyricsEntrySchema,
+]);
+
+/** Zod form of {@link SECTION_TYPES}, for the schemas below. */
+export const SectionTypeSchema = z.enum(SECTION_TYPES);
 
 /**
  * List the current user's saved entries. The handler returns them newest-first.
@@ -286,8 +279,6 @@ export const EntryDetailSchema = z.discriminatedUnion("kind", [
   LyricsDetailSchema,
 ]);
 
-export type EntryDetail = z.infer<typeof EntryDetailSchema>;
-
 /**
  * Fetch a single saved piece by id. The handler 404s (`NOT_FOUND`) both when the
  * id doesn't exist and when it belongs to another user — the two look identical
@@ -343,7 +334,6 @@ export const EntryCreateInputSchema = z.discriminatedUnion("kind", [
   PoemCreateSchema,
   LyricsCreateSchema,
 ]);
-export type EntryCreateInput = z.infer<typeof EntryCreateInputSchema>;
 
 /**
  * Save a new piece. Returns the saved entry's summary, as `list` would render it.
@@ -400,3 +390,13 @@ export const updateStructure = oc
   .route({ method: "PUT", path: "/entries/{id}/structure" })
   .input(z.object({ id: z.uuidv4(), structure: z.array(SectionTypeSchema) }))
   .output(EntryDetailSchema);
+
+export type EntrySummary = z.infer<typeof EntrySummarySchema>;
+
+export type EntryKind = EntrySummary["kind"];
+
+export type SectionType = (typeof SECTION_TYPES)[number];
+
+export type EntryDetail = z.infer<typeof EntryDetailSchema>;
+
+export type EntryCreateInput = z.infer<typeof EntryCreateInputSchema>;

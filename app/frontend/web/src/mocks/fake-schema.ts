@@ -27,21 +27,6 @@ export function fakeSchema<T extends z.ZodType>(schema: T, seed = 1): z.infer<T>
   return minimize(schema, fake(schema)) as z.infer<T>;
 }
 
-/** The structural slice of zod's definition we read to recurse into containers. */
-interface Def {
-  type?: string;
-  shape?: Record<string, z.ZodType>;
-  options?: z.ZodType[];
-}
-
-function defOf(schema: z.ZodType): Def {
-  return (schema as unknown as { def?: Def }).def ?? {};
-}
-
-function accepts(schema: z.ZodType, value: unknown): boolean {
-  return schema.safeParse(value).success;
-}
-
 /**
  * Reduce `value` (already valid for `schema`) toward the emptiest valid shape.
  * Best-effort: any reduction that wouldn't validate is skipped, and a container
@@ -77,4 +62,19 @@ function minimize(schema: z.ZodType, value: unknown): unknown {
   if (typeof value === "string" && accepts(schema, "")) return "";
 
   return value;
+}
+
+function accepts(schema: z.ZodType, value: unknown): boolean {
+  return schema.safeParse(value).success;
+}
+
+function defOf(schema: z.ZodType): Def {
+  return (schema as unknown as { def?: Def }).def ?? {};
+}
+
+/** The structural slice of zod's definition we read to recurse into containers. */
+interface Def {
+  type?: string;
+  shape?: Record<string, z.ZodType>;
+  options?: z.ZodType[];
 }

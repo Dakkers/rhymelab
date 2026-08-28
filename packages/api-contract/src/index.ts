@@ -23,8 +23,6 @@ export const contract = {
   },
 };
 
-export type Contract = typeof contract;
-
 export {
   EntrySummarySchema,
   EntryCreateInputSchema,
@@ -38,6 +36,8 @@ export {
   initStructure,
   resyncStructure,
 } from "./entries.contract";
+
+export type Contract = typeof contract;
 export type {
   EntrySummary,
   EntryKind,

@@ -1,7 +1,5 @@
 import { Text, type DistributiveOmit, type TextProps } from "@saintly-software/baritone";
 
-export type EyebrowProps = DistributiveOmit<TextProps, "size" | "weight" | "textTransform">;
-
 /**
  * Eyebrow — the small, uppercase, letter-spaced label used above page titles and
  * as the section labels in the workbench inspector. It's a plain `Text` fixed to
@@ -23,3 +21,5 @@ export function Eyebrow({ style, ...rest }: EyebrowProps) {
     />
   );
 }
+
+export type EyebrowProps = DistributiveOmit<TextProps, "size" | "weight" | "textTransform">;

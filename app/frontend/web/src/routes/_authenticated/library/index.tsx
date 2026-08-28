@@ -18,6 +18,11 @@ import { orpc } from "../../../lib/orpc";
 import { names, pluralize, since } from "../../../lib/format";
 import { useMounted } from "../../../lib/hooks";
 
+const KIND_LABEL: Record<EntrySummary["kind"], string> = {
+  lyrics: "Lyrics",
+  poem: "Poem",
+};
+
 /**
  * The Library is the signed-in default landing page: the list of lyrics and
  * poems the user has saved (over oRPC's `entries.list`, newest-edited first).
@@ -65,11 +70,6 @@ function LibraryPage() {
     </Page>
   );
 }
-
-const KIND_LABEL: Record<EntrySummary["kind"], string> = {
-  lyrics: "Lyrics",
-  poem: "Poem",
-};
 
 function EntryCard({ entry }: { entry: EntrySummary }) {
   return (

@@ -45,24 +45,6 @@ import { SINGLE_USER_ID } from "./session";
 // populated before it's imported — hence the dynamic import below, after this.
 loadEnv();
 
-/** A piece to seed. The body text lives in `<repo>/.dummy/<file>`, not here. */
-type Seed = {
-  /** Untracked source file under `.dummy/`, e.g. `DEMO_RoundHere.txt`. */
-  file: string;
-  title: string;
-  kind: "poem" | "lyrics";
-  author?: string[];
-  artist?: string[];
-  album?: string;
-  year?: number;
-  /**
-   * One label per body section, in order — asserted against the parsed body's
-   * section count at seed time, so a mislabelled entry fails loudly here rather
-   * than writing a `structure` that's out of step with its `body`.
-   */
-  structure: SectionType[];
-};
-
 const SEEDS: Seed[] = [
   {
     file: "DEMO_LongIsland.txt",
@@ -106,48 +88,6 @@ const SEEDS: Seed[] = [
 
 /** `<repo>/.dummy` — this file is `<repo>/app/backend/api/src/seed.ts`. */
 const DUMMY_DIR = resolve(import.meta.dirname, "../../../../.dummy");
-
-/**
- * Blank out any line that is only a bracketed section header, e.g. `[Chorus]`.
- *
- * The header is replaced with a blank line rather than deleted, so it still
- * *separates* the sections around it. Deleting it would rely on a blank line
- * already being present: a header-delimited file with no blank lines
- * (`[Verse]\na\n[Chorus]\nb`) would otherwise collapse into a single section and
- * fail the count check below. `normalizeEntryBody` then collapses any doubled
- * blank (a header that already had a blank line beside it) back to one.
- */
-function stripSectionHeaders(raw: string): string {
-  return raw
-    .split("\n")
-    .map((line) => (/^\s*\[[^\]]*\]\s*$/.test(line) ? "" : line))
-    .join("\n");
-}
-
-/** Read and clean a seed's body, or return null if its source file is absent. */
-function readBody(file: string): string | null {
-  let raw: string;
-  try {
-    raw = readFileSync(resolve(DUMMY_DIR, file), "utf8");
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw err;
-  }
-  return normalizeEntryBody(stripSectionHeaders(raw));
-}
-
-/** The Prisma `entry.create` payload a validated seed turns into. */
-type EntryCreateData = {
-  userId: string;
-  kind: string;
-  title: string;
-  author: string[];
-  year?: number;
-  body: string;
-  structure: SectionType[];
-  artist: string[];
-  album?: string;
-};
 
 async function main() {
   const { prisma } = await import("./db");
@@ -232,6 +172,66 @@ async function main() {
   // (after seeding everything valid) so a caller or CI notices.
   if (invalid > 0) process.exit(1);
 }
+
+/** Read and clean a seed's body, or return null if its source file is absent. */
+function readBody(file: string): string | null {
+  let raw: string;
+  try {
+    raw = readFileSync(resolve(DUMMY_DIR, file), "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+  return normalizeEntryBody(stripSectionHeaders(raw));
+}
+
+/**
+ * Blank out any line that is only a bracketed section header, e.g. `[Chorus]`.
+ *
+ * The header is replaced with a blank line rather than deleted, so it still
+ * *separates* the sections around it. Deleting it would rely on a blank line
+ * already being present: a header-delimited file with no blank lines
+ * (`[Verse]\na\n[Chorus]\nb`) would otherwise collapse into a single section and
+ * fail the count check below. `normalizeEntryBody` then collapses any doubled
+ * blank (a header that already had a blank line beside it) back to one.
+ */
+function stripSectionHeaders(raw: string): string {
+  return raw
+    .split("\n")
+    .map((line) => (/^\s*\[[^\]]*\]\s*$/.test(line) ? "" : line))
+    .join("\n");
+}
+
+/** A piece to seed. The body text lives in `<repo>/.dummy/<file>`, not here. */
+type Seed = {
+  /** Untracked source file under `.dummy/`, e.g. `DEMO_RoundHere.txt`. */
+  file: string;
+  title: string;
+  kind: "poem" | "lyrics";
+  author?: string[];
+  artist?: string[];
+  album?: string;
+  year?: number;
+  /**
+   * One label per body section, in order — asserted against the parsed body's
+   * section count at seed time, so a mislabelled entry fails loudly here rather
+   * than writing a `structure` that's out of step with its `body`.
+   */
+  structure: SectionType[];
+};
+
+/** The Prisma `entry.create` payload a validated seed turns into. */
+type EntryCreateData = {
+  userId: string;
+  kind: string;
+  title: string;
+  author: string[];
+  year?: number;
+  body: string;
+  structure: SectionType[];
+  artist: string[];
+  album?: string;
+};
 
 main().catch(async (err) => {
   console.error(err);

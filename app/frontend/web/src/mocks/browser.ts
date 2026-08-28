@@ -10,10 +10,6 @@
 import { setupWorker } from "msw/browser";
 import { handlers } from "./handlers";
 
-export const worker = setupWorker(...handlers);
-
-let starting: Promise<unknown> | undefined;
-
 /**
  * Start the worker once and reuse that start for every later call, so the first
  * mock-mode fetch registers the Service Worker and the rest just await it.
@@ -29,3 +25,7 @@ export function startMockWorker(): Promise<unknown> {
   });
   return starting;
 }
+
+export const worker = setupWorker(...handlers);
+
+let starting: Promise<unknown> | undefined;
