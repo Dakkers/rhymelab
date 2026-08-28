@@ -3,7 +3,7 @@ import { Link as RouterLink, createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Box, Button, Card, Flex, Icon, Link, Text, ToggleGroup } from "@saintly-software/baritone";
 import { ArrowLeft, BookOpen, CornerDownLeft, Music } from "lucide-react";
-import { splitSections, type SectionType } from "@rhymelab/api-contract";
+import { splitSections, type EntryDetail, type SectionType } from "@rhymelab/api-contract";
 import { Eyebrow } from "#/components/Eyebrow";
 import { Page } from "#/components/Page";
 import { orpc } from "#/lib/orpc";
@@ -47,15 +47,120 @@ const SECTION_TYPE_LABEL: Record<SectionType, string> = {
   outro: "Outro",
 };
 
-function AnnotatePage() {
-  const { entryId } = Route.useParams();
-  const [mode, setMode] = useState<Mode>("read");
+/**
+ * The workbench's mode picker — the sidebar rail that selects which annotation
+ * tool is active. Controlled: it owns no state, so the page stays the single
+ * source of truth for the current mode.
+ */
+function ModePicker({ value, onChange }: { value: Mode; onChange: (mode: Mode) => void }) {
+  return (
+    <Flex render={<aside />} direction="column" className="rl-annotate-aside">
+      <ToggleGroup
+        aria-label="Annotation type"
+        orientation="vertical"
+        width="fill"
+        value={value}
+        onChange={onChange}
+        intent="primary"
+      >
+        {({ ToggleGroupItem }) => (
+          <>
+            <ToggleGroupItem value="read">
+              <Icon>
+                <BookOpen />
+              </Icon>
+              Read
+            </ToggleGroupItem>
+            <ToggleGroupItem value="rhyme-scheme">
+              <Icon>
+                <Music />
+              </Icon>
+              Rhyme Scheme
+            </ToggleGroupItem>
+            <ToggleGroupItem value="enjambment">
+              <Icon>
+                <CornerDownLeft />
+              </Icon>
+              Enjambment
+            </ToggleGroupItem>
+          </>
+        )}
+      </ToggleGroup>
+    </Flex>
+  );
+}
+
+/**
+ * One line of the piece, with the enjambment mark that hangs off its end. Both
+ * the outline and the mark are told to it rather than worked out here: the sheet
+ * owns the annotation index and the hover, so a line only knows whether it is
+ * currently lit and which enjambment (if any) runs on from it.
+ *
+ * Rendered inline (a `span`, not a block) — the sheet lays its lines out with
+ * the `\n` that `pre-wrap` breaks on, so anything block-level here would break
+ * that interleaving.
+ */
+function LyricLine({
+  text,
+  outlined,
+  enjambmentId,
+  onHoverEnjambment,
+}: {
+  text: string;
+  outlined: boolean;
+  enjambmentId: string | undefined;
+  onHoverEnjambment: (id: string | null) => void;
+}) {
+  return (
+    <>
+      <span
+        style={
+          outlined
+            ? { outline: "1px dashed currentColor", outlineOffset: "3px", borderRadius: "2px" }
+            : undefined
+        }
+      >
+        {text}
+      </span>
+      {enjambmentId !== undefined && (
+        <Icon
+          label="Enjambment — hover to see both lines"
+          size="sm"
+          tabIndex={0}
+          onMouseEnter={() => onHoverEnjambment(enjambmentId)}
+          onMouseLeave={() => onHoverEnjambment(null)}
+          onFocus={() => onHoverEnjambment(enjambmentId)}
+          onBlur={() => onHoverEnjambment(null)}
+          style={{
+            marginInlineStart: "0.35em",
+            verticalAlign: "middle",
+            opacity: 0.55,
+            cursor: "help",
+          }}
+        >
+          <CornerDownLeft />
+        </Icon>
+      )}
+    </>
+  );
+}
+
+/**
+ * The piece itself — one labelled block per section, with the enjambment marks
+ * hanging off the lines they run on from. Hover/focus state lives here because
+ * nothing outside the sheet reacts to it: `linesById` says which lines an
+ * enjambment binds, and this decides which of them is lit.
+ */
+function LyricSheet({
+  entry,
+  showAnnotations,
+}: {
+  entry: Pick<EntryDetail, "body" | "structure" | "annotations">;
+  showAnnotations: boolean;
+}) {
   // Which enjambment (by id) is currently hovered/focused — the pair of lines it
   // binds gets outlined while it is.
   const [hoveredEnjambment, setHoveredEnjambment] = useState<string | null>(null);
-  const { data: entry } = useSuspenseQuery(
-    orpc.entries.get.queryOptions({ input: { id: entryId } }),
-  );
 
   // Line-level annotations are indexed into `entry.body.split("\n")` — the same
   // coordinate space they were authored in. For each enjambment, the icon hangs
@@ -84,6 +189,46 @@ function AnnotatePage() {
     lineCursor += lines.length + 1;
     return { label: entry.structure[index], lines };
   });
+
+  return (
+    <Box style={{ flex: 1, minWidth: 0 }}>
+      <Card>
+        {/* One block per section, each labelled with its type. The API keeps
+            `structure` at exactly one label per section (`splitSections`), so
+            the two align index-for-index — no length guard needed. Lines are
+            rendered individually (interleaved with the `\n` that `pre-wrap`
+            breaks on) so an enjambment mark can hang off a line's end. */}
+        <Flex direction="column" gap="6">
+          {sections.map(({ label, lines }, index) => (
+            <Flex key={index} direction="column" gap="1">
+              <Eyebrow>{SECTION_TYPE_LABEL[label]}</Eyebrow>
+              <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
+                {lines.map((line, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && "\n"}
+                    <LyricLine
+                      text={line.text}
+                      outlined={outlinedLines?.has(line.globalIndex) ?? false}
+                      enjambmentId={showAnnotations ? iconByLine.get(line.globalIndex) : undefined}
+                      onHoverEnjambment={setHoveredEnjambment}
+                    />
+                  </Fragment>
+                ))}
+              </Text>
+            </Flex>
+          ))}
+        </Flex>
+      </Card>
+    </Box>
+  );
+}
+
+function AnnotatePage() {
+  const { entryId } = Route.useParams();
+  const [mode, setMode] = useState<Mode>("read");
+  const { data: entry } = useSuspenseQuery(
+    orpc.entries.get.queryOptions({ input: { id: entryId } }),
+  );
 
   // Read is the passive view where existing annotations surface; the editing
   // tools own their own rendering, so gate the marks on it.
@@ -117,99 +262,9 @@ function AnnotatePage() {
     >
       <Flex direction="column" gap="6">
         <Flex align="start" gap="6">
-          <Flex render={<aside />} direction="column" className="rl-annotate-aside">
-            <ToggleGroup
-              aria-label="Annotation type"
-              orientation="vertical"
-              width="fill"
-              value={mode}
-              onChange={setMode}
-              intent="primary"
-            >
-              {({ ToggleGroupItem }) => (
-                <>
-                  <ToggleGroupItem value="read">
-                    <Icon>
-                      <BookOpen />
-                    </Icon>
-                    Read
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="rhyme-scheme">
-                    <Icon>
-                      <Music />
-                    </Icon>
-                    Rhyme Scheme
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="enjambment">
-                    <Icon>
-                      <CornerDownLeft />
-                    </Icon>
-                    Enjambment
-                  </ToggleGroupItem>
-                </>
-              )}
-            </ToggleGroup>
-          </Flex>
+          <ModePicker value={mode} onChange={setMode} />
 
-          <Box style={{ flex: 1, minWidth: 0 }}>
-            <Card>
-              {/* One block per section, each labelled with its type. The API keeps
-                  `structure` at exactly one label per section (`splitSections`), so
-                  the two align index-for-index — no length guard needed. Lines are
-                  rendered individually (interleaved with the `\n` that `pre-wrap`
-                  breaks on) so an enjambment mark can hang off a line's end. */}
-              <Flex direction="column" gap="6">
-                {sections.map(({ label, lines }, index) => (
-                  <Flex key={index} direction="column" gap="1">
-                    <Eyebrow>{SECTION_TYPE_LABEL[label]}</Eyebrow>
-                    <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-                      {lines.map((line, i) => {
-                        const enjambmentId = iconByLine.get(line.globalIndex);
-                        const outlined = outlinedLines?.has(line.globalIndex) ?? false;
-                        return (
-                          <Fragment key={i}>
-                            {i > 0 && "\n"}
-                            <span
-                              style={
-                                outlined
-                                  ? {
-                                      outline: "1px dashed currentColor",
-                                      outlineOffset: "3px",
-                                      borderRadius: "2px",
-                                    }
-                                  : undefined
-                              }
-                            >
-                              {line.text}
-                            </span>
-                            {showAnnotations && enjambmentId !== undefined && (
-                              <Icon
-                                label="Enjambment — hover to see both lines"
-                                size="sm"
-                                tabIndex={0}
-                                onMouseEnter={() => setHoveredEnjambment(enjambmentId)}
-                                onMouseLeave={() => setHoveredEnjambment(null)}
-                                onFocus={() => setHoveredEnjambment(enjambmentId)}
-                                onBlur={() => setHoveredEnjambment(null)}
-                                style={{
-                                  marginInlineStart: "0.35em",
-                                  verticalAlign: "middle",
-                                  opacity: 0.55,
-                                  cursor: "help",
-                                }}
-                              >
-                                <CornerDownLeft />
-                              </Icon>
-                            )}
-                          </Fragment>
-                        );
-                      })}
-                    </Text>
-                  </Flex>
-                ))}
-              </Flex>
-            </Card>
-          </Box>
+          <LyricSheet entry={entry} showAnnotations={showAnnotations} />
         </Flex>
 
         {/* Sticky footer — pinned to the bottom of the viewport while the text
