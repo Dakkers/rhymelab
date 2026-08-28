@@ -31,8 +31,21 @@ const EPOCH = Date.UTC(2026, 7, 12, 12, 0, 0); // 2026-08-12T12:00:00Z
 /** Arbitrary — fixed only so the generated set is reproducible. */
 const DEFAULT_SEED = 20260812;
 
-/** A generated fixture row: the list-view `EntrySummary` plus the `body` it derives from. */
-export type FakeEntry = EntrySummary & { body: string };
+/**
+ * A stable, seeded set of saved entries, newest-edited first. Pass a distinct
+ * `seed` to get a different-but-reproducible set (e.g. so the mock and the API
+ * stub don't serve identical rows).
+ */
+export function fakeEntries(
+  count = 6,
+  { seed = DEFAULT_SEED }: { seed?: number } = {},
+): FakeEntry[] {
+  setFaker(faker);
+  seedFaker(seed);
+  return Array.from({ length: count }, (_, i) => makeEntry(i)).sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+  );
+}
 
 function makeEntry(rank: number): FakeEntry {
   // zod-schema-faker chooses the arm and produces a schema-valid skeleton.
@@ -71,18 +84,5 @@ function makeEntry(rank: number): FakeEntry {
     : { ...shared, kind: "poem" };
 }
 
-/**
- * A stable, seeded set of saved entries, newest-edited first. Pass a distinct
- * `seed` to get a different-but-reproducible set (e.g. so the mock and the API
- * stub don't serve identical rows).
- */
-export function fakeEntries(
-  count = 6,
-  { seed = DEFAULT_SEED }: { seed?: number } = {},
-): FakeEntry[] {
-  setFaker(faker);
-  seedFaker(seed);
-  return Array.from({ length: count }, (_, i) => makeEntry(i)).sort(
-    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
-  );
-}
+/** A generated fixture row: the list-view `EntrySummary` plus the `body` it derives from. */
+export type FakeEntry = EntrySummary & { body: string };

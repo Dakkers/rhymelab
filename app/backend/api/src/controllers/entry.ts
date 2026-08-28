@@ -12,44 +12,6 @@ import {
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { prisma } from "../db";
 
-/**
- * A row as `listForLibrary` returns it — must mirror the `select` below field
- * for field. `Pick`, not `Omit`: a new column added to the schema later stays
- * out of this type (and the query) until someone opts it in here, rather than
- * silently starting to flow through the library view.
- *
- * No `structure`: the library cards don't render it, and it's a whole extra
- * array per row, so the list neither selects nor carries it. The detail reads
- * and writes use {@link EntryForDetail}, which adds it back.
- */
-export type EntryForLibrary = Pick<
-  Entry,
-  | "id"
-  | "kind"
-  | "title"
-  | "author"
-  | "year"
-  | "body"
-  | "artist"
-  | "album"
-  | "createdAt"
-  | "updatedAt"
->;
-
-/**
- * `EntryForLibrary` plus `structure` — the shape the detail view and the writes
- * that feed it (`getDetails` / `updateBody` / `updateStructure`) return, since
- * unlike a library card the detail renders the section labels.
- */
-export type EntryForDetail = EntryForLibrary & Pick<Entry, "structure">;
-
-/**
- * A row as `getDetails` returns it — `EntryForDetail` plus `userId`, since
- * `getDetails` doesn't scope its query by owner: the caller reads `userId`
- * back to establish ownership itself.
- */
-export type EntryDetails = EntryForDetail & Pick<Entry, "userId">;
-
 export class EntryController {
   /**
    * @param db The base Prisma client. Defaults to the shared singleton; inject a
@@ -360,3 +322,41 @@ export class EntryController {
 
 /** Shared instance for handlers to delegate to. */
 export const entryController = new EntryController();
+
+/**
+ * A row as `listForLibrary` returns it — must mirror the `select` below field
+ * for field. `Pick`, not `Omit`: a new column added to the schema later stays
+ * out of this type (and the query) until someone opts it in here, rather than
+ * silently starting to flow through the library view.
+ *
+ * No `structure`: the library cards don't render it, and it's a whole extra
+ * array per row, so the list neither selects nor carries it. The detail reads
+ * and writes use {@link EntryForDetail}, which adds it back.
+ */
+export type EntryForLibrary = Pick<
+  Entry,
+  | "id"
+  | "kind"
+  | "title"
+  | "author"
+  | "year"
+  | "body"
+  | "artist"
+  | "album"
+  | "createdAt"
+  | "updatedAt"
+>;
+
+/**
+ * `EntryForLibrary` plus `structure` — the shape the detail view and the writes
+ * that feed it (`getDetails` / `updateBody` / `updateStructure`) return, since
+ * unlike a library card the detail renders the section labels.
+ */
+export type EntryForDetail = EntryForLibrary & Pick<Entry, "structure">;
+
+/**
+ * A row as `getDetails` returns it — `EntryForDetail` plus `userId`, since
+ * `getDetails` doesn't scope its query by owner: the caller reads `userId`
+ * back to establish ownership itself.
+ */
+export type EntryDetails = EntryForDetail & Pick<Entry, "userId">;

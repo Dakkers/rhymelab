@@ -7,16 +7,6 @@ import { implement, ORPCError } from "@orpc/server";
 import type { FastifyReply } from "fastify";
 import { contract } from "@rhymelab/api-contract";
 
-/** Marker for an authenticated request. Null when signed out. */
-export type Session = { authed: true };
-
-export interface ORPCContext {
-  /** Parsed from the signed session cookie in the Fastify `/api/*` route. */
-  session: Session | null;
-  /** So auth procedures can set/clear the session cookie. */
-  reply: FastifyReply;
-}
-
 export const os = implement(contract).$context<ORPCContext>();
 
 /**
@@ -33,3 +23,13 @@ export const requireAuth = os.middleware(async ({ context, next }) => {
 
 /** Base implementer for authenticated procedures. */
 export const authed = os.use(requireAuth);
+
+/** Marker for an authenticated request. Null when signed out. */
+export type Session = { authed: true };
+
+export interface ORPCContext {
+  /** Parsed from the signed session cookie in the Fastify `/api/*` route. */
+  session: Session | null;
+  /** So auth procedures can set/clear the session cookie. */
+  reply: FastifyReply;
+}

@@ -11,26 +11,16 @@
  */
 import { detectSections, parseLines } from "./lyrics";
 
-/** A section as the invariants see it (shape-compatible with the resolved DB row). */
-export interface IntegritySection {
-  id: number;
-  orderIndex: number;
-  startOffset: number;
-  endOffset: number;
-  /** The section this one is a duplicate of, or null when standalone/canonical. */
-  canonicalSectionId: number | null;
-  manualUnlink: boolean;
-}
-
-/** An annotation as the invariants see it (shape-compatible with the resolved DB row). */
-export interface IntegrityAnnotation {
-  sectionId: number | null;
-  lineInSection: number | null;
-  startChar: number | null;
-  endChar: number | null;
-  quote: string;
-  value: string;
-  detached: boolean;
+/** Throw if `checkEntryIntegrity` finds any violation (used in tests + at runtime). */
+export function assertEntryIntegrity(
+  lyrics: string,
+  sections: IntegritySection[],
+  annotations: IntegrityAnnotation[],
+): void {
+  const violations = checkEntryIntegrity(lyrics, sections, annotations);
+  if (violations.length > 0) {
+    throw new Error(`Entry integrity violated:\n  - ${violations.join("\n  - ")}`);
+  }
 }
 
 /**
@@ -165,14 +155,24 @@ export function checkEntryIntegrity(
   return violations;
 }
 
-/** Throw if `checkEntryIntegrity` finds any violation (used in tests + at runtime). */
-export function assertEntryIntegrity(
-  lyrics: string,
-  sections: IntegritySection[],
-  annotations: IntegrityAnnotation[],
-): void {
-  const violations = checkEntryIntegrity(lyrics, sections, annotations);
-  if (violations.length > 0) {
-    throw new Error(`Entry integrity violated:\n  - ${violations.join("\n  - ")}`);
-  }
+/** A section as the invariants see it (shape-compatible with the resolved DB row). */
+export interface IntegritySection {
+  id: number;
+  orderIndex: number;
+  startOffset: number;
+  endOffset: number;
+  /** The section this one is a duplicate of, or null when standalone/canonical. */
+  canonicalSectionId: number | null;
+  manualUnlink: boolean;
+}
+
+/** An annotation as the invariants see it (shape-compatible with the resolved DB row). */
+export interface IntegrityAnnotation {
+  sectionId: number | null;
+  lineInSection: number | null;
+  startChar: number | null;
+  endChar: number | null;
+  quote: string;
+  value: string;
+  detached: boolean;
 }

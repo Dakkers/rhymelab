@@ -5,34 +5,12 @@
  * the client bundle and the Drizzle schema import from here.
  */
 
-/* ------------------------------------------------------------------ */
-/* Entries                                                             */
-/* ------------------------------------------------------------------ */
-
-/** A library item is a song or a poem. */
-export const ENTRY_KINDS = ["song", "poem"] as const;
-export type EntryKind = (typeof ENTRY_KINDS)[number];
-
-export function entryKindLabel(kind: EntryKind): string {
-  return kind === "song" ? "Song" : "Poem";
-}
-
-/* ------------------------------------------------------------------ */
-/* Sections                                                            */
-/* ------------------------------------------------------------------ */
-
 /*
  * Sections are untyped now: lyrics are auto-split on blank lines and each block
  * is labelled positionally ("Section 1", "Section 2", …). The structural-type
  * concept (verse/chorus/…) and its editable picker were removed while the app's
  * scope narrows; the code lives in git history for when structure returns.
- */
-
-/* ------------------------------------------------------------------ */
-/* Rhyme scheme                                                        */
-/* ------------------------------------------------------------------ */
-
-/*
+ *
  * The app does one thing: line-level rhyme-scheme annotation. There is no mode
  * selector and no reading view any more — the workbench is always the rhyme
  * annotator — and the multi-mode / word-level-tier machinery (ANNOTATION_MODES,
@@ -41,30 +19,18 @@ export function entryKindLabel(kind: EntryKind): string {
  * device, note) live in git history for if they ever return.
  */
 
+/** A library item is a song or a poem. */
+export const ENTRY_KINDS = ["song", "poem"] as const;
+
 /** How rhyme groups are drawn over the lyrics: tinted lines, or A/B/C letters. */
 export const RHYME_VIEWS = ["colours", "letters"] as const;
-export type RhymeView = (typeof RHYME_VIEWS)[number];
 
 /** The accent colour + one-line instruction for the rhyme-scheme panel. */
 export const RHYME_ACCENT = "#EC5C79";
 export const RHYME_HELPER =
   "Check the lines that share a rhyme — click anywhere on a line — then assign a group. ⇧-click for a range. X marks a line that doesn't rhyme.";
 
-/* ------------------------------------------------------------------ */
-/* Rhyme scheme — the A–F / X groups                                */
-/* ------------------------------------------------------------------ */
-
 export const RHYME_GROUPS = ["A", "B", "C", "D", "E", "F", "X"] as const;
-export type RhymeGroup = (typeof RHYME_GROUPS)[number];
-
-export interface RhymeGroupColor {
-  /** Strong fill — line-end badges and the group buttons. */
-  solid: string;
-  /** Light wash — the highlight pill behind a word. */
-  tint: string;
-  /** Readable ink on top of `solid`. */
-  ink: string;
-}
 
 /**
  * Colours keyed by group letter. `X` (a deliberate non-rhyme) is a flat neutral
@@ -79,3 +45,22 @@ export const RHYME_GROUP_COLORS: Record<RhymeGroup, RhymeGroupColor> = {
   F: { solid: "#F0973C", tint: "#FBDDBE", ink: "#5C3312" },
   X: { solid: "#B4AFA5", tint: "#E7E3DA", ink: "#3E3B34" },
 };
+
+export function entryKindLabel(kind: EntryKind): string {
+  return kind === "song" ? "Song" : "Poem";
+}
+
+export type EntryKind = (typeof ENTRY_KINDS)[number];
+
+export type RhymeView = (typeof RHYME_VIEWS)[number];
+
+export type RhymeGroup = (typeof RHYME_GROUPS)[number];
+
+export interface RhymeGroupColor {
+  /** Strong fill — line-end badges and the group buttons. */
+  solid: string;
+  /** Light wash — the highlight pill behind a word. */
+  tint: string;
+  /** Readable ink on top of `solid`. */
+  ink: string;
+}

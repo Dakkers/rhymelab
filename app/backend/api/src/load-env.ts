@@ -1,5 +1,10 @@
 import { config } from "dotenv";
 
+/** Loads the env files into `process.env`. Call this before anything reads config. */
+export function loadEnv(): void {
+  config({ path: envFilePaths() });
+}
+
 /**
  * Ordered list of env files to load, most specific first.
  *
@@ -20,9 +25,4 @@ import { config } from "dotenv";
 export function envFilePaths(): string[] {
   const nodeEnv = process.env.NODE_ENV ?? "development";
   return [`.config/.env.${nodeEnv}.local`, `.config/.env.${nodeEnv}`, ".config/.env"];
-}
-
-/** Loads the env files into `process.env`. Call this before anything reads config. */
-export function loadEnv(): void {
-  config({ path: envFilePaths() });
 }

@@ -9,12 +9,6 @@
  * when the quoted text is gone entirely.
  */
 
-export interface ReanchorResult {
-  startOffset: number;
-  endOffset: number;
-  detached: boolean;
-}
-
 /**
  * Find `quote` in `newText`, choosing the occurrence whose start is closest to
  * `oldStart`. Returns the new offsets, or `detached: true` if not found.
@@ -45,4 +39,10 @@ export function reanchor(quote: string, oldStart: number, newText: string): Rean
     return { startOffset: oldStart, endOffset: oldStart + quote.length, detached: true };
   }
   return { startOffset: best, endOffset: best + quote.length, detached: false };
+}
+
+export interface ReanchorResult {
+  startOffset: number;
+  endOffset: number;
+  detached: boolean;
 }

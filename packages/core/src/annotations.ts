@@ -15,72 +15,6 @@
 import { parseLines } from "./lyrics";
 import { RHYME_GROUPS, type RhymeGroup } from "./constants";
 
-/** A whole-line address: the section and the 0-based line within it. */
-export interface LineAddress {
-  sectionId: number;
-  lineInSection: number;
-}
-
-/** A stored annotation row, reduced to what the write planner needs. */
-export interface ExistingAnnotation {
-  id: number;
-  sectionId: number | null;
-  lineInSection: number | null;
-  /** null = whole line; otherwise a sub-line char range within the line. */
-  startChar: number | null;
-  endChar: number | null;
-  value: string;
-  /** Detached rows are off the text — never matched or deleted by a write. */
-  detached: boolean;
-}
-
-/** One line-group write: assign `value` to the whole line at this address. */
-export interface LineGroupItem extends LineAddress {
-  value: RhymeGroup;
-}
-
-/** A row the plan wants created. `quote` is the whole-line text from the lyrics. */
-export interface AnnotationInsert extends LineAddress {
-  startChar: number | null;
-  endChar: number | null;
-  value: RhymeGroup;
-  quote: string;
-}
-
-/** The effect of a write batch: rows to hard-delete (by id) and rows to insert. */
-export interface AnnotationWritePlan {
-  deleteIds: number[];
-  inserts: AnnotationInsert[];
-}
-
-/**
- * Thrown when a write targets an address that isn't a real non-blank line of the
- * current lyrics (bad section id, or a line index past the section). The caller
- * maps it to a 400 — the client should only ever send valid line addresses.
- */
-export class InvalidLineAddressError extends Error {
-  constructor(public readonly address: LineAddress) {
-    super(`(${address.sectionId}, ${address.lineInSection}) is not a non-blank line`);
-    this.name = "InvalidLineAddressError";
-  }
-}
-
-/** A section as the write planner sees it — offsets + its duplicate link. */
-export interface WriteSection {
-  id: number;
-  startOffset: number;
-  endOffset: number;
-  canonicalSectionId: number | null;
-}
-
-/** Resolves addresses against the stored lyrics/sections (built once per write). */
-export interface WriteContext {
-  /** Redirect a write on a linked section to its canonical (one hop — I2). */
-  redirect(sectionId: number): number;
-  /** The whole-line text at `(sectionId, lineInSection)`, or null if invalid. */
-  lineText(sectionId: number, lineInSection: number): string | null;
-}
-
 /**
  * Build a {@link WriteContext} from the stored lyrics + sections. `redirect`
  * follows a section's `canonicalSectionId` one hop (I2 guarantees that suffices);
@@ -105,22 +39,6 @@ export function makeWriteContext(lyrics: string, sections: WriteSection[]): Writ
 /** Is this a valid rhyme group (A–F / X)? */
 export function isRhymeGroup(value: string): value is RhymeGroup {
   return (RHYME_GROUPS as readonly string[]).includes(value);
-}
-
-/** Same whole-line address (both whole-line, same section + line). */
-const sameLine = (r: { sectionId: number | null; lineInSection: number | null }, a: LineAddress) =>
-  r.sectionId === a.sectionId && r.lineInSection === a.lineInSection;
-
-/**
- * A working row while planning: an existing row (has `id`) or one this batch just
- * inserted (no `id`, so removing it costs no delete).
- */
-interface WorkingRow {
-  id: number | null;
-  sectionId: number;
-  lineInSection: number;
-  startChar: number | null;
-  value: string;
 }
 
 /**
@@ -229,4 +147,87 @@ export function planClearLines(
     }
   }
   return { deleteIds: [...deleteIds] };
+}
+
+/** Same whole-line address (both whole-line, same section + line). */
+function sameLine(r: { sectionId: number | null; lineInSection: number | null }, a: LineAddress) {
+  return r.sectionId === a.sectionId && r.lineInSection === a.lineInSection;
+}
+
+/**
+ * Thrown when a write targets an address that isn't a real non-blank line of the
+ * current lyrics (bad section id, or a line index past the section). The caller
+ * maps it to a 400 — the client should only ever send valid line addresses.
+ */
+export class InvalidLineAddressError extends Error {
+  constructor(public readonly address: LineAddress) {
+    super(`(${address.sectionId}, ${address.lineInSection}) is not a non-blank line`);
+    this.name = "InvalidLineAddressError";
+  }
+}
+
+/** A whole-line address: the section and the 0-based line within it. */
+export interface LineAddress {
+  sectionId: number;
+  lineInSection: number;
+}
+
+/** A stored annotation row, reduced to what the write planner needs. */
+export interface ExistingAnnotation {
+  id: number;
+  sectionId: number | null;
+  lineInSection: number | null;
+  /** null = whole line; otherwise a sub-line char range within the line. */
+  startChar: number | null;
+  endChar: number | null;
+  value: string;
+  /** Detached rows are off the text — never matched or deleted by a write. */
+  detached: boolean;
+}
+
+/** One line-group write: assign `value` to the whole line at this address. */
+export interface LineGroupItem extends LineAddress {
+  value: RhymeGroup;
+}
+
+/** A row the plan wants created. `quote` is the whole-line text from the lyrics. */
+export interface AnnotationInsert extends LineAddress {
+  startChar: number | null;
+  endChar: number | null;
+  value: RhymeGroup;
+  quote: string;
+}
+
+/** The effect of a write batch: rows to hard-delete (by id) and rows to insert. */
+export interface AnnotationWritePlan {
+  deleteIds: number[];
+  inserts: AnnotationInsert[];
+}
+
+/** A section as the write planner sees it — offsets + its duplicate link. */
+export interface WriteSection {
+  id: number;
+  startOffset: number;
+  endOffset: number;
+  canonicalSectionId: number | null;
+}
+
+/** Resolves addresses against the stored lyrics/sections (built once per write). */
+export interface WriteContext {
+  /** Redirect a write on a linked section to its canonical (one hop — I2). */
+  redirect(sectionId: number): number;
+  /** The whole-line text at `(sectionId, lineInSection)`, or null if invalid. */
+  lineText(sectionId: number, lineInSection: number): string | null;
+}
+
+/**
+ * A working row while planning: an existing row (has `id`) or one this batch just
+ * inserted (no `id`, so removing it costs no delete).
+ */
+interface WorkingRow {
+  id: number | null;
+  sectionId: number;
+  lineInSection: number;
+  startChar: number | null;
+  value: string;
 }

@@ -10,35 +10,53 @@
  * how the design highlights and how rhymes actually attach to a word.
  */
 
-/** A run of non-whitespace characters, with its offsets into the full text. */
-export interface WordToken {
-  /** Position among the *words* of the whole poem (stable id for selection). */
-  wordIndex: number;
-  start: number;
-  end: number;
-  text: string;
-}
-
-/** A single line of the lyrics and the words within it. */
-export interface LineToken {
-  /** 0-based line number across the whole text. */
-  index: number;
-  start: number;
-  /** Exclusive; the offset of the line's last character + 1 (excludes `\n`). */
-  end: number;
-  text: string;
-  blank: boolean;
-  words: WordToken[];
-}
-
-/** A detected structural block — a run of non-blank lines. */
-export interface DetectedSection {
-  orderIndex: number;
-  startOffset: number;
-  endOffset: number;
-}
-
 const WHITESPACE = /\s/;
+
+/**
+ * NBSP and the fixed-width Unicode space separators that paste in from Word,
+ * PDFs, and typeset sources. Folded to a plain ASCII space so a line pasted with
+ * fancy spacing is byte-identical to the same line typed plainly — the basis of
+ * the identity duplicate-detection (no fuzzy matching, and nothing case- or
+ * apostrophe-changing: those would read as rewriting the user's text). Excludes
+ * U+2028/U+2029, which are *line* separators folded to `\n` below.
+ */
+const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
+
+/**
+ * Detect sections by splitting on blank lines: each maximal run of consecutive
+ * non-blank lines becomes one section, spanning from the first line's start to
+ * the last line's end (trailing blank lines are excluded).
+ */
+export function detectSections(text: string): DetectedSection[] {
+  const lines = parseLines(text);
+  const sections: DetectedSection[] = [];
+  let current: { start: number; end: number } | null = null;
+
+  for (const line of lines) {
+    if (line.blank) {
+      if (current) {
+        sections.push({
+          orderIndex: sections.length,
+          startOffset: current.start,
+          endOffset: current.end,
+        });
+        current = null;
+      }
+      continue;
+    }
+    if (!current) current = { start: line.start, end: line.end };
+    else current.end = line.end;
+  }
+  if (current) {
+    sections.push({
+      orderIndex: sections.length,
+      startOffset: current.start,
+      endOffset: current.end,
+    });
+  }
+
+  return sections;
+}
 
 /**
  * Split the text into lines, tagging each with its offsets and its word tokens.
@@ -97,56 +115,10 @@ export function finalWord(line: LineToken): WordToken | null {
   return line.words.length ? line.words[line.words.length - 1]! : null;
 }
 
-/**
- * Detect sections by splitting on blank lines: each maximal run of consecutive
- * non-blank lines becomes one section, spanning from the first line's start to
- * the last line's end (trailing blank lines are excluded).
- */
-export function detectSections(text: string): DetectedSection[] {
-  const lines = parseLines(text);
-  const sections: DetectedSection[] = [];
-  let current: { start: number; end: number } | null = null;
-
-  for (const line of lines) {
-    if (line.blank) {
-      if (current) {
-        sections.push({
-          orderIndex: sections.length,
-          startOffset: current.start,
-          endOffset: current.end,
-        });
-        current = null;
-      }
-      continue;
-    }
-    if (!current) current = { start: line.start, end: line.end };
-    else current.end = line.end;
-  }
-  if (current) {
-    sections.push({
-      orderIndex: sections.length,
-      startOffset: current.start,
-      endOffset: current.end,
-    });
-  }
-
-  return sections;
-}
-
 /** The lines whose span falls within `[start, end)` — a section's lines. */
 export function linesInRange(lines: LineToken[], start: number, end: number): LineToken[] {
   return lines.filter((l) => l.start >= start && l.end <= end);
 }
-
-/**
- * NBSP and the fixed-width Unicode space separators that paste in from Word,
- * PDFs, and typeset sources. Folded to a plain ASCII space so a line pasted with
- * fancy spacing is byte-identical to the same line typed plainly — the basis of
- * the identity duplicate-detection (no fuzzy matching, and nothing case- or
- * apostrophe-changing: those would read as rewriting the user's text). Excludes
- * U+2028/U+2029, which are *line* separators folded to `\n` below.
- */
-const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 
 /**
  * Normalise pasted text: NFC-compose, fold exotic spaces, unify newlines, strip
@@ -191,4 +163,32 @@ export function normalizeText(text: string): string {
 /** A section's positional label, e.g. "Section 1", "Section 2". */
 export function defaultSectionLabel(oneBasedIndex: number): string {
   return `Section ${oneBasedIndex}`;
+}
+
+/** A run of non-whitespace characters, with its offsets into the full text. */
+export interface WordToken {
+  /** Position among the *words* of the whole poem (stable id for selection). */
+  wordIndex: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+/** A single line of the lyrics and the words within it. */
+export interface LineToken {
+  /** 0-based line number across the whole text. */
+  index: number;
+  start: number;
+  /** Exclusive; the offset of the line's last character + 1 (excludes `\n`). */
+  end: number;
+  text: string;
+  blank: boolean;
+  words: WordToken[];
+}
+
+/** A detected structural block — a run of non-blank lines. */
+export interface DetectedSection {
+  orderIndex: number;
+  startOffset: number;
+  endOffset: number;
 }
