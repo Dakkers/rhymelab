@@ -5,22 +5,6 @@ import { routeTree } from "./routeTree.gen";
 import { NotFoundScreen } from "./components/RouteStatus";
 import { toastError } from "./lib/toast";
 
-/**
- * Opt a mutation out of the global error toast by setting `meta.hideToast` on
- * its `mutationOptions` — for flows that render their own inline error, or
- * where a toast would be redundant.
- */
-declare module "@tanstack/react-query" {
-  interface Register {
-    mutationMeta: { hideToast?: boolean };
-  }
-}
-
-/** The user-facing line for a failed write; falls back when the error is opaque. */
-function mutationErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message ? error.message : "Please try again.";
-}
-
 export function getRouter() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: 30_000 } },
@@ -47,6 +31,22 @@ export function getRouter() {
   setupRouterSsrQueryIntegration({ router, queryClient });
 
   return router;
+}
+
+/** The user-facing line for a failed write; falls back when the error is opaque. */
+function mutationErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : "Please try again.";
+}
+
+/**
+ * Opt a mutation out of the global error toast by setting `meta.hideToast` on
+ * its `mutationOptions` — for flows that render their own inline error, or
+ * where a toast would be redundant.
+ */
+declare module "@tanstack/react-query" {
+  interface Register {
+    mutationMeta: { hideToast?: boolean };
+  }
 }
 
 declare module "@tanstack/react-router" {

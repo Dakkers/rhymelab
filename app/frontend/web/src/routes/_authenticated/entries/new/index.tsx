@@ -6,32 +6,6 @@ import type { EntryKind } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
 import { orpc } from "#/lib/orpc";
 
-export const Route = createFileRoute("/_authenticated/entries/new/")({
-  component: NewEntryPage,
-});
-
-/**
- * The two-step "new entry" form. `step` lives in the form's own state (rather than
- * a separate `useState`) so advancing is just `setFieldValue("step", …)` and every
- * pane reads it through the same `form.Subscribe` the fields use. It's UI state, so
- * it's stripped back out before the create payload is built.
- */
-interface NewEntryForm {
-  /** Which pane is showing. Set on Next / Back; not part of the saved entry. */
-  step: 1 | 2;
-  /** Step 1 — the raw text of the piece. */
-  body: string;
-  /** Step 2 — metadata. */
-  kind: EntryKind;
-  title: string;
-  author: string;
-  /** Kept as a string for the text control; parsed when the payload is built. */
-  year: string;
-  /** Lyrics-only; ignored for poems. */
-  artist: string;
-  album: string;
-}
-
 const DEFAULTS: NewEntryForm = {
   step: 1,
   body: "",
@@ -43,33 +17,9 @@ const DEFAULTS: NewEntryForm = {
   album: "",
 };
 
-/**
- * Build the create payload from the form. Drops the UI-only `step`, coerces
- * `year`, and narrows the lyrics-only fields off `kind` so the shape matches the
- * contract's `EntryCreateInput` union. Blank `album` goes out as
- * `undefined` rather than "", so it's stored absent. `author` and `artist` are
- * lists on the wire — the form still collects one value each, so a blank one
- * becomes `[]` (see `toList`). The server derives excerpt / line count / word
- * count from `body`, so none of those are sent.
- */
-const toList = (value: string) => (value.trim() ? [value.trim()] : []);
-
-function buildCreatePayload({ step: _step, ...values }: NewEntryForm) {
-  const base = {
-    title: values.title.trim(),
-    author: toList(values.author),
-    body: values.body,
-    year: values.year.trim() ? Number(values.year) : undefined,
-  };
-  return values.kind === "lyrics"
-    ? {
-        ...base,
-        kind: "lyrics" as const,
-        artist: toList(values.artist),
-        album: values.album.trim() || undefined,
-      }
-    : { ...base, kind: "poem" as const };
-}
+export const Route = createFileRoute("/_authenticated/entries/new/")({
+  component: NewEntryPage,
+});
 
 function NewEntryPage() {
   const navigate = useNavigate();
@@ -277,4 +227,56 @@ function NewEntryPage() {
       </Card>
     </Page>
   );
+}
+
+/**
+ * Build the create payload from the form. Drops the UI-only `step`, coerces
+ * `year`, and narrows the lyrics-only fields off `kind` so the shape matches the
+ * contract's `EntryCreateInput` union. Blank `album` goes out as
+ * `undefined` rather than "", so it's stored absent. `author` and `artist` are
+ * lists on the wire — the form still collects one value each, so a blank one
+ * becomes `[]` (see `toList`). The server derives excerpt / line count / word
+ * count from `body`, so none of those are sent.
+ */
+function buildCreatePayload({ step: _step, ...values }: NewEntryForm) {
+  const base = {
+    title: values.title.trim(),
+    author: toList(values.author),
+    body: values.body,
+    year: values.year.trim() ? Number(values.year) : undefined,
+  };
+  return values.kind === "lyrics"
+    ? {
+        ...base,
+        kind: "lyrics" as const,
+        artist: toList(values.artist),
+        album: values.album.trim() || undefined,
+      }
+    : { ...base, kind: "poem" as const };
+}
+
+function toList(value: string) {
+  return value.trim() ? [value.trim()] : [];
+}
+
+/**
+ * The two-step "new entry" form. `step` lives in the form's own state (rather than
+ * a separate `useState`) so advancing is just `setFieldValue("step", …)` and every
+ * pane reads it through the same `form.Subscribe` the fields use. It's UI state, so
+ * it's stripped back out before the create payload is built.
+ */
+interface NewEntryForm {
+  /** Which pane is showing. Set on Next / Back; not part of the saved entry. */
+  step: 1 | 2;
+  /** Step 1 — the raw text of the piece. */
+  body: string;
+  /** Step 2 — metadata. */
+  kind: EntryKind;
+  title: string;
+  author: string;
+  /** Kept as a string for the text control; parsed when the payload is built. */
+  year: string;
+  /** Lyrics-only; ignored for poems. */
+  artist: string;
+  album: string;
 }

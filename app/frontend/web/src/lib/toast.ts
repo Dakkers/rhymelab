@@ -17,8 +17,6 @@ import type { ReactNode } from "react";
 import { Toast } from "@base-ui/react/toast";
 import type { ToastData } from "@saintly-software/baritone";
 
-export const toastManager = Toast.createToastManager<ToastData>();
-
 /**
  * Fire a `negative`-intent error toast. `high` priority routes it to an
  * assertive live region so assistive tech announces the failure at once.
@@ -31,3 +29,5 @@ export function toastError(title: ReactNode, description?: ReactNode): void {
     data: { intent: "negative" },
   });
 }
+
+export const toastManager = Toast.createToastManager<ToastData>();

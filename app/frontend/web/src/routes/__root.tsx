@@ -24,11 +24,6 @@ import appCss from "../styles/app.css?url";
 
 const APP_NAME = "RhymeLab";
 
-/** The app-wide mock switch (`?__mock`). See `#/lib/orpc` for what it flips on. */
-interface RootSearch {
-  __mock?: string;
-}
-
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   // `__mock` is a global, sticky query param. Declaring it here and retaining it
   // in every navigation and redirect makes it ride along for the whole session:
@@ -94,4 +89,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </BaritoneTheme>
     </html>
   );
+}
+
+/** The app-wide mock switch (`?__mock`). See `#/lib/orpc` for what it flips on. */
+interface RootSearch {
+  __mock?: string;
 }

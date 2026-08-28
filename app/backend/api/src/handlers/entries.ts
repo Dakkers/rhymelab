@@ -20,26 +20,6 @@ import { prisma } from "../db";
 import { authed } from "../orpc";
 import { SINGLE_USER_ID } from "../session";
 
-/**
- * The fields the summary and detail wire shapes carry identically — everything
- * kind-agnostic. Shared so that mapping lives in one place; each mapper adds what
- * is specific to it (the detail its `body`/`structure`, the summary its derived
- * preview fields) and the `kind` discriminator on top.
- *
- * `author` is a list column — already `[]` when unset, so it passes straight
- * through. `year` is nullable and the contract wants it absent-when-unset.
- */
-function toEntryBase(entry: EntryForLibrary) {
-  return {
-    id: entry.id,
-    title: entry.title,
-    author: entry.author,
-    year: entry.year ?? undefined,
-    createdAt: entry.createdAt.toISOString(),
-    updatedAt: entry.updatedAt.toISOString(),
-  };
-}
-
 /** Map a Prisma `Entry` row onto the detail wire shape the contract promises. */
 function toEntryDetail(entry: EntryForDetail): EntryDetail {
   const base = {
@@ -74,6 +54,26 @@ function toEntrySummary(entry: EntryForLibrary): EntrySummary {
   return entry.kind === "lyrics"
     ? { ...base, kind: "lyrics", artist: entry.artist, album: entry.album ?? "" }
     : { ...base, kind: "poem" };
+}
+
+/**
+ * The fields the summary and detail wire shapes carry identically — everything
+ * kind-agnostic. Shared so that mapping lives in one place; each mapper adds what
+ * is specific to it (the detail its `body`/`structure`, the summary its derived
+ * preview fields) and the `kind` discriminator on top.
+ *
+ * `author` is a list column — already `[]` when unset, so it passes straight
+ * through. `year` is nullable and the contract wants it absent-when-unset.
+ */
+function toEntryBase(entry: EntryForLibrary) {
+  return {
+    id: entry.id,
+    title: entry.title,
+    author: entry.author,
+    year: entry.year ?? undefined,
+    createdAt: entry.createdAt.toISOString(),
+    updatedAt: entry.updatedAt.toISOString(),
+  };
 }
 
 // No accounts yet — every entry is scoped to the single alpha user.

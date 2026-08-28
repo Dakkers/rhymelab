@@ -56,23 +56,6 @@ export function NavBar() {
 }
 
 /**
- * The nav links' type, from the design system — `nav` size + `medium` weight — so
- * the label carries no hand-rolled `font-*` (`.rl-nav` is colour + hover only). The
- * dark bar is outside Baritone's colour tokens, so the label takes the anchor's
- * colour by inheritance rather than a token.
- */
-function NavLabel({ children }: { children: ReactNode }) {
-  return (
-    <Text as="span" size="nav" weight="medium" style={{ color: "inherit" }}>
-      {children}
-    </Text>
-  );
-}
-
-/** The knobs the brand marks expose — the rest of their type is fixed. */
-type BrandProps = Pick<TextProps, "size" | "saliency" | "style">;
-
-/**
  * The wordmark. Also used by the landing and login pages, which sit on the cream
  * canvas and so take their colour from the theme rather than the bar.
  */
@@ -109,3 +92,20 @@ export function AlphaChip({ size = "xs", saliency, style }: BrandProps) {
     </Text>
   );
 }
+
+/**
+ * The nav links' type, from the design system — `nav` size + `medium` weight — so
+ * the label carries no hand-rolled `font-*` (`.rl-nav` is colour + hover only). The
+ * dark bar is outside Baritone's colour tokens, so the label takes the anchor's
+ * colour by inheritance rather than a token.
+ */
+function NavLabel({ children }: { children: ReactNode }) {
+  return (
+    <Text as="span" size="nav" weight="medium" style={{ color: "inherit" }}>
+      {children}
+    </Text>
+  );
+}
+
+/** The knobs the brand marks expose — the rest of their type is fixed. */
+type BrandProps = Pick<TextProps, "size" | "saliency" | "style">;

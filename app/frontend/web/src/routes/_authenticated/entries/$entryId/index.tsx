@@ -25,20 +25,6 @@ import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
 import { orpc } from "#/lib/orpc";
 
-/**
- * A saved piece's detail view — fetched over oRPC's `entries.get`, scoped to the
- * id in the URL. Reads go through the TanStack Query cache the same way the
- * Library does: the loader primes it so the piece is ready on first paint, and
- * the component subscribes with `useSuspenseQuery`.
- */
-export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
-  loader: ({ params, context }) =>
-    context.queryClient.ensureQueryData(
-      orpc.entries.get.queryOptions({ input: { id: params.entryId } }),
-    ),
-  component: EntryPage,
-});
-
 const KIND_LABEL: Record<EntryDetail["kind"], string> = {
   lyrics: "Lyrics",
   poem: "Poem",
@@ -57,6 +43,20 @@ const SECTION_TYPE_LABEL: Record<SectionType, string> = {
   bridge: "Bridge",
   outro: "Outro",
 };
+
+/**
+ * A saved piece's detail view — fetched over oRPC's `entries.get`, scoped to the
+ * id in the URL. Reads go through the TanStack Query cache the same way the
+ * Library does: the loader primes it so the piece is ready on first paint, and
+ * the component subscribes with `useSuspenseQuery`.
+ */
+export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
+  loader: ({ params, context }) =>
+    context.queryClient.ensureQueryData(
+      orpc.entries.get.queryOptions({ input: { id: params.entryId } }),
+    ),
+  component: EntryPage,
+});
 
 function EntryPage() {
   const { entryId } = Route.useParams();

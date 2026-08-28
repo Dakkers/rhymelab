@@ -1,17 +1,6 @@
 import type { ReactNode } from "react";
 import { Box, Flex, Heading, Text } from "@saintly-software/baritone";
 
-export interface PageProps {
-  /** The page title, rendered as the semantic `<h1>`. */
-  title: ReactNode;
-  /** Optional secondary text shown directly beneath the title. */
-  subtitle?: ReactNode;
-  /** Optional content shown opposite the title, e.g. an action button. */
-  actions?: ReactNode;
-  /** The page content, rendered below the header. */
-  children?: ReactNode;
-}
-
 /**
  * Page — the top-level wrapper for a route's content. Renders the title as an
  * `<h1>` (optionally with a `subtitle` and trailing `actions` in a `<header>`),
@@ -42,4 +31,15 @@ export function Page({ title, subtitle, actions, children }: PageProps) {
       {children}
     </Box>
   );
+}
+
+export interface PageProps {
+  /** The page title, rendered as the semantic `<h1>`. */
+  title: ReactNode;
+  /** Optional secondary text shown directly beneath the title. */
+  subtitle?: ReactNode;
+  /** Optional content shown opposite the title, e.g. an action button. */
+  actions?: ReactNode;
+  /** The page content, rendered below the header. */
+  children?: ReactNode;
 }

@@ -20,119 +20,156 @@
  * self-heal), which decorates the plan's `canonicalRef`/`manualUnlink` and adds
  * the copy rows a divergence/handoff needs.
  */
+
 import { alignLines, lcsPairs, similarity } from "./diff";
 import { detectSections, normalizeText, parseLines, type LineToken } from "./lyrics";
 import { reanchor } from "./anchor";
 
-/* ------------------------------------------------------------------ */
-/* Inputs (pure projections of the DB rows)                            */
-/* ------------------------------------------------------------------ */
-
-export interface ReconcileSection {
-  id: number;
-  orderIndex: number;
-  startOffset: number;
-  endOffset: number;
-  canonicalSectionId: number | null;
-  manualUnlink: boolean;
-}
-
-export interface ReconcileAnnotation {
-  id: number;
-  sectionId: number | null;
-  lineInSection: number | null;
-  /** null = whole line; otherwise a sub-line char range within the line. */
-  startChar: number | null;
-  endChar: number | null;
-  quote: string;
-  value: string;
-  detached: boolean;
-}
-
-/* ------------------------------------------------------------------ */
-/* Plan (pure output)                                                  */
-/* ------------------------------------------------------------------ */
-
-/**
- * A section in the post-save world. Survivors carry their real `id` and a `ref`
- * equal to that id; creations have `id: null` and a negative `ref`. `canonicalRef`
- * points at another planned section's `ref` (or null). The apply step maps refs
- * to real ids (creations get fresh ids) and resolves the pointers.
- */
-export interface PlannedSection {
-  ref: number;
-  id: number | null;
-  orderIndex: number;
-  startOffset: number;
-  endOffset: number;
-  canonicalRef: number | null;
-  manualUnlink: boolean;
-}
-
-/**
- * An annotation in the post-save world. Existing rows carry their `id`; rows the
- * reconciler creates (duplicate materialization/handoff copies) have `id: null`.
- * `sectionRef` is the planned section it lands on (null ⟺ orphaned).
- */
-export interface PlannedAnnotation {
-  id: number | null;
-  sectionRef: number | null;
-  lineInSection: number | null;
-  startChar: number | null;
-  endChar: number | null;
-  quote: string;
-  value: string;
-  detached: boolean;
-}
-
-export interface ReconcilePlan {
-  newLyrics: string;
-  sections: PlannedSection[];
-  /** Old section ids to delete (their rows have been moved/orphaned first). */
-  deleteSectionIds: number[];
-  /** The complete post-save annotation set (existing rows repositioned + copies). */
-  annotations: PlannedAnnotation[];
-  /** Diagnostics from the I2/I3 self-heal (a section found both linked and
-   *  row-owning). Empty in the healthy case; the caller may log them. */
-  warnings: string[];
-}
-
 /** How similar a rewritten line must stay to keep its annotations (D-17). */
 const LINE_CARRY_THRESHOLD = 0.5;
+
 /** Fraction of a section's (smaller-side) lines that must exact-match to survive. */
 const SECTION_SURVIVE_THRESHOLD = 0.5;
 
-/* ------------------------------------------------------------------ */
-/* Internal models                                                     */
-/* ------------------------------------------------------------------ */
+export function reconcile(
+  oldLyrics: string,
+  oldSections: ReconcileSection[],
+  oldAnnotations: ReconcileAnnotation[],
+  input: string,
+): ReconcilePlan {
+  const newText = normalizeText(input);
 
-interface OldSecModel {
-  section: ReconcileSection;
-  index: number;
-  /** The section's non-blank line texts (lineInSection ⇒ index here). */
-  lines: string[];
+  const olds: OldSecModel[] = [...oldSections]
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((section, index) => ({ section, index, lines: sliceLines(oldLyrics, section) }));
+  const oldById = new Map(olds.map((o) => [o.section.id, o]));
+
+  const parsedNew = parseLines(newText);
+  const blocks: NewBlockModel[] = detectSections(newText).map((d) => ({
+    index: d.orderIndex,
+    orderIndex: d.orderIndex,
+    startOffset: d.startOffset,
+    endOffset: d.endOffset,
+    lines: blockLineTokens(parsedNew, d.startOffset, d.endOffset),
+  }));
+
+  // Which old sections own at least one annotation row (detached rows count — D-11).
+  const rowOwnerIds = new Set(
+    oldAnnotations.filter((a) => a.sectionId !== null).map((a) => a.sectionId as number),
+  );
+
+  const { blockOwnerOldId, lineDest } = matchSections(olds, blocks, rowOwnerIds);
+
+  // Build the post-save section set: each block becomes a PlannedSection, keeping
+  // an old id (survivor) or getting a negative creation ref.
+  let creationCounter = 0;
+  const blockRef: number[] = Array.from({ length: blocks.length }, () => 0);
+  const sections: PlannedSection[] = blocks.map((b) => {
+    const ownerOldId = blockOwnerOldId[b.index];
+    if (ownerOldId !== null) {
+      blockRef[b.index] = ownerOldId;
+      const old = oldById.get(ownerOldId)!;
+      return {
+        ref: ownerOldId,
+        id: ownerOldId,
+        orderIndex: b.orderIndex,
+        startOffset: b.startOffset,
+        endOffset: b.endOffset,
+        canonicalRef: null, // duplicate election runs below
+        manualUnlink: old.section.manualUnlink,
+      };
+    }
+    const ref = -++creationCounter;
+    blockRef[b.index] = ref;
+    return {
+      ref,
+      id: null,
+      orderIndex: b.orderIndex,
+      startOffset: b.startOffset,
+      endOffset: b.endOffset,
+      canonicalRef: null,
+      manualUnlink: false,
+    };
+  });
+
+  const survivingOldIds = new Set(sections.filter((s) => s.id !== null).map((s) => s.id!));
+  const deleteSectionIds = olds
+    .filter((o) => !survivingOldIds.has(o.section.id))
+    .map((o) => o.section.id);
+
+  const planByRef = new Map(sections.map((s) => [s.ref, s]));
+  const blockByRef = new Map<number, NewBlockModel>();
+  for (let b = 0; b < blocks.length; b++) blockByRef.set(blockRef[b]!, blocks[b]!);
+  // A ref → its section's new startOffset (for the re-attach oldStart hint).
+  const refStartOffset = new Map<number, number>();
+  for (let b = 0; b < blocks.length; b++) refStartOffset.set(blockRef[b]!, blocks[b]!.startOffset);
+
+  // Duplicate election: sets canonicalRef/manualUnlink on `sections` and hands
+  // back the copies + move successors the annotation pass applies.
+  const { copies, moveSuccessor, warnings } = electDuplicates(
+    sections,
+    planByRef,
+    oldById,
+    oldSections,
+    oldAnnotations,
+    survivingOldIds,
+    newText,
+  );
+  // Write-redirect (D-6/§5.4-4): a row placed on a linked section attaches one hop
+  // up at the canonical (valid by byte-equality); I2 guarantees one hop suffices.
+  const redirect = (ref: number): number => {
+    const s = planByRef.get(ref);
+    return s && s.canonicalRef !== null ? s.canonicalRef : ref;
+  };
+
+  // Remap every existing annotation via the line map (moving a departed canonical's
+  // rows onto its successor), then add the reconciler's copies, deduped (D-6).
+  const annotations: PlannedAnnotation[] = oldAnnotations.map((a) =>
+    remapAnnotation(
+      a,
+      oldById,
+      blocks,
+      blockRef,
+      blockByRef,
+      lineDest,
+      moveSuccessor,
+      redirect,
+      newText,
+    ),
+  );
+
+  const seen = attachedKeySet(annotations);
+  for (const c of copies) {
+    const placed = placeRow(
+      null,
+      c.targetRef,
+      c.src.lineInSection!,
+      c.src.startChar,
+      c.src.endChar,
+      c.src.value,
+      c.src.quote,
+      blockByRef,
+      redirect,
+      newText,
+    );
+    if (placed.detached) {
+      annotations.push(placed); // an out-of-bounds copy is kept detached, recoverable
+      continue;
+    }
+    const key = attachedKey(placed);
+    if (key !== null && seen.has(key)) continue; // identical row already exists — skip (D-6)
+    if (key !== null) seen.add(key);
+    annotations.push(placed);
+  }
+
+  // Re-attach pass: every detached/orphaned row tries to re-find its quote.
+  for (const pa of annotations) {
+    if (!pa.detached) continue;
+    reattach(pa, newText, blocks, blockRef, blockByRef, refStartOffset, redirect, seen);
+  }
+
+  return { newLyrics: newText, sections, deleteSectionIds, annotations, warnings };
 }
-
-interface NewBlockModel {
-  index: number;
-  orderIndex: number;
-  startOffset: number;
-  endOffset: number;
-  /** The block's non-blank line tokens (lineInSection ⇒ index here). */
-  lines: LineToken[];
-}
-
-/** Where one old line landed in the new text. */
-interface LineDestination {
-  blockIndex: number;
-  newLineIndex: number;
-  /** True when the new line is byte-identical (else it's an edited/replace pair). */
-  exact: boolean;
-}
-
-/* ------------------------------------------------------------------ */
-/* Section + line matching (§5.4 step 2 — two-level LCS)               */
-/* ------------------------------------------------------------------ */
 
 /** Split a section's stored slice into its non-blank line texts. */
 function sliceLines(lyrics: string, s: ReconcileSection): string[] {
@@ -143,21 +180,6 @@ function sliceLines(lyrics: string, s: ReconcileSection): string[] {
 function blockLineTokens(all: LineToken[], startOffset: number, endOffset: number): LineToken[] {
   return all.filter((l) => !l.blank && l.start >= startOffset && l.end <= endOffset);
 }
-
-/**
- * Result of matching old sections to new blocks: which old id each new block
- * inherits (null ⇒ creation), and where each old line landed (null ⇒ gone).
- */
-interface MatchResult {
-  /** blockOwnerOldId[blockIndex] = the old section id this block keeps, or null. */
-  blockOwnerOldId: (number | null)[];
-  /** lineDest["oldSecIdx:lineIdx"] = destination, or absent if the line is gone. */
-  lineDest: Map<string, LineDestination>;
-}
-
-const lineKey = (secIdx: number, lineIdx: number) => `${secIdx}:${lineIdx}`;
-const range = (a: number, b: number): number[] =>
-  Array.from({ length: Math.max(0, b - a) }, (_, i) => a + i);
 
 /**
  * Two-level LCS (D-17). First match whole sections by byte-equal content (so an
@@ -290,24 +312,6 @@ function pickMergeWinner(
     if (rank(oi) !== rank(best)) return rank(oi) > rank(best) ? oi : best;
     return olds[oi]!.section.orderIndex < olds[best]!.section.orderIndex ? oi : best;
   });
-}
-
-/* ------------------------------------------------------------------ */
-/* Duplicate lifecycle (§5.3 + §5.4 step 3)                            */
-/* ------------------------------------------------------------------ */
-
-/** A canonical's live row the reconciler must copy onto another section. */
-interface PlacedCopy {
-  targetRef: number;
-  src: ReconcileAnnotation;
-}
-
-interface ElectionResult {
-  /** Materialization / canonical-side-divergence copies to place (id: null). */
-  copies: PlacedCopy[];
-  /** Departed canonical old id → successor ref (its rows MOVE, not orphan — D-13). */
-  moveSuccessor: Map<number, number>;
-  warnings: string[];
 }
 
 /**
@@ -474,231 +478,6 @@ function link(group: PlannedSection[], canon: PlannedSection): void {
   for (const s of group) s.canonicalRef = s === canon ? null : canon.ref;
 }
 
-/* ------------------------------------------------------------------ */
-/* Main reconcile                                                      */
-/* ------------------------------------------------------------------ */
-
-export function reconcile(
-  oldLyrics: string,
-  oldSections: ReconcileSection[],
-  oldAnnotations: ReconcileAnnotation[],
-  input: string,
-): ReconcilePlan {
-  const newText = normalizeText(input);
-
-  const olds: OldSecModel[] = [...oldSections]
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .map((section, index) => ({ section, index, lines: sliceLines(oldLyrics, section) }));
-  const oldById = new Map(olds.map((o) => [o.section.id, o]));
-
-  const parsedNew = parseLines(newText);
-  const blocks: NewBlockModel[] = detectSections(newText).map((d) => ({
-    index: d.orderIndex,
-    orderIndex: d.orderIndex,
-    startOffset: d.startOffset,
-    endOffset: d.endOffset,
-    lines: blockLineTokens(parsedNew, d.startOffset, d.endOffset),
-  }));
-
-  // Which old sections own at least one annotation row (detached rows count — D-11).
-  const rowOwnerIds = new Set(
-    oldAnnotations.filter((a) => a.sectionId !== null).map((a) => a.sectionId as number),
-  );
-
-  const { blockOwnerOldId, lineDest } = matchSections(olds, blocks, rowOwnerIds);
-
-  // Build the post-save section set: each block becomes a PlannedSection, keeping
-  // an old id (survivor) or getting a negative creation ref.
-  let creationCounter = 0;
-  const blockRef: number[] = Array.from({ length: blocks.length }, () => 0);
-  const sections: PlannedSection[] = blocks.map((b) => {
-    const ownerOldId = blockOwnerOldId[b.index];
-    if (ownerOldId !== null) {
-      blockRef[b.index] = ownerOldId;
-      const old = oldById.get(ownerOldId)!;
-      return {
-        ref: ownerOldId,
-        id: ownerOldId,
-        orderIndex: b.orderIndex,
-        startOffset: b.startOffset,
-        endOffset: b.endOffset,
-        canonicalRef: null, // duplicate election runs below
-        manualUnlink: old.section.manualUnlink,
-      };
-    }
-    const ref = -++creationCounter;
-    blockRef[b.index] = ref;
-    return {
-      ref,
-      id: null,
-      orderIndex: b.orderIndex,
-      startOffset: b.startOffset,
-      endOffset: b.endOffset,
-      canonicalRef: null,
-      manualUnlink: false,
-    };
-  });
-
-  const survivingOldIds = new Set(sections.filter((s) => s.id !== null).map((s) => s.id!));
-  const deleteSectionIds = olds
-    .filter((o) => !survivingOldIds.has(o.section.id))
-    .map((o) => o.section.id);
-
-  const planByRef = new Map(sections.map((s) => [s.ref, s]));
-  const blockByRef = new Map<number, NewBlockModel>();
-  for (let b = 0; b < blocks.length; b++) blockByRef.set(blockRef[b]!, blocks[b]!);
-  // A ref → its section's new startOffset (for the re-attach oldStart hint).
-  const refStartOffset = new Map<number, number>();
-  for (let b = 0; b < blocks.length; b++) refStartOffset.set(blockRef[b]!, blocks[b]!.startOffset);
-
-  // Duplicate election: sets canonicalRef/manualUnlink on `sections` and hands
-  // back the copies + move successors the annotation pass applies.
-  const { copies, moveSuccessor, warnings } = electDuplicates(
-    sections,
-    planByRef,
-    oldById,
-    oldSections,
-    oldAnnotations,
-    survivingOldIds,
-    newText,
-  );
-  // Write-redirect (D-6/§5.4-4): a row placed on a linked section attaches one hop
-  // up at the canonical (valid by byte-equality); I2 guarantees one hop suffices.
-  const redirect = (ref: number): number => {
-    const s = planByRef.get(ref);
-    return s && s.canonicalRef !== null ? s.canonicalRef : ref;
-  };
-
-  // Remap every existing annotation via the line map (moving a departed canonical's
-  // rows onto its successor), then add the reconciler's copies, deduped (D-6).
-  const annotations: PlannedAnnotation[] = oldAnnotations.map((a) =>
-    remapAnnotation(
-      a,
-      oldById,
-      blocks,
-      blockRef,
-      blockByRef,
-      lineDest,
-      moveSuccessor,
-      redirect,
-      newText,
-    ),
-  );
-
-  const seen = attachedKeySet(annotations);
-  for (const c of copies) {
-    const placed = placeRow(
-      null,
-      c.targetRef,
-      c.src.lineInSection!,
-      c.src.startChar,
-      c.src.endChar,
-      c.src.value,
-      c.src.quote,
-      blockByRef,
-      redirect,
-      newText,
-    );
-    if (placed.detached) {
-      annotations.push(placed); // an out-of-bounds copy is kept detached, recoverable
-      continue;
-    }
-    const key = attachedKey(placed);
-    if (key !== null && seen.has(key)) continue; // identical row already exists — skip (D-6)
-    if (key !== null) seen.add(key);
-    annotations.push(placed);
-  }
-
-  // Re-attach pass: every detached/orphaned row tries to re-find its quote.
-  for (const pa of annotations) {
-    if (!pa.detached) continue;
-    reattach(pa, newText, blocks, blockRef, blockByRef, refStartOffset, redirect, seen);
-  }
-
-  return { newLyrics: newText, sections, deleteSectionIds, annotations, warnings };
-}
-
-/* ------------------------------------------------------------------ */
-/* Annotation placement / remap / re-attach                           */
-/* ------------------------------------------------------------------ */
-
-/** A stable key for an attached row's address + value (for D-6 dedupe). */
-function attachedKey(pa: PlannedAnnotation): string | null {
-  if (pa.detached || pa.sectionRef === null || pa.lineInSection === null) return null;
-  return `${pa.sectionRef}:${pa.lineInSection}:${pa.startChar}:${pa.endChar}:${pa.value}`;
-}
-
-function attachedKeySet(annotations: PlannedAnnotation[]): Set<string> {
-  const set = new Set<string>();
-  for (const pa of annotations) {
-    const key = attachedKey(pa);
-    if (key !== null) set.add(key);
-  }
-  return set;
-}
-
-/**
- * Place a row on `ref`'s block at `(lineInSection, chars)`, following the
- * write-redirect to the canonical when `ref` is linked (valid by byte-equality).
- * Recomputes `quote` from the new text; a placement that would fall outside the
- * line (line gone, span past the line's end) detaches instead — never guess,
- * never widen (invariant 2). A whole-line placement is always in-bounds ⇒ valid.
- */
-function placeRow(
-  id: number | null,
-  ref: number,
-  lineInSection: number,
-  startChar: number | null,
-  endChar: number | null,
-  value: string,
-  fallbackQuote: string,
-  blockByRef: Map<number, NewBlockModel>,
-  redirect: (ref: number) => number,
-  newText: string,
-): PlannedAnnotation {
-  const targetRef = redirect(ref);
-  const detachedAt = (sectionRef: number | null): PlannedAnnotation => ({
-    id,
-    sectionRef,
-    lineInSection: null,
-    startChar: null,
-    endChar: null,
-    quote: fallbackQuote,
-    value,
-    detached: true,
-  });
-
-  const block = blockByRef.get(targetRef);
-  if (!block) return detachedAt(null);
-  const line = block.lines[lineInSection];
-  if (!line) return detachedAt(targetRef);
-
-  if (startChar === null) {
-    return {
-      id,
-      sectionRef: targetRef,
-      lineInSection,
-      startChar: null,
-      endChar: null,
-      quote: line.text,
-      value,
-      detached: false,
-    };
-  }
-  const ec = endChar ?? 0;
-  if (startChar < 0 || ec > line.text.length || startChar >= ec) return detachedAt(targetRef);
-  return {
-    id,
-    sectionRef: targetRef,
-    lineInSection,
-    startChar,
-    endChar: ec,
-    quote: newText.slice(line.start + startChar, line.start + ec),
-    value,
-    detached: false,
-  };
-}
-
 /**
  * Place one existing annotation in the new world via the line map. A whole-line
  * row follows its line (carrying if exact, or if the edited line stayed ≥0.5
@@ -799,10 +578,87 @@ function remapAnnotation(
   );
 }
 
+/**
+ * Place a row on `ref`'s block at `(lineInSection, chars)`, following the
+ * write-redirect to the canonical when `ref` is linked (valid by byte-equality).
+ * Recomputes `quote` from the new text; a placement that would fall outside the
+ * line (line gone, span past the line's end) detaches instead — never guess,
+ * never widen (invariant 2). A whole-line placement is always in-bounds ⇒ valid.
+ */
+function placeRow(
+  id: number | null,
+  ref: number,
+  lineInSection: number,
+  startChar: number | null,
+  endChar: number | null,
+  value: string,
+  fallbackQuote: string,
+  blockByRef: Map<number, NewBlockModel>,
+  redirect: (ref: number) => number,
+  newText: string,
+): PlannedAnnotation {
+  const targetRef = redirect(ref);
+  const detachedAt = (sectionRef: number | null): PlannedAnnotation => ({
+    id,
+    sectionRef,
+    lineInSection: null,
+    startChar: null,
+    endChar: null,
+    quote: fallbackQuote,
+    value,
+    detached: true,
+  });
+
+  const block = blockByRef.get(targetRef);
+  if (!block) return detachedAt(null);
+  const line = block.lines[lineInSection];
+  if (!line) return detachedAt(targetRef);
+
+  if (startChar === null) {
+    return {
+      id,
+      sectionRef: targetRef,
+      lineInSection,
+      startChar: null,
+      endChar: null,
+      quote: line.text,
+      value,
+      detached: false,
+    };
+  }
+  const ec = endChar ?? 0;
+  if (startChar < 0 || ec > line.text.length || startChar >= ec) return detachedAt(targetRef);
+  return {
+    id,
+    sectionRef: targetRef,
+    lineInSection,
+    startChar,
+    endChar: ec,
+    quote: newText.slice(line.start + startChar, line.start + ec),
+    value,
+    detached: false,
+  };
+}
+
 /** The planned ref of the block that inherited `oldSec`'s id, or null (departed). */
 function survivorRef(oldSec: OldSecModel, blockRef: number[]): number | null {
   const id = oldSec.section.id;
   return blockRef.includes(id) ? id : null;
+}
+
+function attachedKeySet(annotations: PlannedAnnotation[]): Set<string> {
+  const set = new Set<string>();
+  for (const pa of annotations) {
+    const key = attachedKey(pa);
+    if (key !== null) set.add(key);
+  }
+  return set;
+}
+
+/** A stable key for an attached row's address + value (for D-6 dedupe). */
+function attachedKey(pa: PlannedAnnotation): string | null {
+  if (pa.detached || pa.sectionRef === null || pa.lineInSection === null) return null;
+  return `${pa.sectionRef}:${pa.lineInSection}:${pa.startChar}:${pa.endChar}:${pa.value}`;
 }
 
 /**
@@ -856,30 +712,34 @@ function reattach(
   pa.detached = false;
 }
 
-/* ------------------------------------------------------------------ */
-/* Plan resolution (refs → ids)                                        */
-/* ------------------------------------------------------------------ */
-
-/** A section row after the plan's refs are resolved to real ids. */
-export interface ResolvedSection {
-  id: number;
-  orderIndex: number;
-  startOffset: number;
-  endOffset: number;
-  canonicalSectionId: number | null;
-  manualUnlink: boolean;
-}
-
-/** An annotation row after the plan's refs are resolved to real ids. */
-export interface ResolvedAnnotation {
-  id: number;
-  sectionId: number | null;
-  lineInSection: number | null;
+/** Map an absolute `[start,end)` to a (sectionRef, lineInSection, chars) address,
+ *  or null if it isn't within a single non-blank line. */
+function locateSpan(
+  blocks: NewBlockModel[],
+  blockRef: number[],
+  start: number,
+  end: number,
+): {
+  sectionRef: number;
+  lineInSection: number;
   startChar: number | null;
   endChar: number | null;
-  quote: string;
-  value: string;
-  detached: boolean;
+} | null {
+  for (const b of blocks) {
+    for (let li = 0; li < b.lines.length; li++) {
+      const line = b.lines[li]!;
+      if (start >= line.start && end <= line.end) {
+        const whole = start === line.start && end === line.end;
+        return {
+          sectionRef: blockRef[b.index]!,
+          lineInSection: li,
+          startChar: whole ? null : start - line.start,
+          endChar: whole ? null : end - line.start,
+        };
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -919,32 +779,146 @@ export function resolvePlan(
   return { sections, annotations };
 }
 
-/** Map an absolute `[start,end)` to a (sectionRef, lineInSection, chars) address,
- *  or null if it isn't within a single non-blank line. */
-function locateSpan(
-  blocks: NewBlockModel[],
-  blockRef: number[],
-  start: number,
-  end: number,
-): {
-  sectionRef: number;
-  lineInSection: number;
+function lineKey(secIdx: number, lineIdx: number) {
+  return `${secIdx}:${lineIdx}`;
+}
+
+function range(a: number, b: number): number[] {
+  return Array.from({ length: Math.max(0, b - a) }, (_, i) => a + i);
+}
+
+export interface ReconcileSection {
+  id: number;
+  orderIndex: number;
+  startOffset: number;
+  endOffset: number;
+  canonicalSectionId: number | null;
+  manualUnlink: boolean;
+}
+
+export interface ReconcileAnnotation {
+  id: number;
+  sectionId: number | null;
+  lineInSection: number | null;
+  /** null = whole line; otherwise a sub-line char range within the line. */
   startChar: number | null;
   endChar: number | null;
-} | null {
-  for (const b of blocks) {
-    for (let li = 0; li < b.lines.length; li++) {
-      const line = b.lines[li]!;
-      if (start >= line.start && end <= line.end) {
-        const whole = start === line.start && end === line.end;
-        return {
-          sectionRef: blockRef[b.index]!,
-          lineInSection: li,
-          startChar: whole ? null : start - line.start,
-          endChar: whole ? null : end - line.start,
-        };
-      }
-    }
-  }
-  return null;
+  quote: string;
+  value: string;
+  detached: boolean;
+}
+
+/**
+ * A section in the post-save world. Survivors carry their real `id` and a `ref`
+ * equal to that id; creations have `id: null` and a negative `ref`. `canonicalRef`
+ * points at another planned section's `ref` (or null). The apply step maps refs
+ * to real ids (creations get fresh ids) and resolves the pointers.
+ */
+export interface PlannedSection {
+  ref: number;
+  id: number | null;
+  orderIndex: number;
+  startOffset: number;
+  endOffset: number;
+  canonicalRef: number | null;
+  manualUnlink: boolean;
+}
+
+/**
+ * An annotation in the post-save world. Existing rows carry their `id`; rows the
+ * reconciler creates (duplicate materialization/handoff copies) have `id: null`.
+ * `sectionRef` is the planned section it lands on (null ⟺ orphaned).
+ */
+export interface PlannedAnnotation {
+  id: number | null;
+  sectionRef: number | null;
+  lineInSection: number | null;
+  startChar: number | null;
+  endChar: number | null;
+  quote: string;
+  value: string;
+  detached: boolean;
+}
+
+export interface ReconcilePlan {
+  newLyrics: string;
+  sections: PlannedSection[];
+  /** Old section ids to delete (their rows have been moved/orphaned first). */
+  deleteSectionIds: number[];
+  /** The complete post-save annotation set (existing rows repositioned + copies). */
+  annotations: PlannedAnnotation[];
+  /** Diagnostics from the I2/I3 self-heal (a section found both linked and
+   *  row-owning). Empty in the healthy case; the caller may log them. */
+  warnings: string[];
+}
+
+interface OldSecModel {
+  section: ReconcileSection;
+  index: number;
+  /** The section's non-blank line texts (lineInSection ⇒ index here). */
+  lines: string[];
+}
+
+interface NewBlockModel {
+  index: number;
+  orderIndex: number;
+  startOffset: number;
+  endOffset: number;
+  /** The block's non-blank line tokens (lineInSection ⇒ index here). */
+  lines: LineToken[];
+}
+
+/** Where one old line landed in the new text. */
+interface LineDestination {
+  blockIndex: number;
+  newLineIndex: number;
+  /** True when the new line is byte-identical (else it's an edited/replace pair). */
+  exact: boolean;
+}
+
+/**
+ * Result of matching old sections to new blocks: which old id each new block
+ * inherits (null ⇒ creation), and where each old line landed (null ⇒ gone).
+ */
+interface MatchResult {
+  /** blockOwnerOldId[blockIndex] = the old section id this block keeps, or null. */
+  blockOwnerOldId: (number | null)[];
+  /** lineDest["oldSecIdx:lineIdx"] = destination, or absent if the line is gone. */
+  lineDest: Map<string, LineDestination>;
+}
+
+/** A canonical's live row the reconciler must copy onto another section. */
+interface PlacedCopy {
+  targetRef: number;
+  src: ReconcileAnnotation;
+}
+
+interface ElectionResult {
+  /** Materialization / canonical-side-divergence copies to place (id: null). */
+  copies: PlacedCopy[];
+  /** Departed canonical old id → successor ref (its rows MOVE, not orphan — D-13). */
+  moveSuccessor: Map<number, number>;
+  warnings: string[];
+}
+
+/** A section row after the plan's refs are resolved to real ids. */
+export interface ResolvedSection {
+  id: number;
+  orderIndex: number;
+  startOffset: number;
+  endOffset: number;
+  canonicalSectionId: number | null;
+  manualUnlink: boolean;
+}
+
+/** An annotation row after the plan's refs are resolved to real ids. */
+export interface ResolvedAnnotation {
+  id: number;
+  sectionId: number | null;
+  lineInSection: number | null;
+  startChar: number | null;
+  endChar: number | null;
+  quote: string;
+  value: string;
+  detached: boolean;
 }

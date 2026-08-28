@@ -15,6 +15,36 @@
 import { fakeEntries, type FakeEntry } from "@rhymelab/fixtures";
 
 /**
+ * Seed distinct from the API stub's (`fakeEntries()`'s default) so the mock's
+ * rows are recognisably the mock's, and small so the seeded Library is easy to
+ * eyeball. Fixed, so the generated set is reproducible across reloads and tests.
+ */
+const SEED = 424242;
+const ENTRY_COUNT = 5;
+
+/**
+ * The session-lived singleton every mock procedure reads and writes. Exported as
+ * a stable object reference — handlers close over it — so `resetDb` mutates it in
+ * place rather than reassigning, keeping those references valid.
+ */
+export const db: MockDb = seedDb();
+
+/** Build a fresh store at its seeded starting state. */
+export function seedDb(): MockDb {
+  return {
+    authed: true,
+    entries: fakeEntries(ENTRY_COUNT, { seed: SEED }),
+  };
+}
+
+/** Return the store to its seeded state — the Vitest `afterEach` calls this. */
+export function resetDb(): void {
+  const seed = seedDb();
+  db.authed = seed.authed;
+  db.entries = seed.entries;
+}
+
+/**
  * A stored piece: the list-view `EntrySummary` plus the full `body` text. `body`
  * is the source of truth — `entries.list` returns the summary fields and
  * `entries.get` returns the detail (base fields + `body`), so the store carries
@@ -28,34 +58,4 @@ export interface MockDb {
   authed: boolean;
   /** The current user's saved pieces — backs `entries.list`/`get`/`create`. */
   entries: MockEntry[];
-}
-
-/**
- * Seed distinct from the API stub's (`fakeEntries()`'s default) so the mock's
- * rows are recognisably the mock's, and small so the seeded Library is easy to
- * eyeball. Fixed, so the generated set is reproducible across reloads and tests.
- */
-const SEED = 424242;
-const ENTRY_COUNT = 5;
-
-/** Build a fresh store at its seeded starting state. */
-export function seedDb(): MockDb {
-  return {
-    authed: true,
-    entries: fakeEntries(ENTRY_COUNT, { seed: SEED }),
-  };
-}
-
-/**
- * The session-lived singleton every mock procedure reads and writes. Exported as
- * a stable object reference — handlers close over it — so `resetDb` mutates it in
- * place rather than reassigning, keeping those references valid.
- */
-export const db: MockDb = seedDb();
-
-/** Return the store to its seeded state — the Vitest `afterEach` calls this. */
-export function resetDb(): void {
-  const seed = seedDb();
-  db.authed = seed.authed;
-  db.entries = seed.entries;
 }
