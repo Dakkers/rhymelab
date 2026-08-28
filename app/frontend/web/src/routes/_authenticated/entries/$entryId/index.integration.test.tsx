@@ -34,18 +34,18 @@ async function renderEntry(entry: FakeEntry): Promise<void> {
 }
 
 /**
- * Assert the body renders as one labelled block per section: every section's
- * text is on the page, and there's a section-type eyebrow for each. The mock
- * defaults every section's type to `verse` (`initStructure`), so each block
- * carries a "Verse" label. Sections are matched on exact `textContent` rather
- * than a string matcher, since RTL's default normalizes embedded newlines to
- * spaces and a section is itself multi-line.
+ * Assert the body renders one row per line, grouped into labelled sections: every
+ * line's text is on the page, and there's a section-type eyebrow per section. The
+ * mock defaults every section's type to `verse` (`initStructure`), so each block
+ * carries a "Verse" label. Lines are matched on exact `textContent` (the row's
+ * inert lead plus its clickable end reconstruct the original line) rather than a
+ * string matcher, since a selectable line is split across two child nodes.
  */
 function expectSectionsRendered(body: string): void {
   const sections = splitSections(body);
-  for (const section of sections) {
+  for (const line of sections.flatMap((section) => section.split("\n"))) {
     expect(
-      screen.getAllByText((_content, element) => element?.textContent === section).length,
+      screen.getAllByText((_content, element) => element?.textContent === line).length,
     ).toBeGreaterThan(0);
   }
   expect(screen.getAllByText("Verse")).toHaveLength(sections.length);
@@ -211,4 +211,49 @@ test("doesn't offer Save on open when the stored body only needs re-standardizin
   // A genuine change to the text enables it.
   await user.type(within(drawer).getByRole("textbox", { name: /text/i }), " changed");
   expect(saveButton()).not.toHaveAttribute("aria-disabled", "true");
+});
+
+// The line-end is the enjambment click target: every line but the last (which has
+// nothing to run on into) gets one, marking one flips its pressed state, and the
+// marks read through the form as unsaved until Reset returns to the saved state.
+test("marks a line as enjambed, tracks it as unsaved, and clears it on Reset", async () => {
+  const user = userEvent.setup();
+  const entry = {
+    ...db.entries[0],
+    id: crypto.randomUUID(),
+    title: "Enjamb me",
+    // One section, three lines — so two of the three line-ends are selectable.
+    body: "one two\nthree four\nfive six",
+  };
+  db.entries = [entry, ...db.entries];
+
+  renderRoute(Route, {
+    path: "/entries/$entryId",
+    initialEntries: [`/entries/${entry.id}`],
+  });
+  expect(await screen.findByRole("heading", { level: 1, name: "Enjamb me" })).toBeInTheDocument();
+
+  // The final line ("five six") isn't a target, so only the first two lines'
+  // ends are clickable.
+  const ends = screen.getAllByRole("button", { name: /running on into the next/i });
+  expect(ends).toHaveLength(2);
+
+  // Nothing marked yet: no unsaved notice, and Reset is soft-disabled (Baritone
+  // uses `aria-disabled` rather than the native attribute).
+  expect(screen.queryByText("Unsaved marks")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Reset" })).toHaveAttribute("aria-disabled", "true");
+
+  // Marking the first line's end presses it and surfaces the unsaved notice.
+  await user.click(ends[0]);
+  expect(ends[0]).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByText("Unsaved marks")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Reset" })).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  // Reset returns to the saved (all-unmarked) state: the mark and the notice go.
+  await user.click(screen.getByRole("button", { name: "Reset" }));
+  expect(ends[0]).toHaveAttribute("aria-pressed", "false");
+  expect(screen.queryByText("Unsaved marks")).not.toBeInTheDocument();
 });

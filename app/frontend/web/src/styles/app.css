@@ -288,6 +288,63 @@
 }
 
 /* ---------------------------------------------------------------- */
+/* Enjambment line-ends                                             */
+/* ---------------------------------------------------------------- */
+
+/* Enjambment is a property of the *break* between one line and the next, so the
+   click target is the end of the line — the last word and the gap after it —
+   rather than the whole row. The lead words stay inert text; only the end-cap
+   below reacts. `pre-wrap` keeps the lyric's own spacing and lets a long line
+   wrap, with the end-cap riding along at the end. */
+.rl-eline {
+  white-space: pre-wrap;
+  padding: 3px 0;
+}
+
+/* The end-cap: the last word plus a trailing gap (the right padding), which is
+   where the line breaks. Deliberately not button-like — it inherits the lyric
+   type and colour and carries only a soft hairline, so a run of them reads as
+   text with quiet affordances, not a stack of buttons. It firms up on hover and
+   fills once the break is marked. */
+.rl-eline-end {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid var(--rl-hairline);
+  border-radius: var(--rl-radius-sm);
+  /* Right pad is the "gap" past the last word; left pad hugs the word. */
+  padding: 0.05em 1.35em 0.05em 0.32em;
+  background: transparent;
+  transition:
+    background 90ms ease,
+    border-color 90ms ease,
+    box-shadow 90ms ease;
+}
+
+.rl-eline-end:hover {
+  background: var(--rl-surface-2);
+  border-color: var(--rl-hairline-strong);
+}
+
+.rl-eline-end:focus-visible {
+  outline: 2px solid var(--rl-primary-focus);
+  outline-offset: 2px;
+}
+
+/* Transient press feedback while the pointer is held down. */
+.rl-eline-end:active {
+  background: var(--rl-primary-tint);
+}
+
+/* Marked: this line runs on into the next. The inset bottom bar reads as the
+   line carrying over rather than stopping. */
+.rl-eline-end[data-enjambed] {
+  background: var(--rl-primary-tint);
+  border-color: var(--rl-primary);
+  box-shadow: inset 0 -0.14em 0 0 var(--rl-primary);
+}
+
+/* ---------------------------------------------------------------- */
 /* Right inspector panel                                            */
 /* ---------------------------------------------------------------- */
 
