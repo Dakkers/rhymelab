@@ -9,26 +9,6 @@ import { Page } from "#/components/Page";
 import { orpc } from "#/lib/orpc";
 
 /**
- * The annotation workbench for one piece. Same read path as the detail view —
- * the loader primes `entries.get` so the text is there on first paint, and the
- * component subscribes to the same cache entry, so arriving from the detail
- * page reuses what it already fetched.
- */
-export const Route = createFileRoute("/_authenticated/entries/$entryId/annotate/")({
-  loader: ({ params, context }) =>
-    context.queryClient.ensureQueryData(
-      orpc.entries.get.queryOptions({ input: { id: params.entryId } }),
-    ),
-  component: AnnotatePage,
-});
-
-/**
- * What the sidebar's picker selects — the workbench mode. `read` is the passive
- * view (no annotation tool active); the others each drive a kind of annotation.
- */
-type Mode = "read" | "rhyme-scheme" | "enjambment";
-
-/**
  * Display labels for the closed set of section types — the raw values are lower-
  * case slugs (`prechorus`), so this is where they get their human casing and the
  * hyphen a reader expects.
@@ -46,6 +26,86 @@ const SECTION_TYPE_LABEL: Record<SectionType, string> = {
   bridge: "Bridge",
   outro: "Outro",
 };
+
+/**
+ * The annotation workbench for one piece. Same read path as the detail view —
+ * the loader primes `entries.get` so the text is there on first paint, and the
+ * component subscribes to the same cache entry, so arriving from the detail
+ * page reuses what it already fetched.
+ */
+export const Route = createFileRoute("/_authenticated/entries/$entryId/annotate/")({
+  loader: ({ params, context }) =>
+    context.queryClient.ensureQueryData(
+      orpc.entries.get.queryOptions({ input: { id: params.entryId } }),
+    ),
+  component: AnnotatePage,
+});
+
+function AnnotatePage() {
+  const { entryId } = Route.useParams();
+  const [mode, setMode] = useState<Mode>("read");
+  const { data: entry } = useSuspenseQuery(
+    orpc.entries.get.queryOptions({ input: { id: entryId } }),
+  );
+
+  // Read is the passive view where existing annotations surface; the editing
+  // tools own their own rendering, so gate the marks on it.
+  const showAnnotations = mode === "read";
+
+  return (
+    <Page
+      title="Annotate"
+      actions={
+        // Baritone has no icon-only arm for `Link appearance="button"` — that
+        // arm requires a visible label and types `aria-label` as `never` (so a
+        // label can't be silently overridden). With the glyph as the only
+        // content there's no visible text to name the control, so the name goes
+        // on the anchor itself, through the `render` element.
+        <Link
+          appearance="button"
+          saliency="low"
+          render={
+            <RouterLink
+              to="/entries/$entryId"
+              params={{ entryId }}
+              aria-label="Back to entry details"
+            />
+          }
+        >
+          <Icon>
+            <ArrowLeft />
+          </Icon>
+        </Link>
+      }
+    >
+      <Flex direction="column" gap="6">
+        <Flex align="start" gap="6">
+          <ModePicker value={mode} onChange={setMode} />
+
+          <LyricSheet entry={entry} showAnnotations={showAnnotations} />
+        </Flex>
+
+        {/* Sticky footer — pinned to the bottom of the viewport while the text
+            scrolls under it (the document body is the scroll container; the nav
+            bar owns the top). Only shown while an annotation tool is active:
+            `read` is a passive view with nothing to save, so it has no action
+            bar. The buttons are placeholders — no draft state is wired yet. */}
+        {mode !== "read" && (
+          <Flex
+            render={<footer />}
+            className="rl-annotate-footer"
+            align="center"
+            justify="end"
+            gap="3"
+          >
+            <Button saliency="low">Discard</Button>
+            <Button intent="primary">Save</Button>
+          </Flex>
+        )}
+      </Flex>
+    </Page>
+  );
+}
 
 /**
  * The workbench's mode picker — the sidebar rail that selects which annotation
@@ -87,61 +147,6 @@ function ModePicker({ value, onChange }: { value: Mode; onChange: (mode: Mode) =
         )}
       </ToggleGroup>
     </Flex>
-  );
-}
-
-/**
- * One line of the piece, with the enjambment mark that hangs off its end. Both
- * the outline and the mark are told to it rather than worked out here: the sheet
- * owns the annotation index and the hover, so a line only knows whether it is
- * currently lit and which enjambment (if any) runs on from it.
- *
- * Rendered inline (a `span`, not a block) — the sheet lays its lines out with
- * the `\n` that `pre-wrap` breaks on, so anything block-level here would break
- * that interleaving.
- */
-function LyricLine({
-  text,
-  outlined,
-  enjambmentId,
-  onHoverEnjambment,
-}: {
-  text: string;
-  outlined: boolean;
-  enjambmentId: string | undefined;
-  onHoverEnjambment: (id: string | null) => void;
-}) {
-  return (
-    <>
-      <span
-        style={
-          outlined
-            ? { outline: "1px dashed currentColor", outlineOffset: "3px", borderRadius: "2px" }
-            : undefined
-        }
-      >
-        {text}
-      </span>
-      {enjambmentId !== undefined && (
-        <Icon
-          label="Enjambment — hover to see both lines"
-          size="sm"
-          tabIndex={0}
-          onMouseEnter={() => onHoverEnjambment(enjambmentId)}
-          onMouseLeave={() => onHoverEnjambment(null)}
-          onFocus={() => onHoverEnjambment(enjambmentId)}
-          onBlur={() => onHoverEnjambment(null)}
-          style={{
-            marginInlineStart: "0.35em",
-            verticalAlign: "middle",
-            opacity: 0.55,
-            cursor: "help",
-          }}
-        >
-          <CornerDownLeft />
-        </Icon>
-      )}
-    </>
   );
 }
 
@@ -223,68 +228,63 @@ function LyricSheet({
   );
 }
 
-function AnnotatePage() {
-  const { entryId } = Route.useParams();
-  const [mode, setMode] = useState<Mode>("read");
-  const { data: entry } = useSuspenseQuery(
-    orpc.entries.get.queryOptions({ input: { id: entryId } }),
-  );
-
-  // Read is the passive view where existing annotations surface; the editing
-  // tools own their own rendering, so gate the marks on it.
-  const showAnnotations = mode === "read";
-
+/**
+ * One line of the piece, with the enjambment mark that hangs off its end. Both
+ * the outline and the mark are told to it rather than worked out here: the sheet
+ * owns the annotation index and the hover, so a line only knows whether it is
+ * currently lit and which enjambment (if any) runs on from it.
+ *
+ * Rendered inline (a `span`, not a block) — the sheet lays its lines out with
+ * the `\n` that `pre-wrap` breaks on, so anything block-level here would break
+ * that interleaving.
+ */
+function LyricLine({
+  text,
+  outlined,
+  enjambmentId,
+  onHoverEnjambment,
+}: {
+  text: string;
+  outlined: boolean;
+  enjambmentId: string | undefined;
+  onHoverEnjambment: (id: string | null) => void;
+}) {
   return (
-    <Page
-      title="Annotate"
-      actions={
-        // Baritone has no icon-only arm for `Link appearance="button"` — that
-        // arm requires a visible label and types `aria-label` as `never` (so a
-        // label can't be silently overridden). With the glyph as the only
-        // content there's no visible text to name the control, so the name goes
-        // on the anchor itself, through the `render` element.
-        <Link
-          appearance="button"
-          saliency="low"
-          render={
-            <RouterLink
-              to="/entries/$entryId"
-              params={{ entryId }}
-              aria-label="Back to entry details"
-            />
-          }
+    <>
+      <span
+        style={
+          outlined
+            ? { outline: "1px dashed currentColor", outlineOffset: "3px", borderRadius: "2px" }
+            : undefined
+        }
+      >
+        {text}
+      </span>
+      {enjambmentId !== undefined && (
+        <Icon
+          label="Enjambment — hover to see both lines"
+          size="sm"
+          tabIndex={0}
+          onMouseEnter={() => onHoverEnjambment(enjambmentId)}
+          onMouseLeave={() => onHoverEnjambment(null)}
+          onFocus={() => onHoverEnjambment(enjambmentId)}
+          onBlur={() => onHoverEnjambment(null)}
+          style={{
+            marginInlineStart: "0.35em",
+            verticalAlign: "middle",
+            opacity: 0.55,
+            cursor: "help",
+          }}
         >
-          <Icon>
-            <ArrowLeft />
-          </Icon>
-        </Link>
-      }
-    >
-      <Flex direction="column" gap="6">
-        <Flex align="start" gap="6">
-          <ModePicker value={mode} onChange={setMode} />
-
-          <LyricSheet entry={entry} showAnnotations={showAnnotations} />
-        </Flex>
-
-        {/* Sticky footer — pinned to the bottom of the viewport while the text
-            scrolls under it (the document body is the scroll container; the nav
-            bar owns the top). Only shown while an annotation tool is active:
-            `read` is a passive view with nothing to save, so it has no action
-            bar. The buttons are placeholders — no draft state is wired yet. */}
-        {mode !== "read" && (
-          <Flex
-            render={<footer />}
-            className="rl-annotate-footer"
-            align="center"
-            justify="end"
-            gap="3"
-          >
-            <Button saliency="low">Discard</Button>
-            <Button intent="primary">Save</Button>
-          </Flex>
-        )}
-      </Flex>
-    </Page>
+          <CornerDownLeft />
+        </Icon>
+      )}
+    </>
   );
 }
+
+/**
+ * What the sidebar's picker selects — the workbench mode. `read` is the passive
+ * view (no annotation tool active); the others each drive a kind of annotation.
+ */
+type Mode = "read" | "rhyme-scheme" | "enjambment";
