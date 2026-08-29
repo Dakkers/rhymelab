@@ -81,11 +81,9 @@ function annotationSeed(id: string): number {
  * detail view renders. The stored row always carries a real `body`, so the
  * result is a complete `EntryDetail`.
  *
- * `annotations` are derived on read from the body (like `structure` is via
- * `initStructure`): there's no annotations table yet, so the mock stands in a
- * seeded set from the fixtures — real marks for the workbench to render,
- * anchored to this body and stable across reads (seeded off the entry's id).
- * The real API returns `[]` until that store lands.
+ * `annotations` are derived on read like `structure` is: nothing stores them yet
+ * (see {@link AnnotationSchema}), so the mock stands in a seeded set anchored to
+ * this body, stable across reads. The real API returns `[]`.
  */
 function toDetail(entry: MockEntry, structure: SectionType[]): EntryDetail {
   const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;

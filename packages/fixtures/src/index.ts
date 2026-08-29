@@ -125,17 +125,14 @@ export type FakeAnnotationsOptions = {
 
 /**
  * A stable, seeded set of annotations for a `body` — line-level rhyme couplets
- * plus one sample enjambment — so the workbench mock has real marks to render
- * before the annotation store exists. There's no annotations table yet, so no
- * API stub feeds this; it stands in mock data the same way `entries.create`'s
- * mock fabricates a row the real endpoint would persist.
+ * plus one sample enjambment — so the workbench has real marks to render before
+ * the annotation store exists (see {@link AnnotationSchema}).
  *
  * Every mark is anchored to the actual text, never pre-drifted: `startIndex` /
  * `endIndex` are line offsets into `body.split("\n")`, and `quote` is exactly the
  * lines that range covers. Rhyme marks pair adjacent non-blank lines into
- * couplets (so a range never straddles a section's blank-line gap) and carry a
- * group label as their `value`; the enjambment mark sits on the first content
- * line and carries no `value`.
+ * couplets and carry a group label as their `value`; the enjambment mark sits on
+ * the first content line and carries no `value`.
  *
  * Pass a distinct `seed` per entry — otherwise every body reuses the same faked
  * UUID sequence and marks across entries collide on `id`.
@@ -151,9 +148,7 @@ export function fakeAnnotations(
   const isContent = (i: number) => lines[i]?.trim() !== "";
   const annotations: Annotation[] = [];
 
-  // One enjambment over the first adjacent pair of non-blank lines — the two
-  // lines it binds (a line running on into the next). Half-open `[i, i+2)`, so
-  // the pair never straddles a stanza's blank-line gap.
+  // Both lines must be non-blank so the pair never straddles a stanza's gap.
   for (let i = 0; i + 1 < lines.length; i++) {
     if (isContent(i) && isContent(i + 1)) {
       annotations.push({
@@ -169,8 +164,7 @@ export function fakeAnnotations(
     }
   }
 
-  // Rhyme couplets: pair consecutive non-blank lines, advancing past both so a
-  // line joins at most one couplet and a range never spans a blank gap.
+  // Advance past both lines of a couplet, so a line joins at most one.
   let group = 0;
   for (let i = 0; i + 1 < lines.length && group < maxRhymes; ) {
     if (isContent(i) && isContent(i + 1)) {

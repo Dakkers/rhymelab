@@ -2,16 +2,9 @@
 
 ## Code standards
 
-- **`Pick` over `Omit` for narrowed row types.** When a type is "a DB row minus
-  a couple of fields" (e.g. a `select`ed subset of a Prisma model), spell it as
-  `Pick<Model, "a" | "b" | ...>`, not `Omit<Model, "userId">`. `Omit` silently
-  widens to include any column added to the schema later; `Pick` makes a new
-  column opt-in — it has to be added explicitly to both the type and the query
-  before it starts flowing through, instead of leaking by default.
+- **`Pick` over `Omit` for narrowed row types.** 
 - **Mark methods `async` even when a bare `return somePromise` would typecheck.**
-  The `async` keyword is a skimming aid — it should be visible at the point a
-  reader decides whether a call needs `await`, not just inferable from the
-  return type.
+- **Comments should not have implementation details.**
 
 ## Testing
 

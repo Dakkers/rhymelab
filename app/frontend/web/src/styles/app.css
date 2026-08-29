@@ -412,3 +412,57 @@
   border-top: 1px solid var(--rl-hairline);
   box-shadow: 0 -6px 16px -10px rgba(28, 25, 23, 0.22);
 }
+
+/* ---------------------------------------------------------------- */
+/* Enjambment editing — clickable line tails                        */
+/* ---------------------------------------------------------------- */
+
+/* A soft-bordered hit area that reads as interactive without looking like a
+   button. It rides inline in the lyric flow, inheriting the serif setting and
+   wrapping with the line. */
+.rl-enj-hit {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--rl-hairline);
+  border-radius: var(--rl-radius-sm);
+  padding: 0.02em 0.4em;
+  /* Negative side margins pull the border back over the padding so the tail sits
+     flush in the line's flow; the padding still gives a comfortable target. */
+  margin: 0 -0.14em;
+  transition:
+    background 90ms ease,
+    border-color 90ms ease,
+    box-shadow 90ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rl-enj-hit:hover {
+  background: var(--rl-surface-2);
+  border-color: var(--rl-hairline-strong);
+}
+
+/* Pressed feedback for the click itself (distinct from the toggled-on state). */
+.rl-enj-hit:active {
+  background: var(--rl-primary-tint);
+}
+
+.rl-enj-hit:focus-visible {
+  outline: 2px solid var(--rl-primary-focus);
+  outline-offset: 2px;
+}
+
+/* Marked as running on: a tinted band + accent border, with the run-on glyph
+   riding just after the word. Keyed off the ARIA state so the look can't drift
+   from what's announced. */
+.rl-enj-hit[aria-pressed="true"] {
+  background: var(--rl-primary-tint);
+  border-color: var(--rl-primary);
+}
+
+.rl-enj-hit-glyph {
+  margin-inline-start: 0.3em;
+  vertical-align: middle;
+  opacity: 0.7;
+}

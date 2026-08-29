@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "sandbox",
+      "runtimeExecutable": "/Users/dak/Code/rhymelab/.claude/worktrees/hungry-wiles-295bf5/rhymelab-sandbox",
+      "runtimeArgs": ["up"],
+      "port": 3028
+    },
+    {
       "name": "web",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["run", "dev:web"],

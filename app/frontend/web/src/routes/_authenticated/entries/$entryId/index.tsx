@@ -6,7 +6,6 @@ import {
   Card,
   ConfirmationModal,
   Drawer,
-  Flex,
   Icon,
   InlineList,
   Menu,
@@ -14,13 +13,8 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { Highlighter, PenLine, Trash2 } from "lucide-react";
-import {
-  normalizeEntryBody,
-  splitSections,
-  type EntryDetail,
-  type SectionType,
-} from "@rhymelab/api-contract";
-import { Eyebrow } from "#/components/Eyebrow";
+import { normalizeEntryBody, type EntryDetail } from "@rhymelab/api-contract";
+import { LyricSections, toSheetSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
 import { orpc } from "#/lib/orpc";
@@ -28,20 +22,6 @@ import { orpc } from "#/lib/orpc";
 const KIND_LABEL: Record<EntryDetail["kind"], string> = {
   lyrics: "Lyrics",
   poem: "Poem",
-};
-
-/**
- * Display labels for the closed set of section types — the raw values are lower-
- * case slugs (`prechorus`), so this is where they get their human casing and the
- * hyphen a reader expects.
- */
-const SECTION_TYPE_LABEL: Record<SectionType, string> = {
-  intro: "Intro",
-  verse: "Verse",
-  prechorus: "Pre-Chorus",
-  chorus: "Chorus",
-  bridge: "Bridge",
-  outro: "Outro",
 };
 
 /**
@@ -91,12 +71,6 @@ function EntryPage() {
   const updateBody = useMutation(
     orpc.entries.updateBody.mutationOptions({
       onSuccess: async () => {
-        // Both caches are invalidated and left to refetch rather than written
-        // from the mutation's result: writing means trusting that what came back
-        // is exactly what a fresh `get` would return, which stops being true the
-        // moment the read path derives or joins anything the write path doesn't.
-        // The detail is awaited so the drawer doesn't close onto stale text; the
-        // Library is off-screen and can settle on its own.
         await queryClient.invalidateQueries({
           queryKey: orpc.entries.get.key({ input: { id: entryId } }),
         });
@@ -109,8 +83,6 @@ function EntryPage() {
   const deleteEntry = useMutation(
     orpc.entries.delete.mutationOptions({
       onSuccess: async () => {
-        // This page is now a 404 — drop the cached detail and the list's stale
-        // copy of it, then leave before anything can refetch the deleted piece.
         queryClient.removeQueries({ queryKey: orpc.entries.get.key({ input: { id: entryId } }) });
         await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
         await navigate({ to: "/library" });
@@ -157,10 +129,6 @@ function EntryPage() {
             <Menu.Item
               key="delete"
               intent="negative"
-              // Baritone's `Icon` sizes the glyph to the row's text (its CSS
-              // stretches the child svg to the 1em box) and tints it via
-              // `currentColor`, which is what Lucide's svg strokes with — so the
-              // icon follows the item's `negative` intent without being told.
               icon={
                 <Icon>
                   <Trash2 />
@@ -177,26 +145,12 @@ function EntryPage() {
       }
     >
       <Card header={<Card.Header title={KIND_LABEL[entry.kind]} />}>
-        {/* One block per section, each labelled with its type. `structure` is
-            kept exactly one label per section by the API (`splitSections`), so
-            the two align index-for-index — no length guard needed. */}
-        <Flex direction="column" gap="6">
-          {splitSections(entry.body).map((section, index) => (
-            <Flex key={index} direction="column" gap="1">
-              <Eyebrow>{SECTION_TYPE_LABEL[entry.structure[index]]}</Eyebrow>
-              <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-                {section}
-              </Text>
-            </Flex>
-          ))}
-        </Flex>
+        <LyricSections sections={toSheetSections(entry)} renderLine={(line) => line.text} />
       </Card>
 
       <Drawer
         open={editingText}
         onOpenChange={setEditingText}
-        // Closing mid-save would leave the drawer's draft and the request racing
-        // each other; hold it open until the write settles.
         disabled={updateBody.isPending}
         header={<Drawer.Header title="Edit text" subtitle={entry.title} />}
         footer={

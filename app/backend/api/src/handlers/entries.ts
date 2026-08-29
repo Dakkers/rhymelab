@@ -31,10 +31,7 @@ function toEntryDetail(entry: EntryForDetail): EntryDetail {
     // `verse`), so narrowing to the contract's enum array is sound — and the
     // output schema re-checks it on the wire regardless.
     structure: entry.structure as SectionType[],
-    // No annotations table yet: the contract carries the field so the workbench
-    // UI can be built against the real wire shape, but there's nothing to read,
-    // so every piece returns an empty set for now.
-    annotations: [],
+    annotations: [], // nothing to read from yet — see `AnnotationSchema`
   };
 
   return entry.kind === "lyrics"
