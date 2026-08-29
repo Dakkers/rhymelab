@@ -123,18 +123,8 @@ export type FakeAnnotationsOptions = {
 };
 
 /**
- * A stable, seeded set of annotations for a `body` — line-level rhyme couplets
- * plus one sample enjambment — so the workbench has real marks to render before
- * the annotation store exists (see {@link AnnotationSchema}).
- *
- * Every mark is anchored to the actual text, never pre-drifted: `startIndex` /
- * `endIndex` are line offsets into `body.split("\n")`, and `quote` is exactly the
- * lines that range covers. Rhyme marks pair adjacent non-blank lines into
- * couplets and carry a group label as their `value`; the enjambment mark sits on
- * the first content line and carries no `value`.
- *
- * Pass a distinct `seed` per entry — otherwise every body reuses the same faked
- * UUID sequence and marks across entries collide on `id`.
+ * A deterministic set of sample annotations for `body` — same `body` and
+ * `seed`, same marks.
  */
 export function fakeAnnotations(
   body: string,
