@@ -60,18 +60,15 @@ test("shows the footer's actions only once an annotation tool is active", async 
 
   expect(await screen.findByRole("heading", { level: 1, name: "Annotate" })).toBeInTheDocument();
 
-  // The page defaults to `read`, a passive view with nothing to save — no
-  // footer. (`footer` carries the implicit `contentinfo` role.)
+  // `footer` carries the implicit `contentinfo` role.
   expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
 
-  // Switching to an annotation tool reveals the footer with its actions.
   await userEvent.click(screen.getByRole("button", { name: "Rhyme Scheme" }));
   expect(screen.getByRole("contentinfo")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
 
-  // Back to `read` hides it again.
   await userEvent.click(screen.getByRole("button", { name: "Read" }));
   expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
 });
@@ -115,9 +112,8 @@ test("Save and Discard stay disabled until the draft changes", async () => {
 
   await user.click(await screen.findByRole("button", { name: "Enjambment" }));
 
-  // Nothing edited yet — the draft matches what's stored, so both actions are
-  // inert. Baritone disables via `aria-disabled` (the control stays focusable),
-  // not the native `disabled` attribute.
+  // Baritone disables via `aria-disabled` (the control stays focusable), not the
+  // native `disabled` attribute.
   expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-disabled", "true");
   expect(screen.getByRole("button", { name: "Discard" })).toHaveAttribute("aria-disabled", "true");
 
@@ -150,14 +146,12 @@ test("switching tools with unsaved marks warns before discarding them", async ()
   await user.click(first); // draft now differs from what's saved
   expect(first).toHaveAttribute("aria-pressed", "false");
 
-  // Trying to leave the tool raises the guard rather than switching outright.
   await user.click(screen.getByRole("button", { name: "Read" }));
   expect(
     await screen.findByRole("heading", { name: "Discard unsaved marks?" }),
   ).toBeInTheDocument();
 
-  // Cancel keeps us in the tool with the edit intact (wait out the dialog's
-  // exit transition before checking it's gone).
+  // `waitFor` rides out the dialog's exit transition.
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   await waitFor(() =>
     expect(
@@ -169,7 +163,6 @@ test("switching tools with unsaved marks warns before discarding them", async ()
     "false",
   );
 
-  // Discarding reverts the draft and completes the switch to the read view.
   await user.click(screen.getByRole("button", { name: "Read" }));
   await user.click(await screen.findByRole("button", { name: "Discard and switch" }));
   await waitFor(() => expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument());

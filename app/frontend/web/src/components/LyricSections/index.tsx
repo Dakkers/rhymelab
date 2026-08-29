@@ -13,9 +13,9 @@ const SECTION_TYPE_LABEL: Record<SectionType, string> = {
 };
 
 /**
- * A piece laid out as labelled blocks, one per section. How a
- * line itself renders is the caller's call, handed in as `renderLine`, so the
- * layout looks the same whether the piece is being read or edited.
+ * A piece laid out as labelled blocks, one per section. How a line itself renders
+ * is the caller's call, handed in as `renderLine`, so the layout looks the same
+ * whether the piece is being read or edited.
  */
 export function LyricSections({ sections, renderLine }: LyricSectionsProps) {
   return (
@@ -47,9 +47,7 @@ function LyricSection({
   );
 }
 
-/**
- * A line of the sheet: its text, plus the index it holds in the whole piece.
- */
+/** A line of the sheet: its text, plus the index it holds in the whole piece. */
 export type SheetLine = { text: string; globalIndex: number };
 
 /** One section of the sheet: its type, and the lines it holds in order. */
@@ -62,9 +60,9 @@ export interface LyricSectionsProps {
 }
 
 /**
- * A piece's body as the sheet sections it renders as, each line carrying the
- * index it holds in the whole piece (the coordinate space annotations are
- * authored in).
+ * Split a piece's body into the sections it renders as, each line carrying the
+ * index it holds in the whole piece — the coordinate space annotations are
+ * authored in.
  */
 export function toSheetSections(
   entry: Pick<EntryDetail, "body" | "structure">,

@@ -71,12 +71,6 @@ function EntryPage() {
   const updateBody = useMutation(
     orpc.entries.updateBody.mutationOptions({
       onSuccess: async () => {
-        // Both caches are invalidated and left to refetch rather than written
-        // from the mutation's result: writing means trusting that what came back
-        // is exactly what a fresh `get` would return, which stops being true the
-        // moment the read path derives or joins anything the write path doesn't.
-        // The detail is awaited so the drawer doesn't close onto stale text; the
-        // Library is off-screen and can settle on its own.
         await queryClient.invalidateQueries({
           queryKey: orpc.entries.get.key({ input: { id: entryId } }),
         });
@@ -89,8 +83,6 @@ function EntryPage() {
   const deleteEntry = useMutation(
     orpc.entries.delete.mutationOptions({
       onSuccess: async () => {
-        // This page is now a 404 — drop the cached detail and the list's stale
-        // copy of it, then leave before anything can refetch the deleted piece.
         queryClient.removeQueries({ queryKey: orpc.entries.get.key({ input: { id: entryId } }) });
         await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
         await navigate({ to: "/library" });

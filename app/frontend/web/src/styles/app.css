@@ -417,11 +417,9 @@
 /* Enjambment editing — clickable line tails                        */
 /* ---------------------------------------------------------------- */
 
-/* In the enjambment tool, a line is marked to run on into the next by clicking
-   its tail. The target is the last word plus a little breathing room (the
-   "gap") — a soft-bordered hit area that reads as interactive without looking
-   like a button. It rides inline in the lyric flow, so it inherits the serif
-   setting and wraps with the line. */
+/* A soft-bordered hit area that reads as interactive without looking like a
+   button. It rides inline in the lyric flow, inheriting the serif setting and
+   wrapping with the line. */
 .rl-enj-hit {
   font: inherit;
   color: inherit;

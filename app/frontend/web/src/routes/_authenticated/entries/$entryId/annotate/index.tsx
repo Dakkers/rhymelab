@@ -37,25 +37,21 @@ function AnnotatePage() {
   const { entryId } = Route.useParams();
   const [mode, setMode] = useState<Mode>("read");
   // The tool the user is trying to switch to while the draft has unsaved edits,
-  // parked until they confirm or cancel the discard. `null` when nothing is
-  // pending (no guard showing).
+  // parked until they confirm or cancel the discard.
   const [pendingMode, setPendingMode] = useState<Mode | null>(null);
   const { data: entry } = useSuspenseQuery(
     orpc.entries.get.queryOptions({ input: { id: entryId } }),
   );
 
-  // The enjambment draft lives in a TanStack form so one store answers both
-  // questions the workbench asks of it: *which* lines run on (drives the marks)
-  // and *whether* there are unsaved edits (guards the tool switch below).
-  // `enjambments` is the set of run-on line indices — the `startIndex` of each
-  // line-level enjambment, i.e. the same coordinate space `entry.annotations`
-  // are authored in (`body.split("\n")`).
+  // The draft lives in a TanStack form so one store answers both questions the
+  // workbench asks of it: *which* lines run on (drives the marks) and *whether*
+  // there are unsaved edits (guards the tool switch below). `enjambments` holds
+  // the `startIndex` of each line-level enjambment — the same coordinate space
+  // `entry.annotations` are authored in (`body.split("\n")`).
   const form = useForm({
     defaultValues: { enjambments: deriveEnjambments(entry.annotations) },
-    // There's no annotations write path yet (see `AnnotationSchema` — no store
-    // behind it), so "Save" can't persist. Until it can, submitting just stamps
-    // the current draft as the new baseline so the dirty state clears; wiring the
-    // real create/delete mutation is the next step.
+    // Nothing to persist to yet — see `AnnotationSchema`. Submitting just
+    // stamps the draft as the new baseline so the dirty state clears.
     onSubmit: ({ formApi }) => formApi.reset(formApi.state.values),
   });
 
@@ -69,9 +65,7 @@ function AnnotatePage() {
   const toggleLine = (lineIndex: number) =>
     form.setFieldValue("enjambments", (prev) => toggleEnjambment(prev, lineIndex));
 
-  // Every tool switch routes through here so a draft can't be dropped silently:
-  // with unsaved edits, hold the target tool and let the confirm dialog decide;
-  // otherwise switch straight away.
+  // Every tool switch routes through here so a draft can't be dropped silently.
   const requestMode = (next: Mode) => {
     if (next === mode) return;
     if (hasChanges) setPendingMode(next);
@@ -88,11 +82,10 @@ function AnnotatePage() {
     <Page
       title="Annotate"
       actions={
-        // Baritone has no icon-only arm for `Link appearance="button"` — that
-        // arm requires a visible label and types `aria-label` as `never` (so a
-        // label can't be silently overridden). With the glyph as the only
-        // content there's no visible text to name the control, so the name goes
-        // on the anchor itself, through the `render` element.
+        // Baritone has no icon-only arm for `Link appearance="button"`: that arm
+        // requires a visible label and types `aria-label` as `never`. With only a
+        // glyph inside there's no text to name the control, so the name goes on
+        // the anchor itself, through the `render` element.
         <Link
           appearance="button"
           saliency="low"
@@ -131,9 +124,8 @@ function AnnotatePage() {
         )}
       </Flex>
 
-      {/* Guards a tool switch that would drop unsaved marks. Controlled (no
-          trigger): opened by parking a `pendingMode`, and either confirmed
-          (discard the draft, then switch) or dismissed (stay put). */}
+      {/* Controlled rather than using a trigger: the thing that opens it is the
+          picker the user just clicked, so `pendingMode` opens it instead. */}
       <ConfirmationModal
         open={pendingMode !== null}
         onOpenChange={(open) => {
@@ -159,11 +151,9 @@ function AnnotatePage() {
 }
 
 /**
- * The workbench's mode picker — the sidebar rail that selects which annotation
- * tool is active. Controlled: it owns no state, so the page stays the single
- * source of truth for the current mode. `onChange` is the page's guarded switch,
- * so picking a tool mid-edit can raise the unsaved-changes prompt rather than
- * switching outright.
+ * The sidebar rail that selects which annotation tool is active. Controlled — it
+ * owns no state, so the page stays the single source of truth for the mode and
+ * can guard a switch made mid-edit.
  */
 function ModePicker({ value, onChange }: { value: Mode; onChange: (mode: Mode) => void }) {
   return (
@@ -204,17 +194,13 @@ function ModePicker({ value, onChange }: { value: Mode; onChange: (mode: Mode) =
 }
 
 /**
- * The piece itself — one labelled block per section. The lines are laid out as
- * text the `pre-wrap` newline breaks (so long lines wrap and the words keep their
- * lyric setting), with each line rendered individually so a mark can hang off its
- * end.
+ * The piece itself — one labelled block per section, each line rendered
+ * individually so a mark can hang off its end.
  *
- * The rendering is mode-specific:
- *  - `read` surfaces the saved marks — the enjambment glyph hangs off the line it
- *    runs on from, and hovering it outlines the pair it binds.
- *  - `enjambment` is the editor — a line's tail (its last word) becomes a click
- *    target that toggles whether it runs on into the next line.
- *  - `rhyme-scheme` renders the bare text for now (its own tool comes later).
+ * `read` surfaces the saved marks: the enjambment glyph hangs off the line it
+ * runs on from, and hovering it outlines the pair it binds. `enjambment` is the
+ * editor — a line's tail toggles whether it runs on into the next. `rhyme-scheme`
+ * renders the bare text until its own tool lands.
  */
 function LyricSheet({
   entry,
@@ -229,15 +215,11 @@ function LyricSheet({
 }) {
   const editing = mode === "enjambment";
 
-  // Which enjambment (by id) is currently hovered/focused in the read view — the
-  // pair of lines it binds gets outlined while it is.
+  // The enjambment whose pair of lines is outlined while its glyph is hovered.
   const [hoveredEnjambment, setHoveredEnjambment] = useState<string | null>(null);
 
-  // Read-view index of the saved marks. For each enjambment the glyph hangs off
-  // its *first* line (the run-on point), and hovering it outlines the whole pair
-  // the annotation binds. `iconByLine` maps that first line to the annotation id;
-  // `linesById` is the set of lines to outline while it's hovered. Only the read
-  // view consumes this, so it's inert in the editing/rhyme tools.
+  // A mark's glyph hangs off its *first* line — the run-on point — while the
+  // outline covers every line it binds. Read view only.
   const iconByLine = new Map<number, string>();
   const linesById = new Map<string, Set<number>>();
   for (const annotation of entry.annotations) {
@@ -250,11 +232,8 @@ function LyricSheet({
   }
   const outlinedLines = hoveredEnjambment ? linesById.get(hoveredEnjambment) : undefined;
 
-  // The draft's run-on lines, as a set for O(1) lookup while rendering.
   const runsOn = new Set(enjambments);
 
-  // Sections as the card renders them (one labelled block each), every line
-  // tagged with its global index so the marks can be placed.
   const sections = toSheetSections(entry);
 
   // The very last line of the piece can't run on into anything, so it's never a
@@ -263,10 +242,6 @@ function LyricSheet({
   const lastSection = sections.at(-1);
   const lastLineIndex = lastSection?.lines.at(-1)?.globalIndex;
 
-  // How a single line renders is mode-specific, and it needs everything the
-  // sheet computed above (the annotation index, the hover, the draft). The
-  // section blocks only lay lines out, so the choice is made here and handed
-  // down as the thing to render for each line.
   const renderLine = (line: SheetLine) =>
     editing ? (
       <EnjambmentLine
@@ -295,9 +270,7 @@ function LyricSheet({
 
 /**
  * One line as the *read* view shows it, with the enjambment glyph that hangs off
- * its end. Both the outline and the glyph are told to it rather than worked out
- * here: the sheet owns the annotation index and the hover, so a line only knows
- * whether it is currently lit and which enjambment (if any) runs on from it.
+ * its end.
  *
  * Rendered inline (a `span`, not a block) — the sheet lays its lines out with
  * the `\n` that `pre-wrap` breaks on, so anything block-level here would break
@@ -350,13 +323,11 @@ function LyricLine({
 
 /**
  * One line as the *enjambment editor* shows it. The line's tail — its last word,
- * padded into a soft-bordered hit area (the "gap") — is the click target that
- * toggles whether this line runs on into the next; the rest of the line is inert
- * text. A pressed tail carries the run-on glyph. The last line of the piece has
- * no target (`selectable === false`), so it renders as plain text.
+ * padded into a soft-bordered hit area — is the click target that toggles whether
+ * this line runs on into the next; the rest of the line is inert text. A line
+ * given no target (`selectable === false`) renders as plain text.
  *
- * Inline, like {@link LyricLine}: the tail is an inline control so the line still
- * wraps and the `pre-wrap` newline still separates it from the next.
+ * Inline, like {@link LyricLine} — same reason.
  */
 function EnjambmentLine({
   text,
@@ -371,7 +342,6 @@ function EnjambmentLine({
 }) {
   const { head, tail } = splitTail(text);
 
-  // Nothing to click (final line, or a line with no word to grab) — plain text.
   if (!selectable || tail === "") return <>{text}</>;
 
   return (
@@ -399,10 +369,6 @@ function EnjambmentLine({
  * The workbench's action bar — a sticky footer pinned to the bottom of the
  * viewport while the text scrolls under it (the document body is the scroll
  * container; the nav bar owns the top).
- *
- * Both actions are gated on unsaved changes: there's nothing to discard or save
- * when the draft matches what's stored. Saving can't persist yet (no annotations
- * write path); it just re-baselines the draft for now.
  */
 function ActionBar({
   hasChanges,
@@ -438,9 +404,7 @@ function splitTail(text: string): { head: string; tail: string } {
 
 /**
  * The run-on line indices already saved for this piece — the `startIndex` of
- * every line-level enjambment, de-duplicated and sorted. This is the draft's
- * baseline: the editor toggles lines in and out of it, and the form compares
- * against it to know whether there are unsaved changes.
+ * every line-level enjambment, de-duplicated and sorted.
  */
 function deriveEnjambments(annotations: readonly Annotation[]): number[] {
   const runOnLines = new Set<number>();
