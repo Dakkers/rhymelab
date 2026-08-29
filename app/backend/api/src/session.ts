@@ -31,15 +31,29 @@ export function sessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (secret && secret.length >= 32) return secret;
   if (process.env.NODE_ENV === "production") {
-    console.warn(
-      "[session] SESSION_SECRET is unset or too short in production; using an insecure fallback.",
+    // Fail loudly rather than sign production cookies with the public dev
+    // secret. A missing/short SESSION_SECRET is a deploy misconfiguration, not
+    // something to paper over — crashing at startup surfaces it immediately.
+    throw new Error(
+      "[session] SESSION_SECRET is unset or shorter than 32 characters in production. " +
+        "Refusing to fall back to the insecure dev secret; set SESSION_SECRET in the environment.",
     );
   }
   return DEV_SESSION_SECRET;
 }
 
 export function appPassword(): string {
-  return process.env.APP_PASSWORD || DEV_APP_PASSWORD;
+  const password = process.env.APP_PASSWORD;
+  if (password) return password;
+  if (process.env.NODE_ENV === "production") {
+    // Never accept the well-known dev password ("password") in production; a
+    // missing APP_PASSWORD means the deploy env is incomplete, so refuse it.
+    throw new Error(
+      "[session] APP_PASSWORD is unset in production. " +
+        "Refusing to fall back to the well-known dev password; set APP_PASSWORD in the environment.",
+    );
+  }
+  return DEV_APP_PASSWORD;
 }
 
 /** Options for `reply.setCookie` when issuing the session. */

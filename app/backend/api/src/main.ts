@@ -10,6 +10,15 @@ const { buildServer } = await import("./server");
 
 const app = await buildServer();
 const port = Number(process.env.PORT ?? 4000);
+// Bind all interfaces in containers (Render's router and health checks can't
+// reach a loopback bind); default to loopback for local dev. The deployed
+// environment sets HOST=0.0.0.0 — the API Dockerfile does this.
+// `||`, not `??`: an empty-string HOST (a defined-but-blank env var) should
+// still fall back to loopback rather than bind to "".
+const host = process.env.HOST || "127.0.0.1";
 
-await app.listen({ port, host: "127.0.0.1" });
-console.log(`API listening on http://localhost:${port}/api`);
+await app.listen({ port, host });
+// 0.0.0.0 is a bind wildcard, not a dialable address — show a usable host in
+// the log line so the URL can be clicked/curled as-is.
+const displayHost = host === "0.0.0.0" ? "localhost" : host;
+console.log(`API listening on http://${displayHost}:${port}/api`);
