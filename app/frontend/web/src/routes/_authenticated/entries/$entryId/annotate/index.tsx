@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { Link as RouterLink, createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -14,34 +14,10 @@ import {
   ToggleGroup,
 } from "@saintly-software/baritone";
 import { ArrowLeft, BookOpen, CornerDownLeft, Music, TriangleAlert } from "lucide-react";
-import {
-  splitSections,
-  type Annotation,
-  type EntryDetail,
-  type SectionType,
-} from "@rhymelab/api-contract";
-import { Eyebrow } from "#/components/Eyebrow";
+import type { Annotation, EntryDetail } from "@rhymelab/api-contract";
+import { LyricSections, toSheetSections, type SheetLine } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { orpc } from "#/lib/orpc";
-
-/**
- * Display labels for the closed set of section types — the raw values are lower-
- * case slugs (`prechorus`), so this is where they get their human casing and the
- * hyphen a reader expects.
- *
- * Deliberately a second copy of the detail page's map rather than a shared one:
- * the annotate view is about to grow selection, per-line marks, and hit targets
- * the read-only view has no use for, and the two will diverge. Hoist this into a
- * shared component once they've settled and it's clear what's actually common.
- */
-const SECTION_TYPE_LABEL: Record<SectionType, string> = {
-  intro: "Intro",
-  verse: "Verse",
-  prechorus: "Pre-Chorus",
-  chorus: "Chorus",
-  bridge: "Bridge",
-  outro: "Outro",
-};
 
 /**
  * The annotation workbench for one piece. Same read path as the detail view —
@@ -146,32 +122,12 @@ function AnnotatePage() {
           />
         </Flex>
 
-        {/* Sticky footer — pinned to the bottom of the viewport while the text
-            scrolls under it (the document body is the scroll container; the nav
-            bar owns the top). Only shown while an annotation tool is active:
-            `read` is a passive view with nothing to save, so it has no action
-            bar. Both actions are gated on unsaved changes: nothing to discard or
-            save when the draft matches what's stored. Save can't persist yet (no
-            annotations write path); it just re-baselines the draft for now. */}
         {mode !== "read" && (
-          <Flex
-            render={<footer />}
-            className="rl-annotate-footer"
-            align="center"
-            justify="end"
-            gap="3"
-          >
-            <Button saliency="low" disabled={!hasChanges} onClick={() => form.reset()}>
-              Discard
-            </Button>
-            <Button
-              intent="primary"
-              disabled={!hasChanges}
-              onClick={() => void form.handleSubmit()}
-            >
-              Save
-            </Button>
-          </Flex>
+          <ActionBar
+            hasChanges={hasChanges}
+            onDiscard={() => form.reset()}
+            onSave={() => void form.handleSubmit()}
+          />
         )}
       </Flex>
 
@@ -298,15 +254,8 @@ function LyricSheet({
   const runsOn = new Set(enjambments);
 
   // Sections as the card renders them (one labelled block each), every line
-  // tagged with its global index so the marks can be placed. The body is
-  // normalized, so `splitSections` round-trips it and sections are separated by
-  // exactly one blank line — hence `+ 1` per section to skip that separator.
-  let lineCursor = 0;
-  const sections = splitSections(entry.body).map((section, index) => {
-    const lines = section.split("\n").map((text, i) => ({ text, globalIndex: lineCursor + i }));
-    lineCursor += lines.length + 1;
-    return { label: entry.structure[index], lines };
-  });
+  // tagged with its global index so the marks can be placed.
+  const sections = toSheetSections(entry);
 
   // The very last line of the piece can't run on into anything, so it's never a
   // click target. (A section's *own* last line stays selectable — enjambment
@@ -314,45 +263,31 @@ function LyricSheet({
   const lastSection = sections.at(-1);
   const lastLineIndex = lastSection?.lines.at(-1)?.globalIndex;
 
+  // How a single line renders is mode-specific, and it needs everything the
+  // sheet computed above (the annotation index, the hover, the draft). The
+  // section blocks only lay lines out, so the choice is made here and handed
+  // down as the thing to render for each line.
+  const renderLine = (line: SheetLine) =>
+    editing ? (
+      <EnjambmentLine
+        text={line.text}
+        selected={runsOn.has(line.globalIndex)}
+        selectable={line.globalIndex !== lastLineIndex}
+        onToggle={() => onToggleLine(line.globalIndex)}
+      />
+    ) : (
+      <LyricLine
+        text={line.text}
+        outlined={outlinedLines?.has(line.globalIndex) ?? false}
+        enjambmentId={mode === "read" ? iconByLine.get(line.globalIndex) : undefined}
+        onHoverEnjambment={setHoveredEnjambment}
+      />
+    );
+
   return (
     <Box style={{ flex: 1, minWidth: 0 }}>
       <Card>
-        {/* One block per section, each labelled with its type. The API keeps
-            `structure` at exactly one label per section (`splitSections`), so
-            the two align index-for-index — no length guard needed. Lines are
-            rendered individually (interleaved with the `\n` that `pre-wrap`
-            breaks on) so a mark can hang off a line's end. */}
-        <Flex direction="column" gap="6">
-          {sections.map(({ label, lines }, index) => (
-            <Flex key={index} direction="column" gap="1">
-              <Eyebrow>{SECTION_TYPE_LABEL[label]}</Eyebrow>
-              <Text style={{ whiteSpace: "pre-wrap" }} lineHeight="lyric">
-                {lines.map((line, i) => (
-                  <Fragment key={i}>
-                    {i > 0 && "\n"}
-                    {editing ? (
-                      <EnjambmentLine
-                        text={line.text}
-                        selected={runsOn.has(line.globalIndex)}
-                        selectable={line.globalIndex !== lastLineIndex}
-                        onToggle={() => onToggleLine(line.globalIndex)}
-                      />
-                    ) : (
-                      <LyricLine
-                        text={line.text}
-                        outlined={outlinedLines?.has(line.globalIndex) ?? false}
-                        enjambmentId={
-                          mode === "read" ? iconByLine.get(line.globalIndex) : undefined
-                        }
-                        onHoverEnjambment={setHoveredEnjambment}
-                      />
-                    )}
-                  </Fragment>
-                ))}
-              </Text>
-            </Flex>
-          ))}
-        </Flex>
+        <LyricSections sections={sections} renderLine={renderLine} />
       </Card>
     </Box>
   );
@@ -457,6 +392,36 @@ function EnjambmentLine({
         )}
       </button>
     </>
+  );
+}
+
+/**
+ * The workbench's action bar — a sticky footer pinned to the bottom of the
+ * viewport while the text scrolls under it (the document body is the scroll
+ * container; the nav bar owns the top).
+ *
+ * Both actions are gated on unsaved changes: there's nothing to discard or save
+ * when the draft matches what's stored. Saving can't persist yet (no annotations
+ * write path); it just re-baselines the draft for now.
+ */
+function ActionBar({
+  hasChanges,
+  onDiscard,
+  onSave,
+}: {
+  hasChanges: boolean;
+  onDiscard: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <Flex render={<footer />} className="rl-annotate-footer" align="center" justify="end" gap="3">
+      <Button saliency="low" disabled={!hasChanges} onClick={onDiscard}>
+        Discard
+      </Button>
+      <Button intent="primary" disabled={!hasChanges} onClick={onSave}>
+        Save
+      </Button>
+    </Flex>
   );
 }
 
