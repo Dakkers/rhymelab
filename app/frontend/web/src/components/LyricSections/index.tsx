@@ -55,7 +55,6 @@ export type SheetSection = { label: SectionType; lines: readonly SheetLine[] };
 
 export interface LyricSectionsProps {
   sections: readonly SheetSection[];
-  /** How to render a single line. */
   renderLine: (line: SheetLine) => ReactNode;
 }
 
