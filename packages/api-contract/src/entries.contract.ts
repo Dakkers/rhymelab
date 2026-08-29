@@ -263,7 +263,7 @@ export const AnnotationTypeSchema = z.enum(ANNOTATION_TYPES);
 /**
  * A single annotation as the detail view receives it. The anchor is the
  * half-open range `[startIndex, endIndex)`, measured in the units `granularity`
- * names, so the covered length is `endIndex - startIndex`. `quote` is the exact
+ * names. `quote` is the exact
  * text that range covered when the mark was written, kept so the client (and a
  * future re-anchor pass) can tell whether a later body edit has drifted the
  * offsets off their target; `detached` is `true` once that anchor can no longer
@@ -283,8 +283,8 @@ export const AnnotationTypeSchema = z.enum(ANNOTATION_TYPES);
  *
  * This is the *shape*, deliberately ahead of its storage: there is no
  * annotations table yet, so `entries.get` returns `[]` for now. The field ships
- * so the workbench UI can be built against the real wire contract before the DB
- * model is committed to.
+ * so the UI can be built against the real wire contract before the DB model is
+ * committed to.
  */
 export const AnnotationSchema = z.object({
   id: z.uuidv4(),

@@ -116,7 +116,7 @@ function rhymeLabel(index: number): string {
 }
 
 export type FakeAnnotationsOptions = {
-  /** Reproducibility seed — derive one per entry so each piece gets a stable set. */
+  /** Derive one per entry so each piece gets its own stable set. */
   seed?: number;
   /** Cap on the rhyme couplets generated. */
   maxRhymes?: number;
