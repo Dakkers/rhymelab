@@ -254,8 +254,7 @@ export const AnnotationGranularitySchema = z.enum(ANNOTATION_GRANULARITIES);
 
 /**
  * What an annotation asserts about the slice it covers. A closed set, like
- * {@link SECTION_TYPES} — validated at the API, and easy to extend as the
- * workbench grows more marks.
+ * {@link SECTION_TYPES} — validated at the API.
  */
 export const ANNOTATION_TYPES = ["rhyme", "enjambment"] as const;
 export type AnnotationType = (typeof ANNOTATION_TYPES)[number];

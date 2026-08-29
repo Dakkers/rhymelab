@@ -115,11 +115,10 @@ function rhymeLabel(index: number): string {
   return label;
 }
 
-/** Options for {@link fakeAnnotations}. */
 export type FakeAnnotationsOptions = {
   /** Reproducibility seed — derive one per entry so each piece gets a stable set. */
   seed?: number;
-  /** Cap on the rhyme couplets generated. Defaults to 4. */
+  /** Cap on the rhyme couplets generated. */
   maxRhymes?: number;
 };
 
