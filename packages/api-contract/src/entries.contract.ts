@@ -1,7 +1,7 @@
 /**
  * Entries procedures — a signed-in user's saved lyrics and poems.
  *
- * `EntrySummarySchema` is the row the Library list renders: enough to draw a card
+ * `entrySummarySchema` is the row the Library list renders: enough to draw a card
  * without loading the full text. It's a discriminated union on `kind`, so the
  * lyrics-only fields (`artist` / `album`) exist only on the lyrics arm — reading
  * them is a type error until you've narrowed, the same XOR the frontend relied on
@@ -182,7 +182,7 @@ export function deriveEntrySummaryFields(body: string): {
 }
 
 /** Fields every saved piece carries, whatever its kind. */
-const EntryBaseSchema = z.object({
+const entryBaseSchema = z.object({
   id: z.uuidv4(),
   title: z.string().trim().min(1),
   /**
@@ -202,12 +202,12 @@ const EntryBaseSchema = z.object({
 });
 
 /** A poem — carries none of the lyrics-only fields. */
-export const PoemEntrySchema = EntryBaseSchema.extend({
+export const poemEntrySchema = entryBaseSchema.extend({
   kind: z.literal("poem"),
 });
 
 /** A song's lyrics — adds the performer and the record it appears on. */
-export const LyricsEntrySchema = EntryBaseSchema.extend({
+export const lyricsEntrySchema = entryBaseSchema.extend({
   kind: z.literal("lyrics"),
   /** The performing artists or bands, ordered as credited; empty when unknown. */
   artist: z.array(z.string().trim()),
@@ -215,13 +215,13 @@ export const LyricsEntrySchema = EntryBaseSchema.extend({
 });
 
 /** A saved piece: a poem or a song's lyrics, discriminated by `kind`. */
-export const EntrySummarySchema = z.discriminatedUnion("kind", [
-  PoemEntrySchema,
-  LyricsEntrySchema,
+export const entrySummarySchema = z.discriminatedUnion("kind", [
+  poemEntrySchema,
+  lyricsEntrySchema,
 ]);
 
 /** Zod form of {@link SECTION_TYPES}, for the schemas below. */
-export const SectionTypeSchema = z.enum(SECTION_TYPES);
+export const sectionTypeSchema = z.enum(SECTION_TYPES);
 
 /**
  * List the current user's saved entries. The handler returns them newest-first.
@@ -236,7 +236,7 @@ export const SectionTypeSchema = z.enum(SECTION_TYPES);
  */
 export const list = oc
   .route({ method: "GET", path: "/entries" })
-  .output(z.array(EntrySummarySchema));
+  .output(z.array(entrySummarySchema));
 
 /* ------------------------------------------------------------------ */
 /* Annotations — a user's marks over a slice of an entry's body        */
@@ -250,7 +250,7 @@ export const list = oc
  */
 export const ANNOTATION_GRANULARITIES = ["line", "word"] as const;
 export type AnnotationGranularity = (typeof ANNOTATION_GRANULARITIES)[number];
-export const AnnotationGranularitySchema = z.enum(ANNOTATION_GRANULARITIES);
+export const annotationGranularitySchema = z.enum(ANNOTATION_GRANULARITIES);
 
 /**
  * What an annotation asserts about the slice it covers. A closed set, like
@@ -258,7 +258,7 @@ export const AnnotationGranularitySchema = z.enum(ANNOTATION_GRANULARITIES);
  */
 export const ANNOTATION_TYPES = ["rhyme", "enjambment"] as const;
 export type AnnotationType = (typeof ANNOTATION_TYPES)[number];
-export const AnnotationTypeSchema = z.enum(ANNOTATION_TYPES);
+export const annotationTypeSchema = z.enum(ANNOTATION_TYPES);
 
 /**
  * A single annotation as the detail view receives it. The anchor is the
@@ -286,10 +286,10 @@ export const AnnotationTypeSchema = z.enum(ANNOTATION_TYPES);
  * so the UI can be built against the real wire contract before the DB model is
  * committed to.
  */
-export const AnnotationSchema = z.object({
+export const annotationSchema = z.object({
   id: z.uuidv4(),
-  granularity: AnnotationGranularitySchema,
-  type: AnnotationTypeSchema,
+  granularity: annotationGranularitySchema,
+  type: annotationTypeSchema,
   startIndex: z.number().int().nonnegative(),
   endIndex: z.number().int().positive(),
   quote: z.string(),
@@ -297,53 +297,55 @@ export const AnnotationSchema = z.object({
   detached: z.boolean(),
 });
 
-export type Annotation = z.infer<typeof AnnotationSchema>;
+export type Annotation = z.infer<typeof annotationSchema>;
 
 /**
- * Fields a single saved piece carries for the detail view — `EntryBaseSchema`
+ * Fields a single saved piece carries for the detail view — `entryBaseSchema`
  * with the derived preview fields (`excerpt`/`lineCount`/`wordCount`) swapped
  * for the full `body` text, since the detail view renders the whole piece
  * rather than a preview card.
  */
-const EntryDetailBaseSchema = EntryBaseSchema.pick({
-  id: true,
-  title: true,
-  author: true,
-  year: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
-  body: z.string().trim(),
-  /**
-   * One label per body section, in order — the piece's structure. Kept exactly
-   * as long as `body` has sections (`splitSections`): the API re-syncs it on
-   * every body edit, so it can't drift.
-   */
-  structure: z.array(SectionTypeSchema),
-  /**
-   * The user's marks over this piece — rhyme groupings, enjambments, and so on.
-   * Order is not significant; each carries its own anchor. Empty until the
-   * annotation store lands (see {@link AnnotationSchema}).
-   */
-  annotations: z.array(AnnotationSchema),
-});
+const entryDetailBaseSchema = entryBaseSchema
+  .pick({
+    id: true,
+    title: true,
+    author: true,
+    year: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .extend({
+    body: z.string().trim(),
+    /**
+     * One label per body section, in order — the piece's structure. Kept exactly
+     * as long as `body` has sections (`splitSections`): the API re-syncs it on
+     * every body edit, so it can't drift.
+     */
+    structure: z.array(sectionTypeSchema),
+    /**
+     * The user's marks over this piece — rhyme groupings, enjambments, and so on.
+     * Order is not significant; each carries its own anchor. Empty until the
+     * annotation store lands (see {@link annotationSchema}).
+     */
+    annotations: z.array(annotationSchema),
+  });
 
 /** A poem's detail shape — carries none of the lyrics-only fields. */
-export const PoemDetailSchema = EntryDetailBaseSchema.extend({
+export const poemDetailSchema = entryDetailBaseSchema.extend({
   kind: z.literal("poem"),
 });
 
 /** A song's lyrics detail shape — adds the performer and the record it's on. */
-export const LyricsDetailSchema = EntryDetailBaseSchema.extend({
+export const lyricsDetailSchema = entryDetailBaseSchema.extend({
   kind: z.literal("lyrics"),
   artist: z.array(z.string().trim()),
   album: z.string(),
 });
 
 /** A saved piece's full detail: a poem or a song's lyrics, discriminated by `kind`. */
-export const EntryDetailSchema = z.discriminatedUnion("kind", [
-  PoemDetailSchema,
-  LyricsDetailSchema,
+export const entryDetailSchema = z.discriminatedUnion("kind", [
+  poemDetailSchema,
+  lyricsDetailSchema,
 ]);
 
 /**
@@ -357,7 +359,7 @@ export const EntryDetailSchema = z.discriminatedUnion("kind", [
 export const get = oc
   .route({ method: "GET", path: "/entries/{id}" })
   .input(z.object({ id: z.uuidv4() }))
-  .output(EntryDetailSchema);
+  .output(entryDetailSchema);
 
 /**
  * Delete a saved piece. The delete is *soft* — the row is tombstoned and stops
@@ -375,11 +377,11 @@ export const remove = oc
   .output(z.object({ ok: z.literal(true) }));
 
 /**
- * Fields a client submits to save a new piece — distinct from `EntrySummarySchema`:
+ * Fields a client submits to save a new piece — distinct from `entrySummarySchema`:
  * it carries the full `body` text (the source of truth) rather than the derived
  * `excerpt`/`lineCount`/`wordCount`, and has no `id`/timestamps yet.
  */
-const EntryCreateBaseSchema = z.object({
+const entryCreateBaseSchema = z.object({
   title: z.string().trim().min(1),
   // Defaulted rather than optional so the write path always receives a list and
   // never has to decide what an omitted author means.
@@ -389,17 +391,17 @@ const EntryCreateBaseSchema = z.object({
   body: z.string().transform(normalizeEntryBody).pipe(z.string().min(1)),
 });
 
-const PoemCreateSchema = EntryCreateBaseSchema.extend({ kind: z.literal("poem") });
+const poemCreateSchema = entryCreateBaseSchema.extend({ kind: z.literal("poem") });
 
-const LyricsCreateSchema = EntryCreateBaseSchema.extend({
+const lyricsCreateSchema = entryCreateBaseSchema.extend({
   kind: z.literal("lyrics"),
   artist: z.array(z.string().trim().min(1)).default([]),
   album: z.string().trim().optional(),
 });
 
-export const EntryCreateInputSchema = z.discriminatedUnion("kind", [
-  PoemCreateSchema,
-  LyricsCreateSchema,
+export const entryCreateInputSchema = z.discriminatedUnion("kind", [
+  poemCreateSchema,
+  lyricsCreateSchema,
 ]);
 
 /**
@@ -408,8 +410,8 @@ export const EntryCreateInputSchema = z.discriminatedUnion("kind", [
  */
 export const create = oc
   .route({ method: "POST", path: "/entries", successStatus: 201 })
-  .input(EntryCreateInputSchema)
-  .output(EntrySummarySchema);
+  .input(entryCreateInputSchema)
+  .output(entrySummarySchema);
 
 /**
  * Rewrite a saved piece's text. Named for the half of the entry it touches —
@@ -436,7 +438,7 @@ export const updateBody = oc
       body: z.string().transform(normalizeEntryBody).pipe(z.string().min(1)),
     }),
   )
-  .output(EntryDetailSchema);
+  .output(entryDetailSchema);
 
 /**
  * Re-label a saved piece's sections — replace its `structure` array. The body is
@@ -455,15 +457,15 @@ export const updateBody = oc
  */
 export const updateStructure = oc
   .route({ method: "PUT", path: "/entries/{id}/structure" })
-  .input(z.object({ id: z.uuidv4(), structure: z.array(SectionTypeSchema) }))
-  .output(EntryDetailSchema);
+  .input(z.object({ id: z.uuidv4(), structure: z.array(sectionTypeSchema) }))
+  .output(entryDetailSchema);
 
-export type EntrySummary = z.infer<typeof EntrySummarySchema>;
+export type EntrySummary = z.infer<typeof entrySummarySchema>;
 
 export type EntryKind = EntrySummary["kind"];
 
 export type SectionType = (typeof SECTION_TYPES)[number];
 
-export type EntryDetail = z.infer<typeof EntryDetailSchema>;
+export type EntryDetail = z.infer<typeof entryDetailSchema>;
 
-export type EntryCreateInput = z.infer<typeof EntryCreateInputSchema>;
+export type EntryCreateInput = z.infer<typeof entryCreateInputSchema>;

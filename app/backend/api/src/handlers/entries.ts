@@ -31,7 +31,7 @@ function toEntryDetail(entry: EntryForDetail): EntryDetail {
     // `verse`), so narrowing to the contract's enum array is sound — and the
     // output schema re-checks it on the wire regardless.
     structure: entry.structure as SectionType[],
-    annotations: [], // nothing to read from yet — see `AnnotationSchema`
+    annotations: [], // nothing to read from yet — see `annotationSchema`
   };
 
   return entry.kind === "lyrics"

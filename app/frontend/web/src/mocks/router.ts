@@ -82,7 +82,7 @@ function annotationSeed(id: string): number {
  * result is a complete `EntryDetail`.
  *
  * `annotations` are derived on read like `structure` is: nothing stores them yet
- * (see {@link AnnotationSchema}), so the mock stands in a seeded set anchored to
+ * (see {@link annotationSchema}), so the mock stands in a seeded set anchored to
  * this body, stable across reads. The real API returns `[]`.
  */
 function toDetail(entry: MockEntry, structure: SectionType[]): EntryDetail {

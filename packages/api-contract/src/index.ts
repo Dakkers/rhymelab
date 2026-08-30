@@ -24,15 +24,15 @@ export const contract = {
 };
 
 export {
-  EntrySummarySchema,
-  EntryCreateInputSchema,
-  EntryDetailSchema,
-  SectionTypeSchema,
+  entrySummarySchema,
+  entryCreateInputSchema,
+  entryDetailSchema,
+  sectionTypeSchema,
   SECTION_TYPES,
   DEFAULT_SECTION_TYPE,
-  AnnotationSchema,
-  AnnotationGranularitySchema,
-  AnnotationTypeSchema,
+  annotationSchema,
+  annotationGranularitySchema,
+  annotationTypeSchema,
   ANNOTATION_GRANULARITIES,
   ANNOTATION_TYPES,
   deriveEntrySummaryFields,

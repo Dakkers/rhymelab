@@ -8,7 +8,7 @@
  * obvious placeholder rather than plausible-looking data.
  */
 import { expect, test } from "vitest";
-import { contract, EntryDetailSchema } from "@rhymelab/api-contract";
+import { contract, entryDetailSchema } from "@rhymelab/api-contract";
 import type { z } from "zod";
 import { fakeSchema } from "./fake-schema";
 
@@ -30,13 +30,13 @@ test("produces a value valid against every contract procedure's output schema", 
 });
 
 test("is deterministic for a fixed seed", () => {
-  expect(fakeSchema(EntryDetailSchema, 7)).toEqual(fakeSchema(EntryDetailSchema, 7));
+  expect(fakeSchema(entryDetailSchema, 7)).toEqual(fakeSchema(entryDetailSchema, 7));
 });
 
 test("empties everything the schema allows, so a stub reads as a placeholder", () => {
-  const detail = fakeSchema(EntryDetailSchema) as Record<string, unknown>;
+  const detail = fakeSchema(entryDetailSchema) as Record<string, unknown>;
   // No minimum on `author`, and `year` is optional, so the stub leaves them bare.
   expect(detail.author).toEqual([]);
   expect(detail.year).toBeUndefined();
-  expect(EntryDetailSchema.safeParse(detail).success).toBe(true);
+  expect(entryDetailSchema.safeParse(detail).success).toBe(true);
 });

@@ -2,7 +2,7 @@
  * Generated sample data shared between the API stub (`entries.list`) and the web
  * MSW mock, so the two can't drift.
  *
- * `fakeEntries` builds rows from the api-contract's own `EntrySummarySchema` with
+ * `fakeEntries` builds rows from the api-contract's own `entrySummarySchema` with
  * zod-schema-faker: `fake()` picks the `lyrics` / `poem` arm and guarantees a
  * schema-valid shape, then the presentation fields are dressed with faker's music
  * / person helpers — raw schema-faking yields lorem strings and out-of-range
@@ -20,7 +20,7 @@ import { faker } from "@faker-js/faker";
 import { fake, seed as seedFaker, setFaker } from "zod-schema-faker/v4";
 import {
   deriveEntrySummaryFields,
-  EntrySummarySchema,
+  entrySummarySchema,
   type Annotation,
   type EntrySummary,
 } from "@rhymelab/api-contract";
@@ -69,7 +69,7 @@ function fakeBody(): string {
 
 function makeEntry(rank: number): FakeEntry {
   // zod-schema-faker chooses the arm and produces a schema-valid skeleton.
-  const skeleton = fake(EntrySummarySchema);
+  const skeleton = fake(entrySummarySchema);
   const body = fakeBody();
   const shared = {
     id: faker.string.uuid(),

@@ -17,7 +17,7 @@ datasource db {
 }
 
 /// A saved piece — a poem or a song's lyrics. Shape follows the api-contract's
-/// `EntrySummarySchema`: `kind` discriminates the two, and `artist`/`album` are
+/// `entrySummarySchema`: `kind` discriminates the two, and `artist`/`album` are
 /// present only for lyrics. Optional scalars are nullable; the list columns
 /// (`author`/`artist`) record absence as `[]`. `userId` scopes every query — the app is moving toward multi-user,
 /// and entries are always listed per user.

@@ -123,7 +123,7 @@ export class EntryController {
    * `structure.length === section count` already holding and the user relabels
    * afterward. `updateBody` keeps it in sync from then on.
    *
-   * @param data The row to write — see `EntryCreateInputSchema`, plus `userId`.
+   * @param data The row to write — see `entryCreateInputSchema`, plus `userId`.
    * @param tx   Optional transaction client to run the write on.
    */
   async create(
