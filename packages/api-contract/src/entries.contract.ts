@@ -64,15 +64,11 @@ export function normalizeEntryBody(body: string): string {
   const lines = body.split("\n").map((line) => line.trim());
   const normalized: string[] = [];
   for (const line of lines) {
-    // Skip a blank line when the previous kept line was also blank (collapsing
-    // runs) or when nothing non-blank has been kept yet (trimming the top).
     if (line === "" && (normalized.length === 0 || normalized.at(-1) === "")) {
       continue;
     }
     normalized.push(line);
   }
-  // A single trailing blank can survive the loop (a blank following content);
-  // drop it so the body ends on its last non-blank line.
   if (normalized.at(-1) === "") {
     normalized.pop();
   }
@@ -106,7 +102,6 @@ export function resyncStructure(
   const next = splitSections(nextBody);
   const prevLabels = coerceStructure(prevStructure, prev.length);
 
-  // LCS length table over the two section-text sequences.
   const lcs: number[][] = Array.from({ length: prev.length + 1 }, () =>
     Array.from({ length: next.length + 1 }, () => 0),
   );
@@ -119,9 +114,6 @@ export function resyncStructure(
     }
   }
 
-  // Backtrack: matched sections inherit their old label; everything else stays
-  // the pre-filled default (covers inserted sections and any head insertions
-  // left when the walk reaches the top edge).
   const result: SectionType[] = Array.from({ length: next.length }, () => DEFAULT_SECTION_TYPE);
   let i = prev.length;
   let j = next.length;
@@ -131,9 +123,9 @@ export function resyncStructure(
       i--;
       j--;
     } else if (lcs[i - 1][j] >= lcs[i][j - 1]) {
-      i--; // old section removed
+      i--;
     } else {
-      j--; // new section inserted
+      j--;
     }
   }
   return result;
@@ -237,10 +229,6 @@ export const sectionTypeSchema = z.enum(SECTION_TYPES);
 export const list = oc
   .route({ method: "GET", path: "/entries" })
   .output(z.array(entrySummarySchema));
-
-/* ------------------------------------------------------------------ */
-/* Annotations — a user's marks over a slice of an entry's body        */
-/* ------------------------------------------------------------------ */
 
 /**
  * How an annotation's range is measured. `line` addresses whole lines of the
@@ -383,8 +371,6 @@ export const remove = oc
  */
 const entryCreateBaseSchema = z.object({
   title: z.string().trim().min(1),
-  // Defaulted rather than optional so the write path always receives a list and
-  // never has to decide what an omitted author means.
   author: z.array(z.string().trim().min(1)).default([]),
   year: z.number().int().positive().optional(),
   /** The full saved text; `excerpt`, `lineCount`, and `wordCount` are derived from this. */

@@ -62,7 +62,6 @@ export function planSetLineGroups(
   existing: ExistingAnnotation[],
   items: LineGroupItem[],
 ): AnnotationWritePlan {
-  // Only live (attached) rows participate; detached rows are off the text.
   const working: WorkingRow[] = existing
     .filter((r) => !r.detached && r.sectionId !== null && r.lineInSection !== null)
     .map((r) => ({
@@ -82,15 +81,13 @@ export function planSetLineGroups(
     if (text === null) throw new InvalidLineAddressError(line);
     const value = item.value;
 
-    // Rows this write clears off the line.
     const toRemove = working.filter((r) => {
       if (!sameLine(r, line)) return false;
-      if (r.startChar === null) return true; // whole-line row → replace-at-line
-      if (value === "X") return true; // X clears the whole line (incl. sub-line rows)
-      return r.value === "X"; // a letter clears the line's X (incl. a sub-line X)
+      if (r.startChar === null) return true;
+      if (value === "X") return true;
+      return r.value === "X";
     });
 
-    // Idempotent: the line already holds exactly the whole-line row we'd write.
     if (toRemove.length === 1 && toRemove[0]!.startChar === null && toRemove[0]!.value === value) {
       continue;
     }
@@ -109,7 +106,6 @@ export function planSetLineGroups(
     });
   }
 
-  // Inserts are exactly the whole-line rows this batch added that still survive.
   const inserts: AnnotationInsert[] = working
     .filter((r) => r.id === null)
     .map((r) => ({

@@ -8,10 +8,6 @@
  * everything below the shell is the real thing.
  */
 
-// The app's real stylesheets, in the same order `__root.tsx` links them: reset
-// first, then Baritone's compiled CSS, then RhymeLab's own rules. Imported for
-// their side effect (Vite injects them), so components under test look like the
-// app rather than unstyled user-agent defaults.
 import "#/styles/reset.css";
 import "#/styles/styles.css";
 import "#/styles/app.css";
@@ -53,9 +49,6 @@ import {
 export function TestThemeProvider({ children }: { children: ReactNode }) {
   const tokens = buildAppTokens();
   return (
-    // `render` makes the theme provider itself the `.rl-body` canvas (the app
-    // puts that class on `<body>`); `style` republishes the brand vars app.css
-    // reads for editing/focus states.
     <BaritoneTheme
       tokens={tokens}
       scheme="light"
@@ -107,7 +100,6 @@ type Reparentable = {
 
 export function renderRoute(route: AnyRoute, options: RenderRouteOptions): RenderRouteResult {
   const queryClient = new QueryClient({
-    // Surface a mocked-request error immediately instead of retrying it away.
     defaultOptions: { queries: { retry: false } },
   });
 
@@ -121,9 +113,6 @@ export function renderRoute(route: AnyRoute, options: RenderRouteOptions): Rende
     ),
   });
 
-  // `.update()` re-parents the real route onto the test root (mutating it in
-  // place, exactly as the generated route tree does), so the component's
-  // `Route.useParams()` / `useSearch()` keep resolving against it.
   const child = (route as unknown as Reparentable).update({
     path: options.path,
     getParentRoute: () => rootRoute,

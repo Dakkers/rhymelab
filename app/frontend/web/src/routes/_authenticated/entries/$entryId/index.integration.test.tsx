@@ -53,21 +53,16 @@ function expectSectionsRendered(body: string): void {
 
 test("renders a lyrics entry, with the performer and record in the byline", async () => {
   const entry = db.entries.find((candidate) => candidate.kind === "lyrics");
-  // Narrows to the lyrics arm as well as asserting the fixtures cover it.
   if (entry?.kind !== "lyrics") throw new Error("expected a lyrics fixture entry");
 
   await renderEntry(entry);
 
-  // Substring matches, never `new RegExp(...)`: these are generated names, and
-  // interpolating them into a pattern would let their punctuation act as regex
-  // syntax — "Mr. Foo" silently matching any character, "*NSYNC" throwing outright.
   expect(screen.getByText(names(entry.artist), { exact: false })).toBeInTheDocument();
   expect(screen.getByText(entry.album, { exact: false })).toBeInTheDocument();
 });
 
 test("renders a poem entry, with the author in the byline", async () => {
   const entry = db.entries.find((candidate) => candidate.kind === "poem");
-  // Narrows to the poem arm as well as asserting the fixtures cover it.
   if (entry?.kind !== "poem") throw new Error("expected a poem fixture entry");
 
   await renderEntry(entry);
@@ -75,11 +70,6 @@ test("renders a poem entry, with the author in the byline", async () => {
   expect(screen.getByText(names(entry.author), { exact: false })).toBeInTheDocument();
 });
 
-// NB: asserts the *current* behaviour — a loader that rejects with oRPC's
-// NOT_FOUND surfaces TanStack Router's bare default error boundary, because the
-// route never converts it into `notFound()`. The app's own NotFound component
-// (wired at routes/__root.tsx and router.tsx) is unreachable from here. When
-// that's fixed, this expectation should become the real "Page not found" copy.
 test("surfaces the router's default error UI for an unknown id", async () => {
   renderRoute(Route, {
     path: "/entries/$entryId",
@@ -101,14 +91,12 @@ test("deletes the piece from the Actions menu, once the confirmation is accepted
   await user.click(screen.getByRole("button", { name: "Actions" }));
   await user.click(await screen.findByRole("menuitem", { name: "Delete Entry" }));
 
-  // Nothing is gone yet — the menu item only asks.
   const dialog = await screen.findByRole("dialog");
   expect(db.entries).toContain(entry);
 
   await user.click(within(dialog).getByRole("button", { name: "Delete Entry" }));
 
   await vi.waitFor(() => expect(db.entries).not.toContain(entry));
-  // ...and the now-deleted page sends us back to the library.
   await vi.waitFor(() => expect(router.state.location.pathname).toBe("/library"));
 });
 
@@ -150,8 +138,6 @@ test("edits the text from the Actions menu, and shows the saved version on the p
   await user.type(textbox, "Rewritten words");
   await user.click(within(drawer).getByRole("button", { name: "Save" }));
 
-  // The drawer closes on success, and the page shows the saved text — proof the
-  // detail cache took the mutation's result rather than the stale loader data.
   await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(screen.getByText("Rewritten words")).toBeInTheDocument();
 });
@@ -175,11 +161,6 @@ test("leaves the text alone when the edit drawer is cancelled", async () => {
   expectSectionsRendered(entry.body);
 });
 
-// A piece stored before body standardization existed still carries its raw text
-// — ragged blank lines, trailing spaces. Opening its Edit drawer must not offer
-// Save when nothing's been typed: the draft normalizes to what a save would
-// already store, so the write would be a no-op. (Save compares the normalized
-// draft against the *normalized* stored body, not the raw stored text.)
 test("doesn't offer Save on open when the stored body only needs re-standardizing", async () => {
   const user = userEvent.setup();
   const entry = {
@@ -202,13 +183,9 @@ test("doesn't offer Save on open when the stored body only needs re-standardizin
   await user.click(await screen.findByRole("menuitem", { name: "Edit Text" }));
   const drawer = await screen.findByRole("dialog");
 
-  // Untouched, Save stays disabled — even though the raw draft isn't byte-equal
-  // to the raw stored body. (Baritone soft-disables with `aria-disabled` rather
-  // than the native attribute, so assert on that.)
   const saveButton = () => within(drawer).getByRole("button", { name: "Save" });
   expect(saveButton()).toHaveAttribute("aria-disabled", "true");
 
-  // A genuine change to the text enables it.
   await user.type(within(drawer).getByRole("textbox", { name: /text/i }), " changed");
   expect(saveButton()).not.toHaveAttribute("aria-disabled", "true");
 });

@@ -12,8 +12,6 @@ import { afterAll, beforeAll } from "vitest";
 import { cleanupRun, prisma } from "./integration-db";
 
 beforeAll(async () => {
-  // Fail loudly (not a silent skip) if Postgres is unreachable — these are
-  // integration tests, so a green run must mean the DB was actually exercised.
   try {
     await prisma.$queryRaw`SELECT 1`;
   } catch (err) {
@@ -27,9 +25,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // One sweep at the end of the file — tidy on the happy path — rather than a
-  // reset per test. A crashed run may leave a few rows, but the unique run scope
-  // means they never affect a later run.
   await cleanupRun();
   await prisma.$disconnect();
 });

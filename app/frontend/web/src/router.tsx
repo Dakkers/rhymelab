@@ -8,9 +8,6 @@ import { toastError } from "./lib/toast";
 export function getRouter() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: 30_000 } },
-    // Every write in this app is a mutation over oRPC's REST protocol (POST /
-    // PATCH / DELETE — reads are queries, never mutations), so a global
-    // MutationCache handler is exactly "toast on a failed POST/PUT/PATCH/DELETE".
     mutationCache: new MutationCache({
       onError: (error, _variables, _context, mutation) => {
         if (mutation.meta?.hideToast) return;

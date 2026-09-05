@@ -134,8 +134,6 @@ const os = implement(contract);
 const router = {
   auth: {
     me: os.auth.me.handler(() => ({ authed: db.authed })),
-    // The contract already guarantees a non-empty password; the mock doesn't
-    // gatekeep on a specific one — any submission opens the session.
     login: os.auth.login.handler(() => {
       db.authed = true;
       return { ok: true };
@@ -151,10 +149,6 @@ const router = {
     ),
     create: os.entries.create.handler(({ input }) => {
       const now = new Date().toISOString();
-      // The optional scalar (`album`) collapses to "" on the wire shape, matching
-      // the real API (it stores it nullable and maps NULL to "" on read). The list
-      // fields `author`/`artist` are already defaulted to `[]` by the contract, so
-      // they pass straight through.
       const base = {
         id: crypto.randomUUID(),
         title: input.title,
@@ -174,21 +168,15 @@ const router = {
               album: input.album ?? "",
             }
           : { ...base, kind: "poem" as const };
-      // Prepend so the new row is newest-edited — where the Library shows it.
       db.entries = [entry, ...db.entries];
       return entry;
     }),
     get: os.entries.get.handler(({ input }) => {
-      // Fixtures carry no labels, so stand in a section-count-correct default
-      // `structure` — what the real API returns for a never-labelled entry.
       const entry = entryOr404(input.id);
       return toDetail(entry, initStructure(entry.body));
     }),
     updateBody: os.entries.updateBody.handler(({ input }) => {
       const entry = entryOr404(input.id);
-      // The real API re-derives the list fields from the new text and lets the
-      // database bump `updatedAt`; mirror both so the Library sees what it would
-      // after a real edit.
       const updated = {
         ...entry,
         body: input.body,
@@ -196,24 +184,17 @@ const router = {
         updatedAt: new Date().toISOString(),
       };
       db.entries = db.entries.map((candidate) => (candidate.id === input.id ? updated : candidate));
-      // The real API re-syncs `structure` to the new sections; the mock has no
-      // stored labels to carry, so an all-default array of the right length stands
-      // in — enough to keep the detail shape valid.
       return toDetail(updated, initStructure(updated.body));
     }),
     updateStructure: os.entries.updateStructure.handler(({ input }) => {
       const entry = entryOr404(input.id);
-      // Mirror the real handler's guard: the array must be one label per section.
       if (input.structure.length !== splitSections(entry.body).length) {
         throw new ORPCError("BAD_REQUEST");
       }
       return toDetail(entry, input.structure);
     }),
     delete: os.entries.delete.handler(({ input }) => {
-      entryOr404(input.id); // 404 first, so deleting a missing piece isn't a silent no-op.
-      // The real delete is soft, but the tombstone is invisible over the wire — a
-      // deleted piece is simply gone from every response, so dropping it from the
-      // store is a faithful mock of what a client can observe.
+      entryOr404(input.id);
       db.entries = db.entries.filter((candidate) => candidate.id !== input.id);
       return { ok: true } as const;
     }),

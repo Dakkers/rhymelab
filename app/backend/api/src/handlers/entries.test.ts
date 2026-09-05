@@ -29,10 +29,6 @@ vi.mock("../controllers/entry", () => ({
   },
 }));
 
-// `updateStructure` runs its ownership + length check + write inside one
-// transaction; the stub just runs the callback so the mocked controller spies
-// record its calls. The real lock and rollback are a database concern, exercised
-// against Postgres, not here.
 vi.mock("../db", () => ({
   prisma: { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({})) },
 }));
@@ -93,9 +89,6 @@ function callUpdateBody(id: string, body: string) {
 
 function callUpdateStructure(id: string, structure: string[]) {
   const context: ORPCContext = { session: { authed: true }, reply: {} as FastifyReply };
-  // Cast: the contract narrows `structure` to `SectionType[]`; the tests pass
-  // plain strings (valid labels, and the invalid-label path is the schema's job,
-  // covered in the contract, not here).
   return createProcedureClient(updateStructure, { context })({
     id,
     structure: structure as never,
@@ -168,8 +161,6 @@ describe("entries.create", () => {
       kind: "poem",
       title: "A poem",
       author: ["Poet"],
-      // Ragged input: leading/trailing blank lines, trailing spaces, and a
-      // multi-line gap between the two sections.
       body: "\n\n  First line  \nSecond line\n\n\n  Third line\t\n\n",
     });
 
@@ -263,8 +254,6 @@ describe("entries.get", () => {
 describe("entries.updateBody", () => {
   const ID = "00000000-0000-4000-8000-000000000000";
 
-  // Ownership is gated on `getOwner` (just the userId), not the whole row — the
-  // controller's own transaction re-reads the body it rewrites.
   beforeEach(() => {
     mockCtrlGetOwner.mockReset();
     mockCtrlUpdateBody.mockReset();
@@ -278,7 +267,6 @@ describe("entries.updateBody", () => {
       id: ID,
       kind: "poem",
       body: "New text",
-      // The re-synced structure the controller returned rides back on the detail.
       structure: ["chorus"],
     });
     expect(mockCtrlUpdateBody).toHaveBeenCalledExactlyOnceWith(ID, "New text");
@@ -315,9 +303,6 @@ describe("entries.updateBody", () => {
 describe("entries.updateStructure", () => {
   const ID = "00000000-0000-4000-8000-000000000000";
 
-  // The handler locks + checks + writes inside one transaction; the ownership
-  // and section-count checks run against `lockForRelabel`'s locked read, so the
-  // spies below stand in for that read rather than `getDetails`.
   beforeEach(() => {
     mockCtrlLockForRelabel.mockReset();
     mockCtrlUpdateStructure.mockReset();
@@ -325,7 +310,6 @@ describe("entries.updateStructure", () => {
   });
 
   it("relabels the sections once its owner checks out, returning the updated detail", async () => {
-    // A single-section body, so a one-label array is the right size.
     mockCtrlLockForRelabel.mockResolvedValue({ userId: SINGLE_USER_ID, body: "just one section" });
     mockCtrlUpdateStructure.mockResolvedValue(makeRow({ structure: ["chorus"] }));
 
@@ -334,7 +318,6 @@ describe("entries.updateStructure", () => {
       kind: "poem",
       structure: ["chorus"],
     });
-    // Both the locked read and the write ran on the transaction client.
     expect(mockTransaction).toHaveBeenCalledOnce();
     expect(mockCtrlLockForRelabel).toHaveBeenCalledExactlyOnceWith(ID, expect.anything());
     expect(mockCtrlUpdateStructure).toHaveBeenCalledExactlyOnceWith(
@@ -345,7 +328,6 @@ describe("entries.updateStructure", () => {
   });
 
   it("rejects a structure whose length doesn't match the body's section count, writing nothing", async () => {
-    // One section in the body, but two labels offered.
     mockCtrlLockForRelabel.mockResolvedValue({ userId: SINGLE_USER_ID, body: "just one section" });
 
     await expect(callUpdateStructure(ID, ["verse", "chorus"])).rejects.toThrow(
@@ -404,7 +386,6 @@ describe("entries.delete", () => {
     await expect(callRemove(ID)).rejects.toThrow(
       expect.objectContaining(new ORPCError("NOT_FOUND")),
     );
-    // The important half: another user's piece is never handed to the delete.
     expect(mockCtrlDelete).not.toHaveBeenCalled();
   });
 

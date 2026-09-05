@@ -41,8 +41,6 @@ import { normalizeEntryBody, splitSections, type SectionType } from "@rhymelab/a
 import { loadEnv } from "./load-env";
 import { SINGLE_USER_ID } from "./session";
 
-// `./db` reads DATABASE_URL at module load, so the environment has to be
-// populated before it's imported — hence the dynamic import below, after this.
 loadEnv();
 
 const SEEDS: Seed[] = [
@@ -92,10 +90,6 @@ const DUMMY_DIR = resolve(import.meta.dirname, "../../../../.dummy");
 async function main() {
   const { prisma } = await import("./db");
 
-  // Skip pieces already seeded (by title) for the single user, so re-runs don't
-  // duplicate. Tombstoned rows count too (no `deletedAt` filter): a soft-deleted
-  // demo piece stays "already seeded" rather than coming back as a live dup.
-  // One query up front rather than a lookup per piece.
   const existing = new Set(
     (
       await prisma.entry.findMany({
@@ -105,10 +99,6 @@ async function main() {
     ).map((e) => e.title),
   );
 
-  // Validate every piece *before* writing anything: a bad piece (missing file or
-  // a label count that doesn't match its body) is reported and skipped, never
-  // aborting the run or leaving a partial seed. The survivors are created
-  // together in one transaction below, so the seed is all-or-nothing.
   const toCreate: EntryCreateData[] = [];
   let skipped = 0;
   let missing = 0;
@@ -168,8 +158,6 @@ async function main() {
   }
 
   await prisma.$disconnect();
-  // A mislabeled piece is a real misconfiguration — surface it in the exit code
-  // (after seeding everything valid) so a caller or CI notices.
   if (invalid > 0) process.exit(1);
 }
 

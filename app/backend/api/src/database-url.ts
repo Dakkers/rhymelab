@@ -31,16 +31,11 @@ export function withUtcTimeZone(url: string | undefined): string | undefined {
   try {
     parsed = new URL(url);
   } catch {
-    // Not a URL we can reason about. Hand it back and let whoever consumes it
-    // report the problem in its own terms.
     return url;
   }
 
   if (parsed.searchParams.has("options")) return url;
 
-  // Built by hand rather than via `searchParams.set`, which encodes a space as
-  // `+`. Both parsers on the other side of this (`pg` and Prisma's Rust
-  // connector) agree on `%20`; only one of them agrees on `+`.
   const separator = parsed.search ? "&" : "?";
   return `${url}${separator}options=${encodeURIComponent(UTC_OPTIONS)}`;
 }

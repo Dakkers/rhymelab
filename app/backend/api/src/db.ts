@@ -26,9 +26,6 @@ import { PrismaClient } from "./_generated/prisma/client";
  */
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL ?? "",
-  // libpq-style startup options. Not a `?options=` query param on the URL,
-  // because that would have to be threaded into every `DATABASE_URL` we or a
-  // deploy platform ever writes; here it applies to all of them.
   options: "-c TimeZone=UTC",
 });
 

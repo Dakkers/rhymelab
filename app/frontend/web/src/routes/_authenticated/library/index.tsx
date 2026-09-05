@@ -90,10 +90,6 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
       >
         <Stat icon={<AlignLeft />}>{pluralize(entry.lineCount, "line")}</Stat>
         <Stat icon={<CaseSensitive />}>{pluralize(entry.wordCount, "word")}</Stat>
-        {/* The writer, surfaced for lyrics (a poem already names them in the
-            byline) — and only when there is one: the `&&` yields "" for an
-            unattributed piece, which InlineList drops along with its separator
-            rather than printing a bare "Words by". */}
         {entry.kind === "lyrics" && names(entry.author) && (
           <Stat icon={<PenLine />}>Words by {names(entry.author)}</Stat>
         )}

@@ -12,8 +12,6 @@ function mockDb(
   created: Entry = makeEntry(),
   found: Entry | null = null,
   deletedCount = 1,
-  // What `updateBody`'s pre-write read (`findUniqueOrThrow`) yields — the current
-  // body + structure it re-syncs from.
   current: Pick<Entry, "body" | "structure"> = makeEntry(),
 ) {
   const findMany = vi.fn().mockResolvedValue(rows);
@@ -21,17 +19,10 @@ function mockDb(
   const findFirst = vi.fn().mockResolvedValue(found);
   const findUniqueOrThrow = vi.fn().mockResolvedValue(current);
   const update = vi.fn().mockResolvedValue(created);
-  // `delete` goes through raw SQL (it needs the DB's `NOW()`, not Node's clock),
-  // so the spy stands in for the tagged-template `$executeRaw` and resolves the
-  // affected-row count.
   const $executeRaw = vi.fn().mockResolvedValue(deletedCount);
-  // `updateBody` reads-then-writes in a transaction; the stub just runs the
-  // callback against this same client, so the spies below record its calls.
   const $transaction = vi.fn((fn: (c: PrismaClient & Prisma.TransactionClient) => unknown) =>
     fn(client),
   );
-  // Cast through `unknown`: the mock implements only the surface the controller
-  // uses, not the whole PrismaClient / TransactionClient.
   const client = {
     entry: { findMany, create, findFirst, findUniqueOrThrow, update },
     $executeRaw,
@@ -77,8 +68,6 @@ describe("EntryController.listForLibrary", () => {
     expect(findMany).toHaveBeenCalledWith({
       where: { userId: "user-1", deletedAt: null },
       orderBy: { updatedAt: "desc" },
-      // No `structure`: the library cards don't render it, so the list doesn't
-      // select the extra array (see `EntryForLibrary`).
       select: {
         id: true,
         kind: true,
@@ -184,8 +173,6 @@ describe("EntryController.getOwner", () => {
     await new EntryController(client).getOwner("entry-1");
 
     expect(findFirst).toHaveBeenCalledTimes(1);
-    // Just userId: loading the body here would re-read it for nothing, since the
-    // caller's `updateBody` reads it again inside its own transaction.
     expect(findFirst).toHaveBeenCalledWith({
       where: { id: "entry-1", deletedAt: null },
       select: { userId: true },
@@ -221,7 +208,6 @@ describe("EntryController.create", () => {
         author: ["Poet"],
         userId: "user-1",
         body: "First line\nSecond line\n\nThird line",
-        // Two sections in the body → two `verse`s. The client never sends this.
         structure: ["verse", "verse"],
       },
     });
@@ -295,9 +281,6 @@ describe("EntryController.create", () => {
 
 describe("EntryController.updateBody", () => {
   it("re-syncs structure to the new sections and writes both, keyed by id", async () => {
-    // Current piece: two sections labelled verse / chorus. The edit appends a
-    // third section, so the re-sync keeps the first two labels and defaults the
-    // new one — the drift-prevention the controller owns.
     const current = makeEntry({ body: "A\n\nB", structure: ["verse", "chorus"] });
     const { client, update, findUniqueOrThrow } = mockDb([], makeEntry(), null, 1, current);
 
@@ -309,8 +292,6 @@ describe("EntryController.updateBody", () => {
     });
     expect(update).toHaveBeenCalledExactlyOnceWith({
       where: { id: "entry-1" },
-      // `updatedAt` is the trigger's to set; body + structure move together and
-      // nothing else about the piece does.
       data: { body: "A\n\nB\n\nC", structure: ["verse", "chorus", "verse"] },
       select: {
         id: true,
@@ -359,7 +340,6 @@ describe("EntryController.updateStructure", () => {
 
     expect(update).toHaveBeenCalledExactlyOnceWith({
       where: { id: "entry-1" },
-      // Body untouched — only the labels change. `updatedAt` stays the trigger's.
       data: { structure: ["verse", "chorus"] },
       select: {
         id: true,
@@ -408,10 +388,7 @@ describe("EntryController.delete", () => {
     await new EntryController(client).delete("entry-1");
 
     expect($executeRaw).toHaveBeenCalledTimes(1);
-    // Converted explicitly: `NOW()` is a `timestamptz` and the column isn't, so
-    // a bare `NOW()` would land in whatever zone the session is set to.
     expect(sqlFrom($executeRaw)).toContain(`SET "deleted_at" = (NOW() AT TIME ZONE 'UTC')`);
-    // Nothing Date-shaped is bound: the stamp is the DB's, not this process's.
     const [, ...values] = $executeRaw.mock.calls[0];
     expect(values.some((v) => v instanceof Date)).toBe(false);
   });
@@ -420,9 +397,6 @@ describe("EntryController.delete", () => {
     const { client, $executeRaw } = mockDb();
     await new EntryController(client).delete("entry-1");
 
-    // A `BEFORE UPDATE` trigger stamps it from the DB clock and overrides
-    // anything a statement sets, so naming the column here would be a value
-    // that's silently discarded — and a claim this code decides it.
     expect(sqlFrom($executeRaw)).not.toContain("updated_at");
   });
 
@@ -446,7 +420,6 @@ describe("EntryController.delete", () => {
     const hit = mockDb([], makeEntry(), null, 1);
     await expect(new EntryController(hit.client).delete("entry-1")).resolves.toBe(true);
 
-    // No match — unknown id or already deleted, both one answer.
     const miss = mockDb([], makeEntry(), null, 0);
     await expect(new EntryController(miss.client).delete("entry-1")).resolves.toBe(false);
   });

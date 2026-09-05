@@ -54,7 +54,6 @@ function minimize(schema: z.ZodType, value: unknown): unknown {
   }
 
   if (def.type === "union" && Array.isArray(def.options)) {
-    // Recurse into whichever member already accepts the faked value.
     const option = def.options.find((member) => accepts(member, value));
     return option ? minimize(option, value) : value;
   }

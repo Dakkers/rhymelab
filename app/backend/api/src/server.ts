@@ -30,16 +30,9 @@ export async function buildServer() {
   await app.register(cors, {
     origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
     credentials: true,
-    // Spelled out because `@fastify/cors` defaults to `GET,HEAD,POST` — enough
-    // for the RPC protocol, where every call was a POST, but not for the REST
-    // routes: a cross-origin `DELETE` or `PUT` sends a preflight first, and the
-    // browser blocks the real request when the verb is missing from the
-    // response's `Access-Control-Allow-Methods`.
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
-  // oRPC decodes the request body itself; without this catch-all parser Fastify
-  // pre-parses it and oRPC's request decoding breaks.
   app.addContentTypeParser("*", (_req, _payload, done) => done(null, undefined));
 
   app.all("/api/*", async (req, reply) => {

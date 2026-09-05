@@ -27,8 +27,6 @@ describe("splitSections", () => {
   });
 
   it("counts sections through ragged whitespace the same as clean input", () => {
-    // Leading/trailing blank lines, trailing spaces, and a multi-line gap — the
-    // shape `normalizeEntryBody` flattens — still counts as two sections.
     expect(splitSections("\n\n  A  \n\n\n  B\t\n\n")).toEqual(["A", "B"]);
   });
 });
@@ -61,15 +59,12 @@ describe("resyncStructure", () => {
   });
 
   it("keeps the labels below an inserted section in place — the anti-drift case", () => {
-    // X is inserted after A; B and C must keep chorus/bridge rather than shifting
-    // up, the way a naive tail pad/truncate would mislabel them.
     expect(
       resyncStructure("A\n\nB\n\nC", ["verse", "chorus", "bridge"], "A\n\nX\n\nB\n\nC"),
     ).toEqual(["verse", "verse", "chorus", "bridge"]);
   });
 
   it("drops the removed section's label and keeps the survivors' — the best-guess case", () => {
-    // B (chorus) is deleted; A keeps verse and C keeps bridge.
     expect(resyncStructure("A\n\nB\n\nC", ["verse", "chorus", "bridge"], "A\n\nC")).toEqual([
       "verse",
       "bridge",
@@ -77,11 +72,6 @@ describe("resyncStructure", () => {
   });
 
   it("aligns repeated identical sections, defaulting the one the edit adds", () => {
-    // A fourth, identical chorus is appended. Exactly one of the two adjacent
-    // choruses keeps `chorus` and the added one falls to the default — with
-    // identical text the alignment can't tell which block is "new", so which
-    // index defaults is incidental; the guarantee is the count and that the
-    // non-chorus labels stay put.
     expect(
       resyncStructure("C\n\nV\n\nC", ["chorus", "verse", "chorus"], "C\n\nV\n\nC\n\nC"),
     ).toEqual(["chorus", "verse", "verse", "chorus"]);
@@ -96,14 +86,10 @@ describe("resyncStructure", () => {
   });
 
   it("preserves the label of a section that moved, defaulting the rest, on reorder", () => {
-    // Reorder reads as remove + insert: only one section can align, the other
-    // falls back to the default. The count is what's guaranteed.
     expect(resyncStructure("A\n\nB", ["intro", "chorus"], "B\n\nA")).toEqual(["verse", "intro"]);
   });
 
   it("self-heals a legacy row whose structure predates the column (empty)", () => {
-    // A pre-column row reads back `[]`; it's padded to the section count and,
-    // since the text is unchanged, every section matches and takes the default.
     expect(resyncStructure("A\n\nB\n\nC", [], "A\n\nB\n\nC")).toEqual(["verse", "verse", "verse"]);
   });
 

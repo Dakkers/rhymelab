@@ -21,15 +21,12 @@ describe("withUtcTimeZone", () => {
   });
 
   it("encodes the space as %20, not +", () => {
-    // `pg` and Prisma's Rust connector both read `%20`; only one reads `+`, so
-    // this is the difference between a working option and a silently ignored one.
     const result = withUtcTimeZone(BASE) ?? "";
     expect(result).toContain("%20");
     expect(result).not.toContain("+");
   });
 
   it("round-trips back to the literal libpq option string", () => {
-    // The encoding is only correct if this is what the server ends up parsing.
     expect(new URL(withUtcTimeZone(BASE) ?? "").searchParams.get("options")).toBe(
       "-c TimeZone=UTC",
     );
@@ -41,7 +38,6 @@ describe("withUtcTimeZone", () => {
   });
 
   it("passes an absent or empty URL straight through", () => {
-    // So a missing DATABASE_URL still fails as itself, not as a URL parse error.
     expect(withUtcTimeZone(undefined)).toBeUndefined();
     expect(withUtcTimeZone("")).toBe("");
   });

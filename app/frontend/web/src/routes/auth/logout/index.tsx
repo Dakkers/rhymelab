@@ -16,8 +16,6 @@ import { client } from "#/lib/orpc";
 export const Route = createFileRoute("/auth/logout/")({
   beforeLoad: async ({ context }) => {
     await client.auth.logout();
-    // Everything cached was read as the signed-in user — drop it before the next
-    // session can hydrate from it.
     context.queryClient.clear();
     throw redirect({ to: "/auth/login" });
   },

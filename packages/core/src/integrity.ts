@@ -48,7 +48,6 @@ export function checkEntryIntegrity(
   const linesOf = (s: IntegritySection) =>
     parsed.filter((l) => !l.blank && l.start >= s.startOffset && l.end <= s.endOffset);
 
-  // I1 — sections mirror detectSections exactly (offsets + orderIndex, as a set).
   const detected = detectSections(lyrics);
   if (detected.length !== sections.length) {
     violations.push(`I1: ${sections.length} sections but detectSections found ${detected.length}`);
@@ -67,7 +66,6 @@ export function checkEntryIntegrity(
     }
   }
 
-  // I2 — links are flattened and never self-referential.
   for (const s of sections) {
     if (s.canonicalSectionId === null) continue;
     if (s.canonicalSectionId === s.id) {
@@ -82,12 +80,10 @@ export function checkEntryIntegrity(
     }
   }
 
-  // Row ownership per section (detached rows carrying a sectionId count — D-11).
   const ownerIds = new Set(
     annotations.filter((a) => a.sectionId !== null).map((a) => a.sectionId as number),
   );
 
-  // I3 / I6 — a linked (or row-owning-and-linked) section owns zero rows.
   for (const s of sections) {
     if (s.canonicalSectionId !== null && ownerIds.has(s.id)) {
       violations.push(
@@ -96,7 +92,6 @@ export function checkEntryIntegrity(
     }
   }
 
-  // I4 / I5 — per-annotation addressing.
   for (const a of annotations) {
     if (!a.quote) violations.push(`I5: an annotation has an empty quote (value ${a.value})`);
 
@@ -107,7 +102,6 @@ export function checkEntryIntegrity(
       continue;
     }
 
-    // Live row (I4).
     if (a.sectionId === null) {
       violations.push(`I4: live row (value ${a.value}) has no sectionId`);
       continue;
@@ -118,7 +112,6 @@ export function checkEntryIntegrity(
       continue;
     }
     if (sec.canonicalSectionId !== null) {
-      // A live row must never sit on a linked section (it should be one hop up).
       violations.push(
         `I4: live row sits on linked section ${a.sectionId} (should be on its canonical)`,
       );

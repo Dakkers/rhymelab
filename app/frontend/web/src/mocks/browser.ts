@@ -18,9 +18,6 @@ import { handlers } from "./handlers";
 export function startMockWorker(): Promise<unknown> {
   starting ??= worker.start({
     quiet: true,
-    // A mocked page makes lots of non-API requests (HMR, assets, the worker
-    // script itself); only the oRPC calls are ours to answer, so let everything
-    // else through silently rather than warning per request.
     onUnhandledRequest: "bypass",
   });
   return starting;

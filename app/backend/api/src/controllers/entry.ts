@@ -217,7 +217,6 @@ export class EntryController {
     id: string,
     tx: Prisma.TransactionClient,
   ): Promise<Pick<Entry, "userId" | "body"> | null> {
-    // Tagged template — `id` is bound as a parameter, never interpolated.
     const rows = await tx.$queryRaw<Array<Pick<Entry, "userId" | "body">>>`
       SELECT "user_id" AS "userId", "body"
       FROM "entries"
@@ -310,7 +309,6 @@ export class EntryController {
    */
   async delete(id: string, tx?: Prisma.TransactionClient): Promise<boolean> {
     const db = tx ?? this.db;
-    // Tagged template — `id` is bound as a parameter, never interpolated.
     const affected = await db.$executeRaw`
       UPDATE "entries"
       SET "deleted_at" = (NOW() AT TIME ZONE 'UTC')

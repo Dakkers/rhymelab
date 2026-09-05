@@ -111,7 +111,7 @@ describe("reconcile — duplicate lifecycle", () => {
     const s = oldState("aa\nbb\n\naa\nbb");
     s.annotate(1, 0, "A");
     s.annotate(1, 1, "B");
-    s.link(2, 1); // section 2 is a duplicate of section 1
+    s.link(2, 1);
     const r = step(s.lyrics, s.sections, s.annotations, "aa\nbb\n\naa\nbb");
 
     const s1 = r.sections.find((x) => x.orderIndex === 0)!;
@@ -127,15 +127,12 @@ describe("reconcile — duplicate lifecycle", () => {
     s.annotate(1, 0, "A");
     s.annotate(1, 1, "B");
     s.link(2, 1);
-    // Paste a THIRD identical chorus at the top → a creation joins the group.
     const r = step(s.lyrics, s.sections, s.annotations, "aa\nbb\n\naa\nbb\n\naa\nbb");
 
     expect(r.sections).toHaveLength(3);
-    // Exactly one canonical, and it still owns the two rows (sticky — no churn).
     const canon = r.sections.filter((x) => x.canonicalSectionId === null);
     expect(canon).toHaveLength(1);
     expect(rowsOn(r.annotations, canon[0]!.id)).toHaveLength(2);
-    // Every other section links to that one canonical.
     for (const sec of r.sections) {
       if (sec.canonicalSectionId === null) continue;
       expect(sec.canonicalSectionId).toBe(canon[0]!.id);
@@ -145,7 +142,6 @@ describe("reconcile — duplicate lifecycle", () => {
   it("fresh duplicate: the row-owning section becomes canonical, the copy links to it", () => {
     const s = oldState("aa\nbb");
     s.annotate(1, 0, "A");
-    // Append an identical copy → a brand-new duplicate group forms this save.
     const r = step(s.lyrics, s.sections, s.annotations, "aa\nbb\n\naa\nbb");
 
     const owner = r.sections.find((x) => x.id === 1)!;
@@ -165,12 +161,10 @@ describe("reconcile — duplicate lifecycle", () => {
   });
 
   it("two row-owning sections collide on identical text: link none of them (D-11)", () => {
-    // Two separately-annotated sections that happen to be byte-equal.
     const s = oldState("aa\nbb\n\naa\nbb");
     s.annotate(1, 0, "A");
-    s.annotate(2, 0, "B"); // section 2 ALSO owns a row — not a clean duplicate
+    s.annotate(2, 0, "B");
     const r = step(s.lyrics, s.sections, s.annotations, "aa\nbb\n\naa\nbb");
-    // Neither row-owner is demoted to a link (I6); both keep their own rows.
     for (const sec of r.sections) expect(sec.canonicalSectionId).toBeNull();
     expect(rowsOn(r.annotations, 1).length).toBeGreaterThan(0);
     expect(rowsOn(r.annotations, 2).length).toBeGreaterThan(0);
@@ -181,13 +175,11 @@ describe("reconcile — duplicate lifecycle", () => {
     s.annotate(1, 0, "A");
     s.annotate(1, 1, "B");
     s.link(2, 1);
-    // Append a line to section 2 → it diverges from the canonical.
     const r = step(s.lyrics, s.sections, s.annotations, "aa\nbb\n\naa\nbb\ncc");
 
     const s2 = r.sections.find((x) => x.orderIndex === 1)!;
     expect(s2.manualUnlink).toBe(true);
     expect(s2.canonicalSectionId).toBeNull();
-    // Section 2 now owns its OWN copy of the canonical's rows (kept through divergence).
     expect(rowsOn(r.annotations, s2.id)).toHaveLength(2);
   });
 
@@ -197,17 +189,13 @@ describe("reconcile — duplicate lifecycle", () => {
     s.annotate(1, 1, "B");
     s.link(2, 1);
 
-    // Save 1 — diverge section 2 (append a line). It materializes + manualUnlinks.
     const one = step(s.lyrics, s.sections, s.annotations, "aa\nbb\n\naa\nbb\ncc");
-    // Save 2 — revert section 2 back to the chorus text.
     const two = step(one.lyrics, one.sections, one.annotations, "aa\nbb\n\naa\nbb");
 
     const s2 = two.sections.find((x) => x.orderIndex === 1)!;
-    // NOT silently relinked (manualUnlink sticks) — its own rows survive the revert.
     expect(s2.manualUnlink).toBe(true);
     expect(s2.canonicalSectionId).toBeNull();
     expect(rowsOn(two.annotations, s2.id)).toHaveLength(2);
-    // And the original canonical still has its rows too.
     const s1 = two.sections.find((x) => x.orderIndex === 0)!;
     expect(rowsOn(two.annotations, s1.id)).toHaveLength(2);
   });
@@ -216,31 +204,26 @@ describe("reconcile — duplicate lifecycle", () => {
     const s = oldState("aa\nbb\n\naa\nbb");
     s.annotate(1, 0, "A");
     s.annotate(1, 1, "B");
-    s.link(2, 1); // section 1 canonical, section 2 linked
-    // Edit the CANONICAL (append a line to section 1); section 2 unchanged.
+    s.link(2, 1);
     const r = step(s.lyrics, s.sections, s.annotations, "aa\nbb\ncc\n\naa\nbb");
 
-    const s1 = r.sections.find((x) => x.orderIndex === 0)!; // ex-canonical, diverged
-    const s2 = r.sections.find((x) => x.orderIndex === 1)!; // successor
+    const s1 = r.sections.find((x) => x.orderIndex === 0)!;
+    const s2 = r.sections.find((x) => x.orderIndex === 1)!;
     expect(s1.manualUnlink).toBe(true);
     expect(s1.canonicalSectionId).toBeNull();
-    // The successor inherited a copy of the chorus rows and is the group's canonical.
     expect(rowsOn(r.annotations, s2.id).length).toBeGreaterThanOrEqual(2);
   });
 
   it("departed canonical: rows hand off to a surviving duplicate (D-13)", () => {
-    // Section 1 is a duplicate of section 2 (the canonical, which owns the rows).
     const s = oldState("aa\nbb\n\naa\nbb");
     s.annotate(2, 0, "A");
     s.annotate(2, 1, "B");
-    s.link(1, 2); // section 1 → canonical section 2
-    // Delete the SECOND chorus → the canonical (section 2) departs; section 1 stays.
+    s.link(1, 2);
     const r = step(s.lyrics, s.sections, s.annotations, "aa\nbb");
 
     expect(r.plan.deleteSectionIds).toEqual([2]);
     expect(r.sections).toHaveLength(1);
     const survivor = r.sections[0]!;
-    // The canonical's rows MOVED to the survivor — nothing orphaned, nothing lost.
     expect(rowsOn(r.annotations, survivor.id)).toHaveLength(2);
     expect(live(r.annotations)).toHaveLength(2);
   });
@@ -249,7 +232,6 @@ describe("reconcile — duplicate lifecycle", () => {
     const s = oldState("aa\nbb\n\ncc\ndd");
     s.annotate(1, 0, "A");
     s.annotate(1, 1, "B");
-    // Delete section 1 entirely (no equal survivor).
     const r = step(s.lyrics, s.sections, s.annotations, "cc\ndd");
     expect(r.plan.deleteSectionIds).toEqual([1]);
     const orphans = r.annotations.filter((a) => a.detached && a.sectionId === null);
@@ -259,27 +241,24 @@ describe("reconcile — duplicate lifecycle", () => {
 
   it("manualUnlink section is excluded from grouping (its rows stay its own)", () => {
     const s = oldState("aa\nbb\n\naa\nbb");
-    s.annotate(2, 0, "A"); // section 2 owns a row
-    s.sections.find((x) => x.id === 2)!.manualUnlink = true; // and is manually unlinked
+    s.annotate(2, 0, "A");
+    s.sections.find((x) => x.id === 2)!.manualUnlink = true;
     const r = step(s.lyrics, s.sections, s.annotations, "aa\nbb\n\naa\nbb");
     const s2 = r.sections.find((x) => x.orderIndex === 1)!;
     expect(s2.manualUnlink).toBe(true);
-    expect(s2.canonicalSectionId).toBeNull(); // NOT relinked despite equal text
+    expect(s2.canonicalSectionId).toBeNull();
     expect(rowsOn(r.annotations, s2.id)).toHaveLength(1);
   });
 
   it("write-redirect: a split onto a linked creation attaches at the canonical (§5.4-4)", () => {
-    // One block that is a doubled two-line hook; the SECOND half is annotated.
     const s = oldState("h1\nh2\nh1\nh2");
-    s.annotate(1, 2, "A"); // the 2nd "h1"
-    s.annotate(1, 3, "B"); // the 2nd "h2"
-    // Split into two identical hook blocks. The 2nd is a creation → links to the 1st.
+    s.annotate(1, 2, "A");
+    s.annotate(1, 3, "B");
     const r = step(s.lyrics, s.sections, s.annotations, "h1\nh2\n\nh1\nh2");
 
     const canon = r.sections.filter((x) => x.canonicalSectionId === null);
     expect(canon).toHaveLength(1);
     const linked = r.sections.find((x) => x.canonicalSectionId !== null)!;
-    // No live row sits on the linked section — the second-half rows redirected up.
     expect(rowsOn(r.annotations, linked.id)).toHaveLength(0);
     expect(rowsOn(r.annotations, canon[0]!.id).length).toBeGreaterThan(0);
   });
@@ -288,8 +267,6 @@ describe("reconcile — duplicate lifecycle", () => {
     const s = oldState("aa\nbb\n\naa\nbb");
     s.annotate(1, 0, "A");
     s.link(2, 1);
-    // A detached row whose quote ("aa") reappears — it must land on the canonical,
-    // never on the linked duplicate (I3/I6).
     s.annotations.push({
       id: 300,
       sectionId: null,
@@ -311,9 +288,6 @@ describe("reconcile — duplicate lifecycle", () => {
 });
 
 describe("reconcile — repeated-chorus fixture (verbatim ×2/×3 sections)", () => {
-  // A trimmed stand-in for .dummy/DEMO_LongIsland.txt: an "islands" chorus ×2 and a
-  // "7th avenue" chorus ×3, plus unique verses — the duplicate shapes the matrix
-  // needs, inline so the core test stays node-free.
   const islands = "We were two islands\nWhen the waters had parted\nInto the muse";
   const seventh = "Now 7th Avenue\nIt wouldn't be so kind to you\nYour ghost in my room";
   const demo = [
@@ -328,9 +302,7 @@ describe("reconcile — repeated-chorus fixture (verbatim ×2/×3 sections)", ()
   ].join("\n\n");
 
   it("create path: identical choruses form linked groups; state is stable", () => {
-    // create() reconciles with zero old state.
     const first = step("", [], [], demo);
-    // Each distinct chorus text has exactly one canonical; every copy links to it.
     const byText = new Map<string, ResolvedSection[]>();
     for (const sec of first.sections) {
       const text = first.lyrics.slice(sec.startOffset, sec.endOffset);
@@ -346,13 +318,11 @@ describe("reconcile — repeated-chorus fixture (verbatim ×2/×3 sections)", ()
         if (sec !== canon[0]) expect(sec.canonicalSectionId).toBe(canon[0]!.id);
       }
     }
-    // Re-saving the identical text is a stable no-op structurally (integrity holds).
     step(first.lyrics, first.sections, first.annotations, demo);
   });
 
   it("annotating a chorus keeps every copy pointed at the one canonical", () => {
     const first = step("", [], [], demo);
-    // Find the "We were two islands" canonical and annotate its first line.
     const islandsCanon = first.sections.find(
       (sec) =>
         first.lyrics.slice(sec.startOffset, sec.endOffset).startsWith("We were two islands") &&
@@ -373,7 +343,6 @@ describe("reconcile — repeated-chorus fixture (verbatim ×2/×3 sections)", ()
       detached: false,
     });
     const second = step(first.lyrics, first.sections, anns, demo);
-    // Still exactly one canonical per island group, and it carries the row.
     expect(rowsOn(second.annotations, islandsCanon.id).length).toBeGreaterThanOrEqual(1);
   });
 });
