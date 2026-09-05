@@ -1,1 +1,1 @@
-export * from "./_generated/prisma-zod/schemas";
+export * from "./_generated/prisma-zod/schemas/models";

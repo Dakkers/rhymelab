@@ -15,23 +15,27 @@ datasource db {
   provider = "postgresql"
 }
 
+enum EntryKind {
+  poem
+  song
+}
+
 model Entry {
   id     String @id @default(uuid()) @db.Uuid
   userId String @map("user_id")
 
-  kind      String // "poem" | "song"
+  kind      EntryKind
   title     String
   body      String
-  structure String[] @default([])
+  structure String[]  @default([])
 
   author String[] @default([])
   year   Int?
   artist String[] @default([]) // `song`-only
   album  String? // `song`-only
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @map("updated_at")
-
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   @@index([kind])

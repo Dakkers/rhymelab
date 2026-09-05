@@ -1,23 +1,7 @@
-/**
- * Entries procedures — a signed-in user's saved lyrics and poems.
- *
- * `entrySummarySchema` is the row the Library list renders: enough to draw a card
- * without loading the full text. It's a discriminated union on `kind`, so the
- * lyrics-only fields (`artist` / `album`) exist only on the lyrics arm — reading
- * them is a type error until you've narrowed, the same XOR the frontend relied on
- * when this shape lived as a local stub.
- */
-
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 
-/**
- * The section labels a `structure` array is built from. A closed set so the
- * column is validated at the API and a future picker is a plain dropdown;
- * `verse` doubles as the generic stanza label and is the default a section takes
- * before anyone assigns it. Poem-specific vocabulary can be added later — the
- * set is easy to extend.
- */
+/** The section labels a `structure` array is built from. */
 export const SECTION_TYPES = ["intro", "verse", "prechorus", "chorus", "bridge", "outro"] as const;
 
 /** The label a section carries until it's assigned one — see `initStructure`. */
@@ -51,14 +35,6 @@ export function splitSections(body: string): string[] {
 /**
  * Standardize a submitted `body` before it's stored: trim every line, and
  * separate sections (runs of non-blank lines) by exactly one blank line.
- *
- * Concretely — trim each line, collapse any run of blank lines to a single one,
- * and drop leading/trailing blank lines. So a body pasted with ragged trailing
- * spaces and multi-line gaps between verses lands as the same clean shape every
- * time, whichever path (create or edit) submits it.
- *
- * Trimming each line also normalizes `\r\n` newlines to `\n` (the `\r` is
- * whitespace the trim removes), so a Windows-pasted body stores identically.
  */
 export function normalizeEntryBody(body: string): string {
   const lines = body.split("\n").map((line) => line.trim());
