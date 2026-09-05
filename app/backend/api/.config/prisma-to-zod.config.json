@@ -1,0 +1,10 @@
+{
+    "mode": "minimal",
+    "pureModels": true,
+    "emit": {
+        "crud": false,
+        "enums": false,
+        "objects": false,
+        "variants": false
+    }
+}

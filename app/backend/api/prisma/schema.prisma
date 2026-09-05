@@ -12,6 +12,12 @@ generator client {
   importFileExtension = ""
 }
 
+generator zod {
+  provider = "prisma-zod-generator"
+  output   = "../src/_generated/prisma-zod"
+  config   = "../.config/prisma-to-zod.config.json"
+}
+
 datasource db {
   provider = "postgresql"
 }
