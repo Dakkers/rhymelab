@@ -6,49 +6,21 @@ packages:
   - packages/api-contract
   - packages/fixtures
 
-# ─── Supply-chain hardening ──────────────────────────────────────────────────
-# Carried over from the original single-package setup. These make `pnpm install`
-# resolve dependencies defensively. Keep them on; loosen an individual knob only
-# with a deliberate reason.
-
-# Ignore any package version published less than 24h (1440 min) ago. Most
-# malicious releases are caught and unpublished within hours, so this closes the
-# window in which a freshly hijacked version could be pulled into an install.
 minimumReleaseAge: 1440
 
-# Packages exempt from `minimumReleaseAge` — first-party or otherwise trusted
-# deps you knowingly want at a fresh version. Baritone is the in-house design
-# system, so we opt it out rather than wait out the window on every bump.
 minimumReleaseAgeExclude:
   - "@saintly-software/baritone"
 
-# Refuse transitive dependencies that resolve to anything other than a registry
-# tarball — git URLs, http(s) tarballs, `file:` links, etc.
 blockExoticSubdeps: true
 
-# Never let resolution move a package *below* a version already trusted in the
-# lockfile. Blocks downgrade-style attacks that reintroduce a known-bad version.
 trustPolicy: "no-downgrade"
 
-# Specific versions exempt from `trustPolicy` — benign provenance gaps in widely
-# used transitive deps, vetted and pinned by exact version.
 trustPolicyExclude:
   - "undici-types@6.21.0"
   - "semver@6.3.1"
 
-# Every dependency is pinned to an exact version — no `^`, no `~`. A range lets
-# a fresh install silently pick up a version nobody reviewed, which is the same
-# window `minimumReleaseAge` and `trustPolicy` above exist to close; a range in
-# `package.json` reopens it for anyone installing from scratch. `savePrefix: ""`
-# keeps `pnpm add` from reintroducing one. Upgrades are deliberate: bump the
-# exact version (or use `pnpm update`) and commit the lockfile change.
-#
-# The `workspace:*` specifiers are exempt — those resolve to local packages in
-# this repo, not to anything the registry can substitute.
 savePrefix: ""
 
-# Only the packages listed here may run install/build lifecycle scripts. Prisma
-# needs its engines built; esbuild/lightningcss/workerd are the frontend's.
 allowBuilds:
   esbuild: true
   lightningcss: true
@@ -56,11 +28,6 @@ allowBuilds:
   prisma: true
   "@prisma/client": true
   "@prisma/engines": true
-  # Pulled in transitively (via Wrangler); we don't process images, so deny its
-  # native build. Flip to `true` if you start using sharp.
   sharp: false
-  # Test-only dependency. Its postinstall is a best-effort no-op (funding notice)
-  # and the request-mocking service worker is generated explicitly via `msw init`
-  # (committed to app/frontend/web/public), so the build script isn't needed.
   msw: false
   prisma-zod-generator: true
