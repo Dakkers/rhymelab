@@ -36,9 +36,6 @@ import { EntryController, type EntryForLibrary } from "./entry";
  */
 const controller = new EntryController(prisma);
 
-// A realistic, contract-valid sample from the shared fixtures package (the same
-// source the API stub and web mock use), so the seed data tracks the real entry
-// shape instead of hand-written literals.
 const [sampleEntry] = fakeEntries(1);
 
 /**
@@ -81,10 +78,6 @@ describe("EntryController.listForLibrary (DB-backed)", () => {
 
   it("orders newest-edited first (updatedAt desc), regardless of insert order", async () => {
     const user = freshUser();
-    // `updated_at` is DB-owned (trigger), so it can't be dictated on insert any
-    // more — the ordering has to be established by *editing* the rows, which is
-    // what the column means anyway. Insert order and edit order are deliberately
-    // different, so passing can't be an artefact of insertion sequence.
     const newest = await prisma.entry.create({ data: entryData(user, { title: "newest" }) });
     const oldest = await prisma.entry.create({ data: entryData(user, { title: "oldest" }) });
     const middle = await prisma.entry.create({ data: entryData(user, { title: "middle" }) });
@@ -159,10 +152,6 @@ describe("entries timestamps are stamped by the database clock", () => {
     const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
     expect(stored.updatedAt.getUTCFullYear()).not.toBe(2001);
     expect(stored.createdAt.getUTCFullYear()).not.toBe(2001);
-    // The two columns are stamped from the same `now()` in one trigger call, so
-    // a new row's stamps are identical — never `createdAt` ahead of `updatedAt`,
-    // which is what a Node-stamped `createdAt` and a DB-stamped `updatedAt`
-    // would produce whenever the app host ran ahead of the database.
     expect(stored.createdAt.getTime()).toBe(stored.updatedAt.getTime());
   });
 
@@ -177,8 +166,6 @@ describe("entries timestamps are stamped by the database clock", () => {
     });
 
     vi.useFakeTimers({ toFake: ["Date"], now: FAKE_NOW });
-    // Both levers at once: the Node clock says 2001, *and* the write explicitly
-    // asks for 2001. The trigger is unconditional, so neither is honoured.
     await prisma.entry.update({
       where: { id: created.id },
       data: { title: "after", updatedAt: FAKE_NOW },
@@ -189,8 +176,6 @@ describe("entries timestamps are stamped by the database clock", () => {
     expect(stored.title).toBe("after");
     expect(stored.updatedAt.getUTCFullYear()).not.toBe(2001);
     expect(stored.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime());
-    // `createdAt` is held to its original value across the update — the trigger
-    // carries `OLD.created_at` forward rather than letting the write set it.
     expect(stored.createdAt.getTime()).toBe(created.createdAt.getTime());
   });
 
@@ -224,8 +209,6 @@ describe("entries timestamps are stamped by the database clock", () => {
     });
 
     const [{ now: dbNow }] = await prisma.$queryRaw<{ now: Date }[]>`SELECT now() AS now`;
-    // Same transaction-less back-to-back statements: a DB-stamped row is within
-    // seconds of the DB's own clock however far the app host has drifted.
     expect(Math.abs(dbNow.getTime() - created.updatedAt.getTime())).toBeLessThan(10_000);
   });
 });
@@ -247,7 +230,7 @@ describe("entries timestamps are stamped by the database clock", () => {
  * column would put a second, unrelated timezone convention in the way.
  */
 describe("entries timestamps are stamped in UTC whatever the session timezone", () => {
-  const ZONE = "America/New_York"; // Any fixed non-UTC zone; this one is -4/-5.
+  const ZONE = "America/New_York";
 
   /** Seconds between the row's stamp and the DB's own UTC clock, read in SQL. */
   async function driftSeconds(id: string, column: "created_at" | "updated_at"): Promise<number> {
@@ -270,7 +253,6 @@ describe("entries timestamps are stamped in UTC whatever the session timezone", 
       );
     });
 
-    // Under the bug both stamps sit a whole UTC offset (hours) away from now().
     expect(Math.abs(await driftSeconds(created.id, "created_at"))).toBeLessThan(10);
     expect(Math.abs(await driftSeconds(created.id, "updated_at"))).toBeLessThan(10);
   });
@@ -294,13 +276,6 @@ describe("entries timestamps are stamped in UTC whatever the session timezone", 
   });
 
   it("stamps the `updated_at` column default in UTC too — for writers that skip the trigger", async () => {
-    // The trigger overrides every write, so the default is only reachable with
-    // the trigger disabled — which is exactly the state a non-Prisma writer
-    // relying on the default would be exercising. `DISABLE TRIGGER` is DDL on a
-    // shared table, so the whole thing is deliberately forced to roll back: the
-    // transaction ends in a throw and the drift is smuggled out through a
-    // closure. Letting it commit would leave the table's trigger off for every
-    // subsequent test.
     const user = freshUser();
     let drift = Number.NaN;
     const ROLLBACK = new Error("rollback");
@@ -324,8 +299,6 @@ describe("entries timestamps are stamped in UTC whatever the session timezone", 
     ).rejects.toThrow(ROLLBACK);
 
     expect(Math.abs(drift)).toBeLessThan(10);
-    // The rollback really did put the trigger back — otherwise every later test
-    // in the file would be silently exercising an untriggered table.
     const [{ enabled }] = await prisma.$queryRaw<{ enabled: string }[]>`
       SELECT tgenabled::text AS enabled FROM pg_trigger WHERE tgname = 'entries_stamp_timestamps'`;
     expect(enabled).toBe("O");
@@ -362,8 +335,6 @@ describe("the app's connection pins its session timezone", () => {
   });
 
   it("holds across pooled connections, not just the first one opened", async () => {
-    // Concurrency forces the pool to hand out more than one backend; a startup
-    // option applied to only some of them would be a lurking, load-dependent bug.
     const rows = await Promise.all(Array.from({ length: 5 }, timeZoneSetting));
 
     expect(rows.map(([row]) => `${row.setting}/${row.source}`)).toEqual(
@@ -387,7 +358,6 @@ describe("EntryController.create (DB-backed)", () => {
     expect(uuidV4.safeParse(created.id).success).toBe(true);
     expect(created.createdAt).toBeInstanceOf(Date);
     expect(created.updatedAt).toBeInstanceOf(Date);
-    // Omitted `year` and the poem's absent lyrics-only fields land as NULL.
     expect(created).toMatchObject({
       userId: user,
       kind: "poem",
@@ -399,7 +369,6 @@ describe("EntryController.create (DB-backed)", () => {
       album: null,
     });
 
-    // It's really in the table, not just echoed back from the call.
     const stored = await prisma.entry.findUniqueOrThrow({ where: { id: created.id } });
     expect(stored.body).toBe("Roses are red\nViolets are blue");
   });
@@ -456,7 +425,6 @@ describe("EntryController.create (DB-backed)", () => {
       }),
     ).rejects.toThrow("abort");
 
-    // Had the write ignored `tx` and used the base client, this row would survive.
     expect(await controller.listForLibrary(user)).toEqual([]);
   });
 });
@@ -471,12 +439,10 @@ describe("EntryController.delete (DB-backed)", () => {
 
     expect(await controller.delete(doomed.id)).toBe(true);
 
-    // Still physically present, tombstoned — that's what makes it a *soft* delete.
     const stored = await prisma.entry.findUniqueOrThrow({ where: { id: doomed.id } });
     expect(stored.deletedAt).toBeInstanceOf(Date);
     expect(stored.body).toBe(doomed.body);
 
-    // ...and invisible to everything that reads entries.
     expect(ids(await controller.listForLibrary(user))).toEqual([kept.id]);
     expect(await controller.getDetails(doomed.id)).toBeNull();
   });
@@ -485,9 +451,6 @@ describe("EntryController.delete (DB-backed)", () => {
     const user = freshUser();
     const entry = await prisma.entry.create({ data: entryData(user) });
 
-    // Shove Node's wall clock a year into the future. Had `delete` sent a JS
-    // `new Date()` as a bind parameter (what `updateMany` does), the tombstone
-    // would land in 2027; reading `NOW()` server-side, it can't.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2027-08-15T12:00:00.000Z"));
     try {
@@ -508,9 +471,6 @@ describe("EntryController.delete (DB-backed)", () => {
     const user = freshUser();
     const entry = await prisma.entry.create({ data: entryData(user) });
 
-    // `deleted_at` is `timestamp` *without* a zone, so a bare `NOW()` (a
-    // `timestamptz`) would be converted using the session's TimeZone and land
-    // four hours off here, while every Prisma-written timestamp stays UTC.
     await prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe("SET LOCAL TIME ZONE 'America/New_York'");
       expect(await controller.delete(entry.id, tx)).toBe(true);
@@ -520,16 +480,9 @@ describe("EntryController.delete (DB-backed)", () => {
       >`SELECT "deleted_at", (NOW() AT TIME ZONE 'UTC') AS utc_now
           FROM "entries" WHERE "id" = ${entry.id}::uuid`;
 
-      // Both columns come back as zoneless timestamps decoded the same way, so
-      // comparing them to each other is what isolates the conversion.
       expect(Math.abs(utcNow.getTime() - deletedAt.getTime())).toBeLessThan(60_000);
     });
   });
-
-  // `updated_at` is deliberately not asserted here. The delete statement doesn't
-  // set it, but the unconditional `BEFORE UPDATE` trigger does, and whether that
-  // trigger should exempt a tombstone-only update is the trigger's question —
-  // covered by the timestamp suite above, not by this one.
 
   it("leaves other rows alone — only the id given is tombstoned", async () => {
     const user = freshUser();
@@ -570,7 +523,6 @@ describe("EntryController.delete (DB-backed)", () => {
       }),
     ).rejects.toThrow("abort");
 
-    // Had the delete ignored `tx`, the tombstone would have stuck.
     expect(ids(await controller.listForLibrary(user))).toEqual([entry.id]);
   });
 });
@@ -627,7 +579,6 @@ describe("EntryController relabel vs. body edit don't drift under contention (DB
 
   it("makes a concurrent body edit wait behind the relabel, and neither drifts", async () => {
     const user = freshUser();
-    // Two sections, seeded verse / verse.
     const created = await controller.create({
       userId: user,
       kind: "poem",
@@ -637,10 +588,6 @@ describe("EntryController relabel vs. body edit don't drift under contention (DB
     });
     const id = created.id;
 
-    // Open the relabel's transaction, take its row lock, then hold it until the
-    // test opens `gate` — the same read-then-write window the lock-free version
-    // exposed. `locked` lets the test wait until the lock is actually held before
-    // it introduces the racing edit.
     let openGate!: () => void;
     const gate = new Promise<void>((resolve) => {
       openGate = resolve;
@@ -651,9 +598,6 @@ describe("EntryController relabel vs. body edit don't drift under contention (DB
     });
 
     const relabel = prisma.$transaction(async (tx) => {
-      // The handler runs the ownership + length check here too (both pass for
-      // this input); the unit tests pin that. What only a database can show is
-      // the lock, so that's what this exercises.
       await controller.lockForRelabel(id, tx);
       lockTaken();
       await gate;
@@ -661,33 +605,23 @@ describe("EntryController relabel vs. body edit don't drift under contention (DB
     });
     await locked;
 
-    // A body edit that grows the piece to three sections. Its write needs the row
-    // lock the relabel is holding, so it must block rather than slip in.
     const bodyEdit = controller.updateBody(id, "A\n\nB\n\nC");
     let bodyEditSettled = false;
     void bodyEdit.finally(() => {
       bodyEditSettled = true;
     });
 
-    // Proof it's genuinely blocked on the lock — not merely slow — and hasn't
-    // written anything yet.
     expect(await waitUntil(aBackendIsBlockedOnALock)).toBe(true);
     expect(bodyEditSettled).toBe(false);
 
-    // Release the relabel; the queued body edit can now proceed.
     openGate();
     const relabelled = await relabel;
     const editted = await bodyEdit;
 
-    // Each write, on its own, left the columns consistent: the relabel committed
-    // two labels against the two-section body it was validated against, and the
-    // body edit then grew both sides together. There is no ordering in which one
-    // observes the other mid-flight, so the invariant is never briefly broken.
     expect(relabelled.structure).toHaveLength(splitSections(relabelled.body).length);
     expect(editted.body).toBe("A\n\nB\n\nC");
     expect(editted.structure).toHaveLength(splitSections(editted.body).length);
 
-    // And the persisted row holds the invariant the whole feature rests on.
     const final = await controller.getDetails(id);
     expect(final?.structure).toHaveLength(splitSections(final!.body).length);
   });

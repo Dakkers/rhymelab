@@ -48,7 +48,6 @@ export function cookieOptions(): CookieSerializeOptions {
     signed: true,
     httpOnly: true,
     sameSite: "lax",
-    // localhost cross-port is same-*site*, so Lax is sent without needing Secure.
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: THIRTY_DAYS_SECONDS,
