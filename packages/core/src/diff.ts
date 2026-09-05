@@ -44,7 +44,6 @@ export function lcsPairs<T, U>(
 ): Array<[number, number]> {
   const n = a.length;
   const m = b.length;
-  // dp[i][j] = LCS length of a[i..] and b[j..].
   const dp: number[][] = Array.from({ length: n + 1 }, () =>
     Array.from({ length: m + 1 }, () => 0),
   );

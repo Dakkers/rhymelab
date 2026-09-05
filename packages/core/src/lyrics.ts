@@ -78,12 +78,10 @@ export function parseLines(text: string): LineToken[] {
     const words: WordToken[] = [];
     let cursor = 0;
     while (cursor < raw.length) {
-      // Skip whitespace.
       if (WHITESPACE.test(raw[cursor]!)) {
         cursor++;
         continue;
       }
-      // Consume a word.
       const wordStart = cursor;
       while (cursor < raw.length && !WHITESPACE.test(raw[cursor]!)) cursor++;
       words.push({
@@ -103,7 +101,6 @@ export function parseLines(text: string): LineToken[] {
       words,
     });
 
-    // +1 for the '\n' that split() removed (not added after the final line).
     offset = end + 1;
   }
 
@@ -128,21 +125,10 @@ export function linesInRange(lines: LineToken[], start: number, end: number): Li
  * normalised string.
  */
 export function normalizeText(text: string): string {
-  // NFC-compose first so canonically-equivalent text stores as identical bytes
-  // (an accented letter as one code point, not letter + combining mark) — the
-  // basis for byte-equality duplicate detection and for stable `quote` matching
-  // when a later save renormalises text written before this ran.
   const composed = text.normalize("NFC");
-  // Fold NBSP / fixed-width spaces to a plain space *before* the trailing-space
-  // strip and word splitting, so trailing exotic spaces are trimmed too.
   const spaced = composed.replace(UNICODE_SPACES, " ");
-  // Fold every newline convention to `\n` — including the Unicode line/paragraph
-  // separators (U+2028/U+2029) and NEL (U+0085) that paste from Word, PDFs, and
-  // some JSON sources, which `\s`-based word splitting would otherwise treat as
-  // in-word whitespace and collapse two visual lines into one.
   const unified = spaced.replace(/\r\n?|\u2028|\u2029|\u0085/g, "\n");
   const lines = unified.split("\n").map((l) => l.replace(/[ \t]+$/g, ""));
-  // Collapse 2+ consecutive blank lines to one.
   const out: string[] = [];
   let blankRun = 0;
   for (const l of lines) {
@@ -154,7 +140,6 @@ export function normalizeText(text: string): string {
     }
     out.push(l);
   }
-  // Trim leading/trailing blank lines.
   while (out.length && out[0]!.trim() === "") out.shift();
   while (out.length && out[out.length - 1]!.trim() === "") out.pop();
   return out.join("\n");

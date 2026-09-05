@@ -18,7 +18,6 @@ export function reanchor(quote: string, oldStart: number, newText: string): Rean
     return { startOffset: oldStart, endOffset: oldStart, detached: true };
   }
 
-  // Fast path: unchanged at the same position.
   if (newText.slice(oldStart, oldStart + quote.length) === quote) {
     return { startOffset: oldStart, endOffset: oldStart + quote.length, detached: false };
   }

@@ -5,7 +5,6 @@ const eqStr = (a: string, b: string) => a === b;
 
 describe("lcsPairs", () => {
   it("pairs a common subsequence preserving order", () => {
-    // a: A B C D   b: A C D  → matches A,C,D
     expect(lcsPairs(["A", "B", "C", "D"], ["A", "C", "D"], eqStr)).toEqual([
       [0, 0],
       [2, 1],
@@ -14,7 +13,6 @@ describe("lcsPairs", () => {
   });
 
   it("handles a reorder — keeps the longer in-order run", () => {
-    // a: A B  b: B A  → LCS length 1; the matcher takes the first viable ([A,A]).
     const pairs = lcsPairs(["A", "B"], ["B", "A"], eqStr);
     expect(pairs).toHaveLength(1);
   });
@@ -24,7 +22,6 @@ describe("lcsPairs", () => {
   });
 
   it("matches duplicates left-to-right", () => {
-    // Two 'X' in each — LCS length 2, paired in order.
     expect(lcsPairs(["X", "Y", "X"], ["X", "X"], eqStr)).toEqual([
       [0, 0],
       [2, 1],
@@ -78,13 +75,11 @@ describe("similarity", () => {
   it("is 1 for identical (incl. both empty) and drops with edits", () => {
     expect(similarity("hello world", "hello world")).toBe(1);
     expect(similarity("", "")).toBe(1);
-    expect(similarity("abcd", "abce")).toBe(0.75); // 1 edit / 4
+    expect(similarity("abcd", "abce")).toBe(0.75);
   });
 
   it("straddles the 0.5 threshold sensibly", () => {
-    // A small tweak to a long line stays well above 0.5 (keeps annotations)...
     expect(similarity("the quick brown fox", "the quick brown box")).toBeGreaterThan(0.5);
-    // ...a wholesale rewrite falls below it (detaches).
     expect(similarity("the quick brown fox", "a totally different line")).toBeLessThan(0.5);
   });
 });

@@ -53,15 +53,12 @@ export function reconcile(
     lines: blockLineTokens(parsedNew, d.startOffset, d.endOffset),
   }));
 
-  // Which old sections own at least one annotation row (detached rows count — D-11).
   const rowOwnerIds = new Set(
     oldAnnotations.filter((a) => a.sectionId !== null).map((a) => a.sectionId as number),
   );
 
   const { blockOwnerOldId, lineDest } = matchSections(olds, blocks, rowOwnerIds);
 
-  // Build the post-save section set: each block becomes a PlannedSection, keeping
-  // an old id (survivor) or getting a negative creation ref.
   let creationCounter = 0;
   const blockRef: number[] = Array.from({ length: blocks.length }, () => 0);
   const sections: PlannedSection[] = blocks.map((b) => {
@@ -75,7 +72,7 @@ export function reconcile(
         orderIndex: b.orderIndex,
         startOffset: b.startOffset,
         endOffset: b.endOffset,
-        canonicalRef: null, // duplicate election runs below
+        canonicalRef: null,
         manualUnlink: old.section.manualUnlink,
       };
     }
@@ -100,12 +97,9 @@ export function reconcile(
   const planByRef = new Map(sections.map((s) => [s.ref, s]));
   const blockByRef = new Map<number, NewBlockModel>();
   for (let b = 0; b < blocks.length; b++) blockByRef.set(blockRef[b]!, blocks[b]!);
-  // A ref → its section's new startOffset (for the re-attach oldStart hint).
   const refStartOffset = new Map<number, number>();
   for (let b = 0; b < blocks.length; b++) refStartOffset.set(blockRef[b]!, blocks[b]!.startOffset);
 
-  // Duplicate election: sets canonicalRef/manualUnlink on `sections` and hands
-  // back the copies + move successors the annotation pass applies.
   const { copies, moveSuccessor, warnings } = electDuplicates(
     sections,
     planByRef,
@@ -115,15 +109,11 @@ export function reconcile(
     survivingOldIds,
     newText,
   );
-  // Write-redirect (D-6/§5.4-4): a row placed on a linked section attaches one hop
-  // up at the canonical (valid by byte-equality); I2 guarantees one hop suffices.
   const redirect = (ref: number): number => {
     const s = planByRef.get(ref);
     return s && s.canonicalRef !== null ? s.canonicalRef : ref;
   };
 
-  // Remap every existing annotation via the line map (moving a departed canonical's
-  // rows onto its successor), then add the reconciler's copies, deduped (D-6).
   const annotations: PlannedAnnotation[] = oldAnnotations.map((a) =>
     remapAnnotation(
       a,
@@ -153,16 +143,15 @@ export function reconcile(
       newText,
     );
     if (placed.detached) {
-      annotations.push(placed); // an out-of-bounds copy is kept detached, recoverable
+      annotations.push(placed);
       continue;
     }
     const key = attachedKey(placed);
-    if (key !== null && seen.has(key)) continue; // identical row already exists — skip (D-6)
+    if (key !== null && seen.has(key)) continue;
     if (key !== null) seen.add(key);
     annotations.push(placed);
   }
 
-  // Re-attach pass: every detached/orphaned row tries to re-find its quote.
   for (const pa of annotations) {
     if (!pa.detached) continue;
     reattach(pa, newText, blocks, blockRef, blockByRef, refStartOffset, redirect, seen);
@@ -200,11 +189,9 @@ function matchSections(
 
   const lineDest = new Map<string, LineDestination>();
   const blockOwnerOldId: (number | null)[] = Array.from({ length: blocks.length }, () => null);
-  // contrib[oldIdx][blockIdx] = attributed lines (from gaps); exact = of those, byte-equal.
   const contrib: number[][] = olds.map(() => Array.from({ length: blocks.length }, () => 0));
   const exact: number[][] = olds.map(() => Array.from({ length: blocks.length }, () => 0));
 
-  // 2a — exact whole-section survivors: keep the id, identity line map.
   for (const [oi, nj] of anchors) {
     blockOwnerOldId[nj] = olds[oi]!.section.id;
     olds[oi]!.lines.forEach((_, k) =>
@@ -212,7 +199,6 @@ function matchSections(
     );
   }
 
-  // 2b — line-align each contiguous gap between content anchors (sentinels bound the ends).
   const bounds: Array<[number, number]> = [[-1, -1], ...anchors, [olds.length, blocks.length]];
   for (let g = 0; g < bounds.length - 1; g++) {
     const gapOld = range(bounds[g]![0] + 1, bounds[g + 1]![0]);
@@ -277,7 +263,7 @@ function assignBlockOwners(
   };
 
   for (let b = 0; b < blocks.length; b++) {
-    if (blockOwnerOldId[b] !== null) continue; // already an exact-content survivor
+    if (blockOwnerOldId[b] !== null) continue;
     const candidates = olds
       .map((o) => o.index)
       .filter((oi) => contrib[oi]![b]! > 0 && primaryBlock(oi) === b);
@@ -343,7 +329,6 @@ function electDuplicates(
 
   const content = (s: PlannedSection): string => newText.slice(s.startOffset, s.endOffset);
 
-  // Pre-remap live, addressable rows by owning section id — the copy sources.
   const liveRowsBySection = new Map<number, ReconcileAnnotation[]>();
   for (const a of oldAnnotations) {
     if (a.detached || a.sectionId === null || a.lineInSection === null) continue;
@@ -351,30 +336,24 @@ function electDuplicates(
     list.push(a);
     liveRowsBySection.set(a.sectionId, list);
   }
-  // Row ownership (pre-remap) counts DETACHED rows carrying a sectionId too (D-11).
   const ownerIds = new Set(
     oldAnnotations.filter((a) => a.sectionId !== null).map((a) => a.sectionId as number),
   );
-  // Sections that acquire rows via a copy/move during this pass now own rows.
   const gotRows = new Set<number>();
   const ownsRowsNow = (ref: number): boolean => (ref > 0 && ownerIds.has(ref)) || gotRows.has(ref);
 
-  // Old duplicate links (only genuine ones; a manual-unlink section has no pointer).
   const oldCanonTargets = new Set(
     oldSections.filter((s) => s.canonicalSectionId !== null).map((s) => s.canonicalSectionId!),
   );
 
-  // ---- Pass A: resolve old links that broke (handoff / divergence, D-12/D-13) ----
   for (const canonId of oldCanonTargets) {
     const canonOld = oldById.get(canonId);
     if (!canonOld) continue;
     const groupOldText = canonOld.lines.join("\n");
-    // Old members of this group: the canonical + everything that pointed at it.
     const memberIds = [
       canonId,
       ...oldSections.filter((s) => s.canonicalSectionId === canonId).map((s) => s.id),
     ];
-    // Surviving members whose NEW text still equals the group text, earliest first.
     const equalSurvivors = memberIds
       .filter((m) => survivingOldIds.has(m) && content(planByRef.get(m)!) === groupOldText)
       .map((m) => planByRef.get(m)!)
@@ -385,8 +364,6 @@ function electDuplicates(
     const canonUnchanged = canonPlan !== null && content(canonPlan) === groupOldText;
 
     if (canonUnchanged) {
-      // Sticky: canonical stays. Its still-equal duplicates relink in Pass B; a
-      // duplicate that diverged materializes (copy the canonical's rows down).
       for (const m of memberIds) {
         if (m === canonId || !survivingOldIds.has(m)) continue;
         const mPlan = planByRef.get(m)!;
@@ -398,9 +375,6 @@ function electDuplicates(
         }
       }
     } else if (canonPlan !== null) {
-      // Canonical survived but DIVERGED. Hand its rows to the earliest still-equal
-      // successor (a copy — the ex-canonical keeps its own rows, remapped), mark
-      // the ex-canonical manual-unlink so a later revert won't silently relink it.
       const successor = equalSurvivors[0];
       if (successor) {
         for (const src of liveRowsBySection.get(canonId) ?? [])
@@ -409,8 +383,6 @@ function electDuplicates(
         canonPlan.manualUnlink = true;
       }
     } else {
-      // Canonical DEPARTED. Its rows MOVE to the earliest still-equal successor
-      // (byte-equal ⇒ same coordinates), else they orphan via the departure path.
       const successor = equalSurvivors[0];
       if (successor) {
         moveSuccessor.set(canonId, successor.ref);
@@ -419,7 +391,6 @@ function electDuplicates(
     }
   }
 
-  // ---- Pass B: regroup + elect over the non-manual-unlink planned sections ----
   const groups = new Map<string, PlannedSection[]>();
   for (const s of sections) {
     if (s.manualUnlink) continue;
@@ -430,10 +401,9 @@ function electDuplicates(
   }
 
   for (const group of groups.values()) {
-    if (group.length < 2) continue; // a lone section is standalone (canonicalRef null)
+    if (group.length < 2) continue;
     const byOrder = [...group].sort((a, b) => a.orderIndex - b.orderIndex);
 
-    // Sticky: an existing surviving canonical (an old canonical target still here).
     const existingCanon = byOrder.find((s) => s.id !== null && oldCanonTargets.has(s.id));
     if (existingCanon) {
       link(group, existingCanon);
@@ -444,8 +414,6 @@ function electDuplicates(
     if (rowOwners.length === 1) {
       link(group, rowOwners[0]!);
     } else if (rowOwners.length >= 2) {
-      // Several annotated sections collided on identical text — keep each standalone
-      // and point only the row-less members at the earliest owner (D-11).
       const target = rowOwners[0]!;
       for (const s of group) if (!ownsRowsNow(s.ref)) s.canonicalRef = target.ref;
     } else {
@@ -453,8 +421,6 @@ function electDuplicates(
     }
   }
 
-  // ---- I2/I3 self-heal (ships in production): a section both linked and
-  //      row-owning has its pointer cleared and manual-unlink set (P12). ----
   for (const s of sections) {
     if (s.canonicalRef !== null && ownsRowsNow(s.ref)) {
       warnings.push(`self-heal: section ref ${s.ref} was linked while owning rows`);
@@ -463,7 +429,6 @@ function electDuplicates(
     }
   }
 
-  // ---- Flatten pointers (I2): a link whose target is itself linked hops once. ----
   for (const s of sections) {
     if (s.canonicalRef === null) continue;
     const target = planByRef.get(s.canonicalRef);
@@ -510,8 +475,6 @@ function remapAnnotation(
 
   const oldSec = a.sectionId !== null ? oldById.get(a.sectionId) : undefined;
 
-  // Already detached, or unaddressed → leave detached for the re-attach pass. Keep
-  // a (redirected) surviving section pointer where we still have one.
   if (a.detached || a.sectionId === null || a.lineInSection === null || !oldSec) {
     const ref = oldSec ? survivorRef(oldSec, blockRef) : null;
     return detachedAt(ref === null ? null : redirect(ref));
@@ -519,8 +482,6 @@ function remapAnnotation(
 
   const dest = lineDest.get(lineKey(oldSec.index, a.lineInSection));
   if (!dest) {
-    // The line is gone. If the whole section departed *and* it was a canonical with
-    // a handoff successor, move the row onto the successor (byte-equal ⇒ valid).
     const survived = survivorRef(oldSec, blockRef);
     if (survived === null && moveSuccessor.has(a.sectionId)) {
       return placeRow(
@@ -543,7 +504,6 @@ function remapAnnotation(
   const newLine = blocks[dest.blockIndex]!.lines[dest.newLineIndex]!;
 
   if (a.startChar === null) {
-    // Whole-line row: carries on an exact match, or an edited line still ≥0.5 similar.
     const carries =
       dest.exact ||
       similarity(oldSec.lines[a.lineInSection]!, newLine.text) >= LINE_CARRY_THRESHOLD;
@@ -562,7 +522,6 @@ function remapAnnotation(
     );
   }
 
-  // Sub-line row: carries only through an exact line match (conservative, D-17 2d).
   if (!dest.exact) return detachedAt(redirect(ref));
   return placeRow(
     a.id,
@@ -698,10 +657,10 @@ function reattach(
     redirect,
     newText,
   );
-  if (placed.detached) return; // couldn't confidently place — stay detached
+  if (placed.detached) return;
 
   const key = attachedKey(placed);
-  if (key !== null && seen.has(key)) return; // identical row already present — skip
+  if (key !== null && seen.has(key)) return;
   if (key !== null) seen.add(key);
 
   pa.sectionRef = placed.sectionRef;

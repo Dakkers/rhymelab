@@ -27,7 +27,7 @@ import {
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
-const EPOCH = Date.UTC(2026, 7, 12, 12, 0, 0); // 2026-08-12T12:00:00Z
+const EPOCH = Date.UTC(2026, 7, 12, 12, 0, 0);
 
 /** Arbitrary — fixed only so the generated set is reproducible. */
 const DEFAULT_SEED = 20260812;
@@ -68,14 +68,11 @@ function fakeBody(): string {
 }
 
 function makeEntry(rank: number): FakeEntry {
-  // zod-schema-faker chooses the arm and produces a schema-valid skeleton.
   const skeleton = fake(entrySummarySchema);
   const body = fakeBody();
   const shared = {
     id: faker.string.uuid(),
     title: faker.music.songName(),
-    // Mostly one writer, sometimes a co-writing credit — so consumers of the
-    // fixtures see the multi-value case too.
     author: Array.from({ length: faker.number.int({ min: 1, max: 2 }) }, () =>
       faker.person.fullName(),
     ),
@@ -83,13 +80,11 @@ function makeEntry(rank: number): FakeEntry {
     body,
     ...deriveEntrySummaryFields(body),
     createdAt: new Date(EPOCH - faker.number.int({ min: 40, max: 240 }) * DAY).toISOString(),
-    // Spread edits out by rank so the seeded list has a clear newest-first order.
     updatedAt: new Date(
       EPOCH - rank * DAY - faker.number.int({ min: 0, max: 20 }) * HOUR,
     ).toISOString(),
   };
 
-  // Honour the arm zod-schema-faker picked so both kinds show up.
   return skeleton.kind === "lyrics"
     ? {
         ...shared,
@@ -101,10 +96,6 @@ function makeEntry(rank: number): FakeEntry {
       }
     : { ...shared, kind: "poem" };
 }
-
-/* ------------------------------------------------------------------ */
-/* Annotations                                                          */
-/* ------------------------------------------------------------------ */
 
 /** Spreadsheet-style rhyme-group labels: A, B, … Z, AA, AB, … */
 function rhymeLabel(index: number): string {
@@ -137,7 +128,6 @@ export function fakeAnnotations(
   const isContent = (i: number) => lines[i]?.trim() !== "";
   const annotations: Annotation[] = [];
 
-  // Both lines must be non-blank so the pair never straddles a stanza's gap.
   for (let i = 0; i + 1 < lines.length; i++) {
     if (isContent(i) && isContent(i + 1)) {
       annotations.push({
@@ -153,7 +143,6 @@ export function fakeAnnotations(
     }
   }
 
-  // Advance past both lines of a couplet, so a line joins at most one.
   let group = 0;
   for (let i = 0; i + 1 < lines.length && group < maxRhymes; ) {
     if (isContent(i) && isContent(i + 1)) {

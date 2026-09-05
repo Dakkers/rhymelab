@@ -5,20 +5,6 @@
  * the client bundle and the Drizzle schema import from here.
  */
 
-/*
- * Sections are untyped now: lyrics are auto-split on blank lines and each block
- * is labelled positionally ("Section 1", "Section 2", …). The structural-type
- * concept (verse/chorus/…) and its editable picker were removed while the app's
- * scope narrows; the code lives in git history for when structure returns.
- *
- * The app does one thing: line-level rhyme-scheme annotation. There is no mode
- * selector and no reading view any more — the workbench is always the rhyme
- * annotator — and the multi-mode / word-level-tier machinery (ANNOTATION_MODES,
- * VIEW_MODES, MODE_META, the Basic/Advanced tiers) was removed. An annotation is
- * simply a line span carrying a rhyme group; the other lenses (sound, theme,
- * device, note) live in git history for if they ever return.
- */
-
 /** A library item is a song or a poem. */
 export const ENTRY_KINDS = ["song", "poem"] as const;
 

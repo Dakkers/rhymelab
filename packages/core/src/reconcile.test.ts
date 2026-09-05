@@ -77,7 +77,6 @@ describe("reconcile — structural transitions (no duplicates)", () => {
   it("1→1 edited above threshold: the edited line carries with a fresh quote", () => {
     const s = oldState("the quick brown fox\nsecond line");
     const a0 = s.annotate(1, 0, "A");
-    // One-word tweak → similarity well above 0.5.
     const plan = reconcile(s.lyrics, s.sections, s.annotations, "the quick brown box\nsecond line");
     expect(plan.sections.map((x) => x.id)).toEqual([1]);
     expect(byId(plan, a0)).toMatchObject({
@@ -90,15 +89,14 @@ describe("reconcile — structural transitions (no duplicates)", () => {
 
   it("1→1 edited below threshold: the rewritten line detaches, section keeps id", () => {
     const s = oldState("the quick brown fox\nkeep this line\nand this one");
-    const a0 = s.annotate(1, 0, "A"); // on the line we wipe out
-    const a1 = s.annotate(1, 1, "B"); // on a line that stays
+    const a0 = s.annotate(1, 0, "A");
+    const a1 = s.annotate(1, 1, "B");
     const plan = reconcile(
       s.lyrics,
       s.sections,
       s.annotations,
       "totally different words here\nkeep this line\nand this one",
     );
-    // 2 of 3 lines exact-match → section survives (id 1 kept).
     expect(plan.sections.map((x) => x.id)).toEqual([1]);
     expect(byId(plan, a0)).toMatchObject({ detached: true, lineInSection: null, sectionRef: 1 });
     expect(byId(plan, a1)).toMatchObject({
@@ -110,19 +108,16 @@ describe("reconcile — structural transitions (no duplicates)", () => {
 
   it("1→0 departure without successor: rows orphan (never delete)", () => {
     const s = oldState("verse one\nverse two\n\nchorus line");
-    const a0 = s.annotate(1, 0, "A"); // in the section we delete
-    const a1 = s.annotate(2, 0, "B"); // in the surviving section
-    // Drop the first section entirely.
+    const a0 = s.annotate(1, 0, "A");
+    const a1 = s.annotate(2, 0, "B");
     const plan = reconcile(s.lyrics, s.sections, s.annotations, "chorus line");
     expect(plan.deleteSectionIds).toEqual([1]);
-    // Orphaned: no section, detached, quote preserved.
     expect(byId(plan, a0)).toMatchObject({
       sectionRef: null,
       lineInSection: null,
       detached: true,
       quote: "verse one",
     });
-    // The surviving section kept id 2; its annotation rides along.
     const survivor = plan.sections.find((x) => x.id === 2)!;
     expect(byId(plan, a1)).toMatchObject({
       sectionRef: survivor.ref,
@@ -150,9 +145,7 @@ describe("reconcile — structural transitions (no duplicates)", () => {
     const s = oldState("line one\nline two");
     const a0 = s.annotate(1, 0, "A");
     const a1 = s.annotate(1, 1, "B");
-    // Insert a blank so the two lines become two sections.
     const plan = reconcile(s.lyrics, s.sections, s.annotations, "line one\n\nline two");
-    // Tie (1 line each) → earlier block keeps id 1; the second is a creation.
     const first = plan.sections.find((x) => x.orderIndex === 0)!;
     const second = plan.sections.find((x) => x.orderIndex === 1)!;
     expect(first.id).toBe(1);
@@ -172,12 +165,10 @@ describe("reconcile — structural transitions (no duplicates)", () => {
   it("2→1 merge: both sections' rows land on the merged block; the loser departs", () => {
     const s = oldState("aaa\nbbb\n\nccc\nddd");
     const a0 = s.annotate(1, 0, "A");
-    const a1 = s.annotate(2, 1, "C"); // on 'ddd'
-    // Remove the blank → one 4-line block.
+    const a1 = s.annotate(2, 1, "C");
     const plan = reconcile(s.lyrics, s.sections, s.annotations, "aaa\nbbb\nccc\nddd");
     expect(plan.sections).toHaveLength(1);
     const merged = plan.sections[0]!;
-    // Both own rows → tie → earlier orderIndex (id 1) keeps the id; id 2 departs.
     expect(merged.id).toBe(1);
     expect(plan.deleteSectionIds).toEqual([2]);
     expect(byId(plan, a0)).toMatchObject({
@@ -194,14 +185,11 @@ describe("reconcile — structural transitions (no duplicates)", () => {
   });
 
   it("reorder keeps every annotation on its line's text (ids preserved w/ context)", () => {
-    // Three sections reordered A,B,C → A,C,B. Content-LCS preserves the anchors;
-    // annotations must still land on their own line's text, never detached.
     const s = oldState("aaa\n\nbbb\n\nccc");
-    const a0 = s.annotate(1, 0, "A"); // aaa
-    const a1 = s.annotate(2, 0, "B"); // bbb
-    const a2 = s.annotate(3, 0, "C"); // ccc
+    const a0 = s.annotate(1, 0, "A");
+    const a1 = s.annotate(2, 0, "B");
+    const a2 = s.annotate(3, 0, "C");
     const plan = reconcile(s.lyrics, s.sections, s.annotations, "aaa\n\nccc\n\nbbb");
-    // Each annotation is attached and quotes its original line.
     for (const [id, quote] of [
       [a0, "aaa"],
       [a1, "bbb"],
@@ -209,13 +197,11 @@ describe("reconcile — structural transitions (no duplicates)", () => {
     ] as const) {
       expect(byId(plan, id)).toMatchObject({ quote, detached: false });
     }
-    // No annotation was orphaned or lost.
     expect(plan.annotations.filter((a) => a.detached)).toHaveLength(0);
   });
 
   it("re-attaches a detached row when its quote reappears", () => {
     const s = oldState("alpha\nbravo");
-    // A previously-detached row whose text is about to come back.
     s.annotations.push({
       id: 200,
       sectionId: 1,
@@ -229,7 +215,6 @@ describe("reconcile — structural transitions (no duplicates)", () => {
     const plan = reconcile(s.lyrics, s.sections, s.annotations, "alpha\nbravo\ncharlie");
     const re = byId(plan, 200);
     expect(re).toMatchObject({ detached: false, quote: "charlie", startChar: null, endChar: null });
-    // Attaches at the line that now holds "charlie" (lineInSection 2 of section 1).
     expect(re.lineInSection).toBe(2);
   });
 });
