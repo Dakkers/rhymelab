@@ -63,3 +63,4 @@ allowBuilds:
   # and the request-mocking service worker is generated explicitly via `msw init`
   # (committed to app/frontend/web/public), so the build script isn't needed.
   msw: false
+  prisma-zod-generator: true
