@@ -1,6 +1,6 @@
 import { defineConfig } from "prisma/config";
-import { withUtcTimeZone } from "./src/database-url";
-import { loadEnv } from "./src/load-env";
+import { withUtcTimeZone } from "../../app/backend/api/src/database-url";
+import { loadEnv } from "../../app/backend/api/src/load-env";
 
 loadEnv();
 

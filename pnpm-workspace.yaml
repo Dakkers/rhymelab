@@ -2,6 +2,7 @@
 packages:
   - app/frontend/web
   - app/backend/api
+  - packages/database
   - packages/core
   - packages/api-contract
   - packages/fixtures
