@@ -29,9 +29,6 @@ setup("authenticate", async () => {
     "Set E2E_APP_PASSWORD to the app password (the `PASSWORD` in app/backend/api/.config/.env).",
   ).toBeTruthy();
 
-  // oRPC builds the fully-serialized request for us; we just wrap the transport
-  // so we can read the login response's Set-Cookie(s). This keeps us off oRPC's
-  // wire format entirely — we send exactly what the app's own client would.
   const setCookies: string[] = [];
   const link = new OpenAPILink(contract, {
     url: API_URL,
@@ -47,10 +44,6 @@ setup("authenticate", async () => {
   expect(result.ok, "Login was rejected — is E2E_APP_PASSWORD correct?").toBe(true);
   expect(setCookies.length, "Login set no cookie — is the API (:4000) running?").toBeGreaterThan(0);
 
-  // Cookies ignore port, so a `localhost` cookie the API (:4000) sets is also
-  // sent to the web app (:3000) — one entry covers both origins. We read the
-  // name/value/expiry off the header and fill the rest from what the API sets
-  // (httpOnly, SameSite=Lax, path=/; see app/backend/api/src/session.ts).
   const cookies = setCookies.map((raw) => {
     const [pair, ...attrs] = raw.split(";").map((s) => s.trim());
     const eq = pair.indexOf("=");
@@ -59,7 +52,7 @@ setup("authenticate", async () => {
     const expiresAt = attrs.find((a) => /^expires=/i.test(a))?.slice("expires=".length);
     const path = attrs.find((a) => /^path=/i.test(a))?.slice("path=".length) ?? "/";
 
-    let expires = -1; // -1 = session cookie
+    let expires = -1;
     if (maxAge) expires = Math.floor(Date.now() / 1000) + Number(maxAge);
     else if (expiresAt) expires = Math.floor(new Date(expiresAt).getTime() / 1000);
 

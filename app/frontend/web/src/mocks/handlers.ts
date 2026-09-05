@@ -9,8 +9,6 @@ import { API_URL, dispatchMock } from "./router";
 
 export const handlers = [
   http.all(`${API_URL}/*`, async ({ request }) => {
-    // MSW's `StrictRequest` is a real Fetch `Request` at runtime; the cast only
-    // sheds the Cloudflare `cf` property this package's global `Request` carries.
     const response = await dispatchMock(request as unknown as Request);
     return response ?? passthrough();
   }),

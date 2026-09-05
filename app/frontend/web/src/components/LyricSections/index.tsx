@@ -66,10 +66,6 @@ export interface LyricSectionsProps {
 export function toSheetSections(
   entry: Pick<EntryDetail, "body" | "structure">,
 ): readonly SheetSection[] {
-  // The body is normalized, so `splitSections` round-trips it and sections are
-  // separated by exactly one blank line — hence `+ 1` per section to skip that
-  // separator. `structure` is kept exactly one label per section by the API, so
-  // the two align index-for-index.
   let cursor = 0;
   return splitSections(entry.body).map((section, index) => {
     const lines = section.split("\n").map((text, i) => ({ text, globalIndex: cursor + i }));

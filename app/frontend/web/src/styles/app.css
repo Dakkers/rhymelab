@@ -1,21 +1,7 @@
-/*
- * RhymeLab's own look, layered over Baritone's reset + component CSS. The
- * workbench (mode bar, section cards, word highlights, line-end badges, the
- * inspector panel) is bespoke enough to live as real CSS with state selectors,
- * rather than being forced through design-system components. Baritone still owns
- * the form controls, buttons, selects and notices.
- *
- * What's *not* here is type. Every run of plain text goes through Baritone's
- * `Text` / `Heading`, so size, weight, colour and family are token-backed rather
- * than hand-rolled; the rules below are boxes, not words. The two families are
- * declared once — right below — and handed to `BaritoneTheme` in `__root.tsx`,
- * which republishes them as `--font-sans` / `--font-serif` for `<Text font="…">`.
- */
-
 :root {
-  --rl-canvas: #f3eee4; /* warm cream page */
-  --rl-surface: #ffffff; /* white cards + sidebar */
-  --rl-surface-2: #faf7f1; /* faint inset */
+  --rl-canvas: #f3eee4;
+  --rl-surface: #ffffff;
+  --rl-surface-2: #faf7f1;
   --rl-ink: #1c1917;
   --rl-ink-soft: #6b6459;
   --rl-ink-faint: #9a9186;
@@ -24,10 +10,6 @@
   --rl-navbar: #17140f;
   --rl-navbar-ink: #f5f1e8;
   --rl-navbar-ink-soft: #b3ab9d;
-  /* The literal brand red-orange, kept for the logo mark only — a mark is a fixed
-     asset, not a semantic intent. Everything else brand-coloured goes through
-     Baritone's `primary` tokens, which `__root.tsx` seeds from this same colour
-     and republishes as `--rl-primary*` for the state selectors below. */
   --rl-brand: #f0522e;
   --rl-serif:
     "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman",
@@ -43,10 +25,6 @@
   color: var(--rl-ink);
   font-family: var(--rl-sans);
 }
-
-/* ---------------------------------------------------------------- */
-/* Nav bar                                                          */
-/* ---------------------------------------------------------------- */
 
 .rl-navbar {
   position: sticky;
@@ -77,8 +55,6 @@
   flex: none;
 }
 
-/* Just the pill around the "Alpha" mark — the type on it comes from `Text`, and
-   the border colour is set per-placement (dark bar vs. cream canvas). */
 .rl-chip-beta {
   border: 1px solid rgba(245, 241, 232, 0.25);
   border-radius: 6px;
@@ -91,8 +67,6 @@
   gap: 16px;
 }
 
-/* Colour + hover only — the link label's size/weight/family come from the `Text`
-   inside each link (see `NavBar`), keeping type out of app.css. */
 .rl-nav a,
 .rl-nav button {
   color: var(--rl-navbar-ink-soft);
@@ -105,10 +79,6 @@
   color: var(--rl-navbar-ink);
 }
 
-/* ---------------------------------------------------------------- */
-/* Generic page container (library, forms)                          */
-/* ---------------------------------------------------------------- */
-
 .rl-page {
   max-width: 960px;
   margin: 0 auto;
@@ -119,19 +89,11 @@
   max-width: 640px;
 }
 
-/* ---------------------------------------------------------------- */
-/* Library                                                          */
-/* ---------------------------------------------------------------- */
-
 .rl-lib-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
 }
-
-/* ---------------------------------------------------------------- */
-/* Workbench layout                                                 */
-/* ---------------------------------------------------------------- */
 
 .rl-workbench {
   display: flex;
@@ -177,10 +139,6 @@
   }
 }
 
-/* ---------------------------------------------------------------- */
-/* Section cards                                                    */
-/* ---------------------------------------------------------------- */
-
 .rl-section-card {
   background: var(--rl-surface);
   border: 1.5px solid var(--rl-hairline);
@@ -211,10 +169,6 @@
   gap: 10px;
 }
 
-/* ---------------------------------------------------------------- */
-/* Lyrics + lines                                                   */
-/* ---------------------------------------------------------------- */
-
 .rl-line {
   position: relative;
   padding-right: 40px;
@@ -224,10 +178,6 @@
   height: 0.9em;
 }
 
-/* Every annotate mode selects whole lines: the line is the click target and (in
-   tinted views) the coloured band, so its words are inert — the line owns hover,
-   selection, and colour. The mode tint is applied inline; the inset bar below
-   layers on top so a selected line still reads as selected. */
 .rl-line--select {
   display: flex;
   align-items: baseline;
@@ -255,18 +205,11 @@
   box-shadow: inset 3px 0 0 0 var(--rl-primary);
 }
 
-/* Wrapper around the Baritone Checkbox (which draws the box + label itself). Its
-   only job is to stop the box/label click from bubbling (so the row doesn't
-   double-toggle), so it must hug the control — `flex: 0 1 auto` keeps it at
-   content width (empty space to its right falls through to the row's click) while
-   still allowing a long line to shrink and wrap. */
 .rl-line-check {
   flex: 0 1 auto;
   min-width: 0;
 }
 
-/* The lyric rides in the checkbox's label slot; keep it the serif lyric type
-   rather than Baritone's form-label styling. */
 .rl-line-label {
   font: inherit;
   color: inherit;
@@ -287,10 +230,6 @@
   border: none;
 }
 
-/* ---------------------------------------------------------------- */
-/* Right inspector panel                                            */
-/* ---------------------------------------------------------------- */
-
 .rl-assign-card {
   display: flex;
   align-items: center;
@@ -309,23 +248,6 @@
   min-width: 0;
 }
 
-/* Rhyme group grid — the layout override on Baritone's `ToggleGroup` root, which
-   is a single-line `inline-flex` toolbar by default. Seven segments carrying both
-   a swatch and a count don't fit across the inspector, so this retargets the same
-   component to a 4-column grid. Single-class specificity on both sides, so this
-   only wins because app.css is linked after baritone's stylesheet (see
-   __root.tsx). The segments' box, colour, and focus ring stay Baritone's.
-
-   The `> *` reaches one level into the component on purpose. A labelled
-   `ToggleGroup` wraps itself in a `Field` hardcoded to `fit: "content"`, which
-   shrink-wraps twice over: the root is `inline-flex` (so it never claims the
-   line) and it stacks its children `align-items: flex-start` (so the control
-   stack shrinks to content even once the root is wide). Left alone the `1fr`
-   columns collapse to ~52px each in a 324px aside instead of filling it.
-   Baritone exposes no `fit`/`width` knob and `slotProps` only reaches the label
-   and help text, so the Field root is unaddressable from props. These two
-   declarations undo exactly that shrink-wrap; the recipe's column direction and
-   spacing are untouched. Revisit if ToggleGroup grows a width prop. */
 .rl-group-field > * {
   display: flex;
   align-items: stretch;
@@ -338,9 +260,6 @@
   width: 100%;
 }
 
-/* The two coloured chips that carry a group letter. Both set `color` for the
-   `Text` inside them to inherit — the letter has to read against whichever
-   group colour it lands on, which no token can know. */
 .rl-group-swatch {
   width: 18px;
   height: 18px;
@@ -360,10 +279,6 @@
   align-items: center;
   justify-content: center;
 }
-
-/* ---------------------------------------------------------------- */
-/* Misc                                                             */
-/* ---------------------------------------------------------------- */
 
 .rl-form-grid {
   display: grid;

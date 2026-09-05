@@ -33,7 +33,6 @@ test("renders every saved entry as a card, newest-edited first", async () => {
 });
 
 test("each card shows its kind, byline, and stats", async () => {
-  // The generated fixtures cover both arms, so both rendering paths get exercised.
   expect(db.entries.some((entry) => entry.kind === "lyrics")).toBe(true);
   expect(db.entries.some((entry) => entry.kind === "poem")).toBe(true);
 
@@ -50,12 +49,10 @@ test("each card shows its kind, byline, and stats", async () => {
     expect(text).toContain(String(entry.wordCount));
 
     if (entry.kind === "lyrics") {
-      // Byline is artist · album · year; the writer is surfaced in the stats.
       expect(text).toContain(names(entry.artist));
       expect(text).toContain(entry.album);
       expect(within(card).getByText(`Words by ${names(entry.author)}`)).toBeInTheDocument();
     } else {
-      // Byline is author · year; no album, and the writer isn't repeated.
       expect(text).toContain(names(entry.author));
       expect(within(card).queryByText(/Words by/)).not.toBeInTheDocument();
     }

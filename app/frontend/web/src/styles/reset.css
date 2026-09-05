@@ -6,14 +6,12 @@
  * Deliberately not reset: `:focus-visible` outlines and `prefers-reduced-motion`
  * behaviour, both of which are accessibility defaults worth keeping.
  */
-
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-/* Zero out every UA margin/padding and inherited-by-default type styling. */
 * {
   margin: 0;
   padding: 0;
@@ -25,7 +23,6 @@
 }
 
 html {
-  /* Prevent iOS Safari from inflating text on landscape rotation. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   tab-size: 4;
@@ -38,7 +35,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* HTML5 elements older engines still treat as inline. */
 article,
 aside,
 details,
@@ -55,7 +51,6 @@ summary {
   display: block;
 }
 
-/* Headings inherit weight/size from their container instead of shrinking by depth. */
 h1,
 h2,
 h3,
@@ -66,14 +61,12 @@ h6 {
   font-weight: inherit;
 }
 
-/* Lists carry no markers or indentation; add them back per component. */
 ol,
 ul,
 menu {
   list-style: none;
 }
 
-/* Replaced elements behave like blocks and never overflow their container. */
 img,
 svg,
 video,
@@ -97,7 +90,6 @@ a {
   background-color: transparent;
 }
 
-/* Form controls opt out of the platform look entirely. */
 button,
 input,
 optgroup,
@@ -126,7 +118,6 @@ button:disabled {
   cursor: default;
 }
 
-/* Keep date/search/number inputs from re-introducing UA chrome. */
 ::-webkit-search-decoration,
 ::-webkit-search-cancel-button,
 ::-webkit-inner-spin-button,
@@ -145,7 +136,6 @@ textarea {
   resize: vertical;
 }
 
-/* Placeholders inherit colour and fade instead of using the UA grey. */
 ::placeholder {
   color: inherit;
   opacity: 0.5;
@@ -156,7 +146,6 @@ legend {
   padding: 0;
 }
 
-/* `border-collapse: collapse` also removes the UA's 2px cell spacing. */
 table {
   border-collapse: collapse;
   border-spacing: 0;
@@ -173,7 +162,6 @@ caption {
   text-align: inherit;
 }
 
-/* Monospace elements keep their family but drop the UA's 13px-ish sizing. */
 code,
 kbd,
 samp,
@@ -215,7 +203,6 @@ abbr:where([title]) {
   text-decoration: underline dotted;
 }
 
-/* `border-style` is needed explicitly — the `border: 0` above zeroed it out. */
 hr {
   height: 0;
   color: inherit;
@@ -235,12 +222,10 @@ q::after {
   content: none;
 }
 
-/* `hidden` must beat the `display: block` rules above. */
 [hidden]:where(:not([hidden="until-found"])) {
   display: none !important;
 }
 
-/* Long words break rather than blowing out a layout. */
 p,
 h1,
 h2,
@@ -251,7 +236,6 @@ h6 {
   overflow-wrap: break-word;
 }
 
-/* Give the app root its own stacking context so z-index inside it stays local. */
 #root,
 #app {
   isolation: isolate;

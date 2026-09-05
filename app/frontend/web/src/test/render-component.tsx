@@ -22,15 +22,12 @@ export interface RenderComponentResult extends RenderResult {
 
 export function renderComponent(ui: ReactNode): RenderComponentResult {
   const queryClient = new QueryClient({
-    // Surface a mocked-request error immediately instead of retrying it away.
     defaultOptions: { queries: { retry: false } },
   });
 
   const result = render(
     <QueryClientProvider client={queryClient}>
       <TestThemeProvider>
-        {/* No router here, so Baritone links resolve to plain anchors rather than
-            a `RouterLink` that would need router context. */}
         <LinkProvider render={({ href, ...props }) => <a href={href} {...props} />}>
           <Suspense fallback={null}>{ui}</Suspense>
         </LinkProvider>

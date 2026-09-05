@@ -19,7 +19,6 @@ function outputSchemaOf(procedure: unknown): z.ZodType | undefined {
 
 test("produces a value valid against every contract procedure's output schema", () => {
   const procedures = Object.values(contract).flatMap((namespace) => Object.values(namespace));
-  // Guard against an empty walk silently passing.
   expect(procedures.length).toBeGreaterThan(0);
 
   for (const procedure of procedures) {
@@ -35,7 +34,6 @@ test("is deterministic for a fixed seed", () => {
 
 test("empties everything the schema allows, so a stub reads as a placeholder", () => {
   const detail = fakeSchema(entryDetailSchema) as Record<string, unknown>;
-  // No minimum on `author`, and `year` is optional, so the stub leaves them bare.
   expect(detail.author).toEqual([]);
   expect(detail.year).toBeUndefined();
   expect(entryDetailSchema.safeParse(detail).success).toBe(true);

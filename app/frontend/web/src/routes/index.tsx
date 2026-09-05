@@ -4,7 +4,6 @@ import { AlphaChip, BrandName } from "#/components/NavBar";
 import { client } from "#/lib/orpc";
 
 export const Route = createFileRoute("/")({
-  // Signed in already? Straight to the app.
   beforeLoad: async () => {
     const { authed } = await client.auth.me();
     if (authed) throw redirect({ to: "/library" });

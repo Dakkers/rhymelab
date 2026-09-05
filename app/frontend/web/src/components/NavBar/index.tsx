@@ -23,8 +23,6 @@ export function NavBar() {
       </RouterLink>
 
       <nav className="rl-nav">
-        {/* modal=false so hovering the trigger doesn't lock the rest of the page —
-            that's meant for click-opened menus, not a hover-convenience one. */}
         <Menu
           modal={false}
           trigger={
@@ -46,7 +44,6 @@ export function NavBar() {
             </Menu.Item>,
           ]}
         />
-        {/* preload=false so a hover-preload of the logout route doesn't sign out. */}
         <RouterLink to="/auth/logout" preload={false}>
           <NavLabel>Log out</NavLabel>
         </RouterLink>
