@@ -9,28 +9,24 @@ import {
   type EntryCreateInput,
   type SectionType,
 } from "@rhymelab/api-contract";
-import type { Entry, Prisma } from "../_generated/prisma/client";
-import { prisma } from "../db";
+import { prisma } from "../../db";
+import type { EntryModel } from "@rhymelab/database";
 
 export class EntryController {
   /**
    * @param db The base Prisma client. Defaults to the shared singleton; inject a
    *   different client (or a mock) in tests.
    */
-  constructor(private readonly db = prisma) {}
+  constructor(private readonly db = prisma) { }
 
   /**
    * List a user's live entries for the library view, newest-edited first.
    * Soft-deleted rows (`deletedAt` set) are excluded.
    *
-   * Selects only the columns `EntryForLibrary` promises — `userId` scopes the
-   * query but isn't something callers read back. Pass `tx` to run the read
-   * inside an open transaction; otherwise it uses the base client.
-   *
    * @param userId  Owner whose entries to return.
    * @param tx      Optional transaction client to run the query on.
    */
-  async listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<EntryForLibrary[]> {
+  async listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<EntryModel[]> {
     const db = tx ?? this.db;
     return db.entry.findMany({
       where: { userId, deletedAt: null },
@@ -51,20 +47,15 @@ export class EntryController {
   }
 
   /**
-   * Fetch a single live entry by id, unscoped by owner — the caller is
-   * responsible for checking the returned row's `userId` (or otherwise
-   * establishing the accessor has permission to it) before handing it back over
-   * the wire. A soft-deleted entry reads as `null`, the same as a missing one.
-   *
-   * `findFirst`, not `findUnique`: the tombstone check is part of the filter and
-   * `deletedAt` isn't a unique column, so the lookup can't go through the
-   * unique-where form.
+   * Fetch a single live entry by id
    *
    * @param id  The entry's id.
    * @param tx  Optional transaction client to run the query on.
    */
   async getDetails(id: string, tx?: Prisma.TransactionClient): Promise<EntryDetails | null> {
     const db = tx ?? this.db;
+    // `findFirst`, not `findUnique`: the tombstone check is part of the filter and `deletedAt` isn't 
+    // a unique column, so the lookup can't go through the unique-where form.
     return db.entry.findFirst({
       where: { id, deletedAt: null },
       select: {
@@ -134,31 +125,6 @@ export class EntryController {
     return db.entry.create({ data: { ...data, structure: initStructure(data.body) } });
   }
 
-  /**
-   * Replace an entry's text — and re-sync its `structure` to the new sections —
-   * returning the updated row in the detail shape (`structure` included).
-   *
-   * The re-sync is what keeps `structure` from drifting: it reads the current
-   * body + structure, aligns the old and new sections by text
-   * (`resyncStructure`), and writes both columns together. Sections that survive
-   * the edit keep their label; an inserted section takes the default; a removed
-   * one drops its label. Because it reads then writes a derived value, it runs in
-   * a transaction — either the caller's `tx`, or one opened here — so a
-   * concurrent write can't wedge the two columns out of step.
-   *
-   * Unscoped by owner and by tombstone, like `getDetails` — the caller
-   * establishes both (typically by reading `getDetails()` first, which only
-   * yields live rows) before calling this. `update` by unique id rather than
-   * `updateMany` with a `deletedAt IS NULL` guard, because the caller wants the
-   * updated row back and `updateMany` only reports a count.
-   *
-   * `updated_at` isn't in the payload: it belongs to the database's
-   * `BEFORE UPDATE` trigger, which overwrites anything a statement sets anyway.
-   *
-   * @param id    The entry to rewrite.
-   * @param body  The replacement text (already contract-normalized).
-   * @param tx    Optional transaction client to run the read + write on.
-   */
   async updateBody(
     id: string,
     body: string,
@@ -226,22 +192,6 @@ export class EntryController {
     return rows[0] ?? null;
   }
 
-  /**
-   * Replace an entry's `structure` — its section labels — leaving the body
-   * untouched. The mirror of `updateBody`.
-   *
-   * The caller must pass a full, correctly-sized array: `structure.length` has
-   * to equal the entry's current section count, or the invariant this whole
-   * feature maintains would break. That check needs the stored body and has to
-   * be atomic with this write, so it lives in the handler inside the same
-   * transaction, reading the body under `lockForRelabel`'s row lock (see
-   * `handlers/entries.ts`) — this method just writes what it's given. Unscoped by
-   * owner and tombstone, like `updateBody`.
-   *
-   * @param id         The entry to relabel.
-   * @param structure  The replacement labels — one per body section, in order.
-   * @param tx         Optional transaction client to run the write on.
-   */
   async updateStructure(
     id: string,
     structure: SectionType[],
@@ -270,10 +220,6 @@ export class EntryController {
   /**
    * Soft-delete an entry: stamp `deletedAt` so every read path stops returning
    * it, while the row itself stays put and the delete stays reversible.
-   *
-   * Unscoped by owner, like `getDetails` — the caller establishes the accessor
-   * has permission to the entry (typically by reading `getDetails().userId`
-   * first) before calling this.
    *
    * Raw SQL rather than `updateMany`, so the tombstone reads the *database's*
    * clock: Prisma sends a JS `new Date()` as a bind parameter computed in Node,
@@ -318,43 +264,4 @@ export class EntryController {
   }
 }
 
-/** Shared instance for handlers to delegate to. */
 export const entryController = new EntryController();
-
-/**
- * A row as `listForLibrary` returns it — must mirror the `select` below field
- * for field. `Pick`, not `Omit`: a new column added to the schema later stays
- * out of this type (and the query) until someone opts it in here, rather than
- * silently starting to flow through the library view.
- *
- * No `structure`: the library cards don't render it, and it's a whole extra
- * array per row, so the list neither selects nor carries it. The detail reads
- * and writes use {@link EntryForDetail}, which adds it back.
- */
-export type EntryForLibrary = Pick<
-  Entry,
-  | "id"
-  | "kind"
-  | "title"
-  | "author"
-  | "year"
-  | "body"
-  | "artist"
-  | "album"
-  | "createdAt"
-  | "updatedAt"
->;
-
-/**
- * `EntryForLibrary` plus `structure` — the shape the detail view and the writes
- * that feed it (`getDetails` / `updateBody` / `updateStructure`) return, since
- * unlike a library card the detail renders the section labels.
- */
-export type EntryForDetail = EntryForLibrary & Pick<Entry, "structure">;
-
-/**
- * A row as `getDetails` returns it — `EntryForDetail` plus `userId`, since
- * `getDetails` doesn't scope its query by owner: the caller reads `userId`
- * back to establish ownership itself.
- */
-export type EntryDetails = EntryForDetail & Pick<Entry, "userId">;

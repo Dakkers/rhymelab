@@ -1,6 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@rhymelab/database";
-import { loadEnv } from "./app/loadEnv";
+import { loadEnv } from "./loadEnv";
 
 loadEnv();
 
@@ -11,7 +11,7 @@ export const prisma = new PrismaClient({
     })
 });
 
-const { buildServer } = await import("./app/server");
+const { buildServer } = await import("./server");
 
 const app = await buildServer();
 const port = Number(process.env.PORT ?? 4000);

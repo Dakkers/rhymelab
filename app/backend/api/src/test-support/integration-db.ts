@@ -11,7 +11,7 @@
  * files, importing this module makes a plain `import { prisma }` safe everywhere
  * downstream.
  */
-import { loadEnv } from "../load-env";
+import { loadEnv } from "../app/loadEnv";
 
 loadEnv();
 

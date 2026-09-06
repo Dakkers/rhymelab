@@ -50,6 +50,9 @@ importers:
       '@rhymelab/api-contract':
         specifier: workspace:*
         version: link:../../../packages/api-contract
+      '@rhymelab/database':
+        specifier: workspace:*
+        version: link:../../../packages/database
       '@rhymelab/fixtures':
         specifier: workspace:*
         version: link:../../../packages/fixtures

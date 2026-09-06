@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withUtcTimeZone } from "./database-url";
+import { withUtcTimeZone } from "../database-url";
 
 /**
  * Pure URL string handling, so it belongs in the fast suite — none of this can

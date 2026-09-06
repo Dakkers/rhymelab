@@ -9,7 +9,8 @@
   },
   "naming": {
     "pureModel": {
-      "schemaSuffix": "ModelSchema"
+      "schemaSuffix": "ModelSchema",
+      "typeSuffix": "Model"
     }
   }
 }

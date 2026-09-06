@@ -31,8 +31,6 @@ export const songEntrySchema = entryBaseSchema.omit({}).extend({
 /** A "proper typesafe" version of the {@link EntryModelSchema} - discriminated union on `kind`. */
 export const lyricEntrySchema = z.discriminatedUnion("kind", [poemEntrySchema, songEntrySchema]);
 
-// -- CRUD
-
 export const readLyricEntryListItemSchema = entryBaseSchema
   .pick({
     title: true,
@@ -84,4 +82,5 @@ export const createLyricEntrySchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
+export type LyricEntry = z.infer<typeof lyricEntrySchema>
 export type LyricEntrySectionType = z.infer<typeof sectionTypeSchema>

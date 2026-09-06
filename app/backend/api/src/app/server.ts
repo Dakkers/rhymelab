@@ -1,25 +1,16 @@
-/**
- * Fastify app wiring the oRPC router in over the OpenAPI (REST) protocol.
- *
- * Procedures carry `.route({ method, path })` in the contract, so oRPC's
- * `OpenAPIHandler` serves each as a real HTTP verb + path under `/api` — e.g.
- * `GET /api/entries`, `POST /api/entries`, `DELETE /api/entries/{id}`.
- *
- * The session cookie is parsed here (before oRPC) and handed to handlers as
- * context; auth procedures set/clear it via `context.reply`. CORS runs in
- * credentials mode against the web app's exact origin so the browser attaches the
- * cookie on cross-port requests.
- */
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import { OpenAPIHandler } from "@orpc/openapi/fastify";
 import { onError } from "@orpc/server";
 import Fastify from "fastify";
-import { router } from "./router";
-import type { Session } from "./orpc";
+import { router } from "../router";
+import type { Session } from "../orpc";
 import { COOKIE_NAME, COOKIE_VALUE, sessionSecret } from "./session";
+import type { PrismaClient } from "@rhymelab/database";
 
-export async function buildServer() {
+export async function buildServer(factory: {
+  db: PrismaClient
+}) {
   const handler = new OpenAPIHandler(router, {
     interceptors: [onError((error) => console.error(error))],
   });
@@ -27,6 +18,7 @@ export async function buildServer() {
   const app = Fastify({ logger: true });
 
   await app.register(cookie, { secret: sessionSecret() });
+
   await app.register(cors, {
     origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
     credentials: true,
@@ -43,7 +35,11 @@ export async function buildServer() {
 
     const { matched } = await handler.handle(req, reply, {
       prefix: "/api",
-      context: { session, reply },
+      context: {
+        db: factory.db,
+        session,
+        reply
+      },
     });
 
     if (!matched) {

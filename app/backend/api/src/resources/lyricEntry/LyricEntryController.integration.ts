@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { Entry, Prisma } from "../_generated/prisma/client";
 import { freshUser, prisma } from "../test-support/integration-db";
-import { EntryController, type EntryForLibrary } from "./entry";
+import { EntryController, type EntryForLibrary } from "../resources/lyricEntry/entry";
 
 /**
  * DB-backed integration tests for `EntryController`. These are deliberately NOT a

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Entry, Prisma, PrismaClient } from "../_generated/prisma/client";
-import { EntryController } from "./entry";
+import { EntryController } from "../resources/lyricEntry/entry";
 
 /**
  * A Prisma stand-in with a spy `entry.findMany`. These are unit tests: the query

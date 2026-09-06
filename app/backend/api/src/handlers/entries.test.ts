@@ -14,7 +14,7 @@ import type { FastifyReply } from "fastify";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Entry } from "../_generated/prisma/client";
 import type { ORPCContext } from "../orpc";
-import { SINGLE_USER_ID } from "../session";
+import { SINGLE_USER_ID } from "../app/session";
 
 vi.mock("../controllers/entry", () => ({
   entryController: {
@@ -33,7 +33,7 @@ vi.mock("../db", () => ({
   prisma: { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({})) },
 }));
 
-const { entryController } = await import("../controllers/entry");
+const { entryController } = await import("../resources/lyricEntry/LyricEntryController");
 const { prisma } = await import("../db");
 const { list, create, get, remove, updateBody, updateStructure } = await import("./entries");
 

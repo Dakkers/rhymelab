@@ -1,12 +1,5 @@
-/**
- * `@rhymelab/api-contract` — the single source of truth both the backend and the
- * frontend type against. The backend `implement(contract)`s it; the frontend
- * derives a typed client via `ContractRouterClient<typeof contract>` without
- * importing any backend code.
- */
 import * as auth from "./auth.contract";
 import * as entries from "./lyricEntry/lyricEntry.contract";
-import { initStructure, resyncStructure, deriveEntrySummaryFields, splitSections } from "./lyricEntry/lyricEntry.util";
 
 export const contract = {
   auth: {
@@ -24,24 +17,18 @@ export const contract = {
   },
 };
 
-// export {
-//   entrySummarySchema,
-//   entryCreateInputSchema,
-//   entryDetailSchema,
-//   sectionTypeSchema,
-//   SECTION_TYPES,
-//   DEFAULT_SECTION_TYPE,
-//   annotationSchema,
-//   annotationGranularitySchema,
-//   annotationTypeSchema,
-//   ANNOTATION_GRANULARITIES,
-//   ANNOTATION_TYPES,
-//   deriveEntrySummaryFields,
-//   normalizeEntryBody,
-//   splitSections,
-//   initStructure,
-//   resyncStructure,
-// } from "./entries.contract";
+export {
+  deriveEntrySummaryFields,
+  normalizeEntryBody,
+  splitSections,
+  initStructure,
+  resyncStructure,
+} from "./lyricEntry/lyricEntry.util";
+
+export {
+  readLyricEntryDetailSchema, readLyricEntryListItemSchema, createLyricEntrySchema,
+  sectionTypeSchema,
+} from "./lyricEntry/lyricEntry.schemas";
 
 // export type Contract = typeof contract;
 // export type {
@@ -54,5 +41,3 @@ export const contract = {
 //   AnnotationGranularity,
 //   AnnotationType,
 // } from "./entries.contract";
-
-export { initStructure, resyncStructure, deriveEntrySummaryFields, splitSections }

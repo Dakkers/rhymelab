@@ -9,11 +9,6 @@ import { contract } from "@rhymelab/api-contract";
 
 export const os = implement(contract).$context<ORPCContext>();
 
-/**
- * The route guard protects navigations; each procedure is its own public
- * endpoint and must re-check. Throwing `UNAUTHORIZED` maps to HTTP 401, which the
- * frontend detects and redirects to the login page.
- */
 export const requireAuth = os.middleware(async ({ context, next }) => {
   if (!context.session) {
     throw new ORPCError("UNAUTHORIZED");
@@ -21,10 +16,8 @@ export const requireAuth = os.middleware(async ({ context, next }) => {
   return next({ context: { session: context.session } });
 });
 
-/** Base implementer for authenticated procedures. */
 export const authed = os.use(requireAuth);
 
-/** Marker for an authenticated request. Null when signed out. */
 export type Session = { authed: true };
 
 export interface ORPCContext {
