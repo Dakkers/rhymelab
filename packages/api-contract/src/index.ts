@@ -4,8 +4,15 @@
  * derives a typed client via `ContractRouterClient<typeof contract>` without
  * importing any backend code.
  */
-import * as auth from "./auth.contract";
-import * as entries from "./entries.contract";
+import * as auth from "./auth/auth.contract";
+import * as lyricEntries from "./lyricEntry/lyricEntry.contract";
+
+export {
+  readLyricEntryDetailSchema,
+  readLyricEntryListItemSchema,
+  createLyricEntrySchema,
+  sectionTypeSchema,
+} from "./lyricEntry/lyricEntry.schemas";
 
 export const contract = {
   auth: {
@@ -13,43 +20,12 @@ export const contract = {
     logout: auth.logout,
     me: auth.me,
   },
-  entries: {
-    list: entries.list,
-    create: entries.create,
-    get: entries.get,
-    updateBody: entries.updateBody,
-    updateStructure: entries.updateStructure,
-    delete: entries.remove,
+  lyricEntries: {
+    list: lyricEntries.list,
+    // create: lyricEntries.create,
+    // get: lyricEntries.get,
+    // updateBody: lyricEntries.updateBody,
+    // updateStructure: lyricEntries.updateStructure,
+    // delete: lyricEntries.remove,
   },
 };
-
-export {
-  entrySummarySchema,
-  entryCreateInputSchema,
-  entryDetailSchema,
-  sectionTypeSchema,
-  SECTION_TYPES,
-  DEFAULT_SECTION_TYPE,
-  annotationSchema,
-  annotationGranularitySchema,
-  annotationTypeSchema,
-  ANNOTATION_GRANULARITIES,
-  ANNOTATION_TYPES,
-  deriveEntrySummaryFields,
-  normalizeEntryBody,
-  splitSections,
-  initStructure,
-  resyncStructure,
-} from "./entries.contract";
-
-export type Contract = typeof contract;
-export type {
-  EntrySummary,
-  EntryKind,
-  EntryCreateInput,
-  EntryDetail,
-  SectionType,
-  Annotation,
-  AnnotationGranularity,
-  AnnotationType,
-} from "./entries.contract";

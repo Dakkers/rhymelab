@@ -25,23 +25,24 @@ const KIND_LABEL: Record<EntrySummary["kind"], string> = {
 
 /**
  * The Library is the signed-in default landing page: the list of lyrics and
- * poems the user has saved (over oRPC's `entries.list`, newest-edited first).
+ * poems the user has saved (over oRPC's `lyricEntries.list`, newest-edited first).
  * Reads go through the TanStack Query cache: the loader primes it so the list is
  * ready on first paint, and the component subscribes so an invalidation
  * elsewhere (e.g. after creating an entry) refetches it here.
  */
 export const Route = createFileRoute("/_authenticated/library/")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(orpc.entries.list.queryOptions()),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(orpc.lyricEntries.list.queryOptions()),
   component: LibraryPage,
 });
 
 function LibraryPage() {
-  const { data: entries } = useSuspenseQuery(orpc.entries.list.queryOptions());
+  const { data: lyricEntries } = useSuspenseQuery(orpc.lyricEntries.list.queryOptions());
 
   return (
     <Page
       title="Library"
-      subtitle={entries.length > 0 ? pluralize(entries.length, "saved piece") : undefined}
+      subtitle={lyricEntries.length > 0 ? pluralize(lyricEntries.length, "saved piece") : undefined}
       actions={
         <Link
           appearance="button"
@@ -56,13 +57,13 @@ function LibraryPage() {
         </Link>
       }
     >
-      {entries.length === 0 ? (
+      {lyricEntries.length === 0 ? (
         <Text saliency="low">
           Nothing saved yet. Your lyrics and poems will show up here once you start writing.
         </Text>
       ) : (
         <CardList aria-label="Saved pieces" gap="3">
-          {entries.map((entry) => (
+          {lyricEntries.map((entry) => (
             <EntryCard key={entry.id} entry={entry} />
           ))}
         </CardList>
@@ -78,7 +79,7 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
       subheader={byline(entry)}
       action={<Badge text={KIND_LABEL[entry.kind]} shape="square" saliency="low" />}
       description={entry.excerpt}
-      href={`/entries/${entry.id}`}
+      href={`/lyricEntries/${entry.id}`}
       render={<RouterLink to="/entries/$entryId" params={{ entryId: entry.id }} />}
     >
       <InlineList

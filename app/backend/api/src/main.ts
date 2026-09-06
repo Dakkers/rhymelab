@@ -6,10 +6,10 @@ import { loadEnv } from "./load-env";
 
 loadEnv();
 
-const { initializeServer } = await import("./app/initializeServer");
-await initializeServer({
-    host: '127.0.0.1',
-    port: process.env.PORT,
-})
+const { initializeHttpServer } = await import("./app/initializeHttpServer");
+await initializeHttpServer({
+  host: "127.0.0.1",
+  port: process.env.PORT,
+});
 
 console.log(`API initialized.`);

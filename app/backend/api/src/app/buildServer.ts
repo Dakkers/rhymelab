@@ -17,8 +17,9 @@ import { onError } from "@orpc/server";
 import Fastify from "fastify";
 import { createOrpcRouter, type Session } from "./createOrpcRouter";
 import { COOKIE_NAME, COOKIE_VALUE, sessionSecret } from "./session";
+import { instantiateControllers } from "./instantiateControllers";
 
-export async function buildServer() {
+export async function buildServer(factory) {
   const handler = new OpenAPIHandler(createOrpcRouter(), {
     interceptors: [onError((error) => console.error(error))],
   });
@@ -43,7 +44,12 @@ export async function buildServer() {
 
     const { matched } = await handler.handle(req, reply, {
       prefix: "/api",
-      context: { session, reply },
+      context: {
+        session,
+        reply,
+        ...factory,
+        ...instantiateControllers(factory),
+      },
     });
 
     if (!matched) {
