@@ -15,18 +15,18 @@ import cors from "@fastify/cors";
 import { OpenAPIHandler } from "@orpc/openapi/fastify";
 import { onError } from "@orpc/server";
 import Fastify from "fastify";
-import { router } from "./router";
-import type { Session } from "./orpc";
+import { createOrpcRouter, type Session } from "./createOrpcRouter";
 import { COOKIE_NAME, COOKIE_VALUE, sessionSecret } from "./session";
 
 export async function buildServer() {
-  const handler = new OpenAPIHandler(router, {
+  const handler = new OpenAPIHandler(createOrpcRouter(), {
     interceptors: [onError((error) => console.error(error))],
   });
 
   const app = Fastify({ logger: true });
 
   await app.register(cookie, { secret: sessionSecret() });
+
   await app.register(cors, {
     origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
     credentials: true,

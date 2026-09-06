@@ -39,7 +39,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { normalizeEntryBody, splitSections, type SectionType } from "@rhymelab/api-contract";
 import { loadEnv } from "./load-env";
-import { SINGLE_USER_ID } from "./session";
+import { SINGLE_USER_ID } from "./app/session";
 
 loadEnv();
 
@@ -122,8 +122,8 @@ async function main() {
     if (sections.length !== seed.structure.length) {
       console.error(
         `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
-          `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
-          `in seed.ts to match. Skipping.`,
+        `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
+        `in seed.ts to match. Skipping.`,
       );
       invalid++;
       continue;
@@ -151,7 +151,7 @@ async function main() {
 
   console.log(
     `\nSeed complete: ${toCreate.length} created, ${skipped} skipped, ` +
-      `${missing} missing, ${invalid} invalid.`,
+    `${missing} missing, ${invalid} invalid.`,
   );
   if (missing === SEEDS.length) {
     console.log(`No demo files found in ${DUMMY_DIR}. Drop the DEMO_*.txt files there and re-run.`);

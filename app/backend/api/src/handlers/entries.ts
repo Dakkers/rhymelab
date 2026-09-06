@@ -18,7 +18,7 @@ import {
 import { entryController, type EntryForDetail, type EntryForLibrary } from "../controllers/entry";
 import { prisma } from "../db";
 import { authed } from "../orpc";
-import { SINGLE_USER_ID } from "../session";
+import { SINGLE_USER_ID } from "../app/session";
 
 /** Map a Prisma `Entry` row onto the detail wire shape the contract promises. */
 function toEntryDetail(entry: EntryForDetail): EntryDetail {

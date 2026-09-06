@@ -4,7 +4,7 @@
  * valid one.
  */
 import { os } from "../orpc";
-import { appPassword, COOKIE_NAME, COOKIE_VALUE, cookieOptions, passwordsMatch } from "../session";
+import { appPassword, COOKIE_NAME, COOKIE_VALUE, cookieOptions, passwordsMatch } from "../app/session";
 
 export const login = os.auth.login.handler(async ({ input, context }) => {
   if (!(await passwordsMatch(input.password, appPassword()))) {

@@ -14,7 +14,7 @@ import type { FastifyReply } from "fastify";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Entry } from "../_generated/prisma/client";
 import type { ORPCContext } from "../orpc";
-import { SINGLE_USER_ID } from "../session";
+import { SINGLE_USER_ID } from "../app/session";
 
 vi.mock("../controllers/entry", () => ({
   entryController: {
