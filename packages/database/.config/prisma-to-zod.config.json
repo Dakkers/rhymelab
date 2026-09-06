@@ -1,0 +1,16 @@
+{
+    "mode": "minimal",
+    "pureModels": true,
+    "emit": {
+        "crud": false,
+        "enums": true,
+        "objects": false,
+        "variants": false
+    },
+    "naming": {
+        "pureModel": {
+            "schemaSuffix": "ModelSchema",
+            "typeSuffix": "Model"
+        }
+    }
+}

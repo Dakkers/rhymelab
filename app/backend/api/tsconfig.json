@@ -1,9 +1,21 @@
 {
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"],
-    "lib": ["es2023"]
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "es2023"
+    ]
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "prisma.config.ts"],
-  "exclude": ["src/_generated/**", "dist", "node_modules"]
+  "include": [
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "../../../packages/database/prisma.config.ts"
+  ],
+  "exclude": [
+    "src/_generated/**",
+    "dist",
+    "node_modules"
+  ]
 }

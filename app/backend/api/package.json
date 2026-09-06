@@ -4,18 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "prisma generate",
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
-    "build": "prisma generate",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx src/seed.ts",
-    "db:studio": "prisma studio",
     "test": "vitest run --config .config/vitest.config.ts --project unit",
     "test:watch": "vitest --config .config/vitest.config.ts --project unit",
     "test:integration": "vitest run --config .config/vitest.config.ts --project integration",
-    "typecheck": "prisma generate && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint --fix",
@@ -27,8 +21,8 @@
     "@orpc/openapi": "1.14.5",
     "@orpc/server": "1.14.5",
     "@prisma/adapter-pg": "7.8.0",
-    "@prisma/client": "7.8.0",
     "@rhymelab/api-contract": "workspace:*",
+    "@rhymelab/database": "workspace:*",
     "@rhymelab/fixtures": "workspace:*",
     "fastify": "5.10.0",
     "zod": "4.4.3"
@@ -36,7 +30,6 @@
   "devDependencies": {
     "@types/node": "22.20.1",
     "dotenv": "17.4.2",
-    "prisma": "7.8.0",
     "tsx": "4.23.1",
     "typescript": "6.0.3",
     "vitest": "4.1.10"

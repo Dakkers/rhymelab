@@ -1,0 +1,35 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/_generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model LyricEntry {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id")
+  kind   String
+
+  title     String
+  body      String
+  structure String[] @default([])
+
+  author String[] @default([])
+  year   Int?
+
+  artist String[] @default([])
+  album  String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([kind])
+  @@index([userId, deletedAt])
+  @@map("entries")
+}
