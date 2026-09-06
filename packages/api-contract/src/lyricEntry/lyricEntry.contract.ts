@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   createLyricEntrySchema,
   readLyricEntryDetailSchema,
-  readLyricEntryListItemSchema,
+  lyricEntryListItemSchema,
   sectionTypeSchema,
 } from "./lyricEntry.schemas";
 import { normalizeEntryBody } from "./lyricEntry.util";
@@ -21,7 +21,7 @@ export const create = oc
  */
 export const list = oc
   .route({ method: "GET", path: "/entries" })
-  .output(z.array(readLyricEntryListItemSchema));
+  .output(z.array(lyricEntryListItemSchema));
 
 /**
  * Fetch a single saved piece by id.

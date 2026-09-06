@@ -6,12 +6,15 @@
  */
 import * as auth from "./auth/auth.contract";
 import * as lyricEntries from "./lyricEntry/lyricEntry.contract";
+import { deriveEntrySummaryFields } from "./lyricEntry/lyricEntry.util";
 
 export {
   readLyricEntryDetailSchema,
-  readLyricEntryListItemSchema,
+  lyricEntryListItemSchema,
   createLyricEntrySchema,
   sectionTypeSchema,
+  type LyricEntryListItem,
+  // type LyricEntryListItem,
 } from "./lyricEntry/lyricEntry.schemas";
 
 export const contract = {
@@ -29,3 +32,5 @@ export const contract = {
     // delete: lyricEntries.remove,
   },
 };
+
+export { deriveEntrySummaryFields }

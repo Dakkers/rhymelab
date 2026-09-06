@@ -1,4 +1,5 @@
-import type { LyricEntryModel, Prisma, PrismaClient } from "@rhymelab/database";
+import { deriveEntrySummaryFields, lyricEntryListItemSchema, type LyricEntryListItem } from "@rhymelab/api-contract";
+import type { Prisma, PrismaClient } from "@rhymelab/database";
 
 export class LyricEntryController {
   #db: PrismaClient;
@@ -13,9 +14,9 @@ export class LyricEntryController {
    * @param userId  Owner whose entries to return.
    * @param tx      Optional transaction client to run the query on.
    */
-  async listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<EntryForLibrary[]> {
+  async listForLibrary(userId: string, tx?: Prisma.TransactionClient): Promise<LyricEntryListItem[]> {
     const db = tx ?? this.#db;
-    return db.lyricEntry.findMany({
+    const rows = await db.lyricEntry.findMany({
       where: { userId, deletedAt: null },
       orderBy: { updatedAt: "desc" },
       select: {
@@ -31,5 +32,9 @@ export class LyricEntryController {
         updatedAt: true,
       },
     });
+    return rows.map((row) => {
+      const datum = lyricEntryListItemSchema.parse(row);
+      return { ...datum, ...deriveEntrySummaryFields(row.body) }
+    })
   }
 }

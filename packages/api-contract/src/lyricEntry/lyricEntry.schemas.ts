@@ -31,7 +31,7 @@ export const songEntrySchema = entryBaseSchema.omit({}).extend({
 /** A "proper typesafe" version of the {@link EntryModelSchema} - discriminated union on `kind`. */
 export const lyricEntrySchema = z.discriminatedUnion("kind", [poemEntrySchema, songEntrySchema]);
 
-export const readLyricEntryListItemSchema = entryBaseSchema
+export const lyricEntryListItemSchema = entryBaseSchema
   .pick({
     title: true,
     body: true,
@@ -40,10 +40,11 @@ export const readLyricEntryListItemSchema = entryBaseSchema
     album: true,
     artist: true,
   })
-  .transform(({ body, ...rest }) => ({
-    ...rest,
-    ...deriveEntrySummaryFields(body),
-  }));
+  .extend({
+    excerpt: z.string(),
+    lineCount: z.number().int().nonnegative(),
+    wordCount: z.number().int().nonnegative(),
+  })
 
 export const readLyricEntryDetailSchema = entryBaseSchema
   .pick({
@@ -54,10 +55,10 @@ export const readLyricEntryDetailSchema = entryBaseSchema
     album: true,
     artist: true,
   })
-  .transform((attrs) => ({
-    ...attrs,
-    ...deriveEntrySummaryFields(attrs.body),
-  }));
+  .extend({
+    lineCount: z.number().int().nonnegative(),
+    wordCount: z.number().int().nonnegative(),
+  })
 
 const createLyricEntrySchemaBase = entryBaseSchema
   .pick({
@@ -83,4 +84,5 @@ export const createLyricEntrySchema = z.discriminatedUnion("kind", [
 ]);
 
 export type LyricEntry = z.infer<typeof lyricEntrySchema>;
+export type LyricEntryListItem = z.infer<typeof lyricEntryListItemSchema>;
 export type LyricEntrySectionType = z.infer<typeof sectionTypeSchema>;
