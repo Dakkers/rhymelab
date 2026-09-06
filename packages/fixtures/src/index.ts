@@ -144,7 +144,7 @@ export function fakeAnnotations(
   }
 
   let group = 0;
-  for (let i = 0; i + 1 < lines.length && group < maxRhymes; ) {
+  for (let i = 0; i + 1 < lines.length && group < maxRhymes;) {
     if (isContent(i) && isContent(i + 1)) {
       annotations.push({
         id: faker.string.uuid(),

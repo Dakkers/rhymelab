@@ -5,7 +5,8 @@
  * importing any backend code.
  */
 import * as auth from "./auth.contract";
-import * as entries from "./entries.contract";
+import * as entries from "./lyricEntry/lyricEntry.contract";
+import { initStructure, resyncStructure, deriveEntrySummaryFields, splitSections } from "./lyricEntry/lyricEntry.util";
 
 export const contract = {
   auth: {
@@ -23,33 +24,35 @@ export const contract = {
   },
 };
 
-export {
-  entrySummarySchema,
-  entryCreateInputSchema,
-  entryDetailSchema,
-  sectionTypeSchema,
-  SECTION_TYPES,
-  DEFAULT_SECTION_TYPE,
-  annotationSchema,
-  annotationGranularitySchema,
-  annotationTypeSchema,
-  ANNOTATION_GRANULARITIES,
-  ANNOTATION_TYPES,
-  deriveEntrySummaryFields,
-  normalizeEntryBody,
-  splitSections,
-  initStructure,
-  resyncStructure,
-} from "./entries.contract";
+// export {
+//   entrySummarySchema,
+//   entryCreateInputSchema,
+//   entryDetailSchema,
+//   sectionTypeSchema,
+//   SECTION_TYPES,
+//   DEFAULT_SECTION_TYPE,
+//   annotationSchema,
+//   annotationGranularitySchema,
+//   annotationTypeSchema,
+//   ANNOTATION_GRANULARITIES,
+//   ANNOTATION_TYPES,
+//   deriveEntrySummaryFields,
+//   normalizeEntryBody,
+//   splitSections,
+//   initStructure,
+//   resyncStructure,
+// } from "./entries.contract";
 
-export type Contract = typeof contract;
-export type {
-  EntrySummary,
-  EntryKind,
-  EntryCreateInput,
-  EntryDetail,
-  SectionType,
-  Annotation,
-  AnnotationGranularity,
-  AnnotationType,
-} from "./entries.contract";
+// export type Contract = typeof contract;
+// export type {
+//   EntrySummary,
+//   EntryKind,
+//   EntryCreateInput,
+//   EntryDetail,
+//   SectionType,
+//   Annotation,
+//   AnnotationGranularity,
+//   AnnotationType,
+// } from "./entries.contract";
+
+export { initStructure, resyncStructure, deriveEntrySummaryFields, splitSections }

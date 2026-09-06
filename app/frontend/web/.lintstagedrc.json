@@ -1,6 +1,6 @@
 {
   "!(routeTree.gen).{ts,tsx,js,jsx,mjs,cjs}": [
-    "oxfmt --config .oxfmtrc.json",
-    "oxlint --config .config/.oxlintrc.json --fix"
+    "oxfmt --config .config/oxfmt.config.ts",
+    "oxlint --config .config/oxlint.config.ts --fix"
   ]
 }
