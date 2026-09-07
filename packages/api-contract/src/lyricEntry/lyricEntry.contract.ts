@@ -4,9 +4,9 @@ import {
   createLyricEntrySchema,
   readLyricEntryDetailSchema,
   lyricEntryListItemSchema,
-  sectionTypeSchema,
 } from "./lyricEntry.schemas";
 import { normalizeEntryBody } from "./lyricEntry.util";
+import { LyricEntrySectionTypeSchema } from "@rhymelab/database";
 
 /**
  * Save a new piece.
@@ -26,7 +26,7 @@ export const list = oc
 /**
  * Fetch a single saved piece by id.
  */
-export const get = oc
+export const getItem = oc
   .route({ method: "GET", path: "/entries/{id}" })
   .input(z.object({ id: z.uuidv4() }))
   .output(readLyricEntryDetailSchema);
@@ -47,7 +47,8 @@ export const updateBody = oc
   .route({ method: "PUT", path: "/entries/{id}/body" })
   .input(
     z.object({
-      body: z.string().transform(normalizeEntryBody).pipe(z.string().min(1)),
+      id: z.uuidv4(),
+      body: z.string().min(1),
     }),
   )
   .output(readLyricEntryDetailSchema);
@@ -58,5 +59,5 @@ export const updateBody = oc
  */
 export const updateStructure = oc
   .route({ method: "PUT", path: "/entries/{id}/structure" })
-  .input(z.object({ id: z.uuidv4(), structure: z.array(sectionTypeSchema) }))
+  .input(z.object({ id: z.uuidv4(), structure: z.array(LyricEntrySectionTypeSchema) }))
   .output(readLyricEntryDetailSchema);

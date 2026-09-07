@@ -1,4 +1,4 @@
-import { sectionTypeSchema, type LyricEntrySectionType } from "./lyricEntry.schemas";
+import { LyricEntrySectionTypeSchema, type LyricEntrySectionType } from "@rhymelab/database";
 
 const DEFAULT_SECTION_TYPE: LyricEntrySectionType = "verse";
 
@@ -142,5 +142,5 @@ function coerceStructure(structure: readonly string[], length: number): LyricEnt
 }
 
 function isSectionType(value: string | undefined): value is LyricEntrySectionType {
-  return !!sectionTypeSchema.safeParse(value).success;
+  return !!LyricEntrySectionTypeSchema.safeParse(value).success;
 }

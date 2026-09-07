@@ -1,5 +1,5 @@
 {
-  "name": "@rhymelab/api-contract",
+  "name": "@rhymelab/utils",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -15,11 +15,5 @@
     "lint": "oxlint --fix",
     "lint:check": "oxlint"
   },
-  "dependencies": {
-    "@orpc/contract": "1.14.5",
-    "@rhymelab/core": "workspace:*",
-    "@rhymelab/database": "workspace:*",
-    "@rhymelab/utils": "workspace:*",
-    "zod": "4.4.3"
-  }
+  "dependencies": {}
 }

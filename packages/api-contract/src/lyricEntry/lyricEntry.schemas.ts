@@ -1,15 +1,6 @@
 import z from "zod";
 import { EntryModelSchema } from "@rhymelab/database";
-import { deriveEntrySummaryFields, normalizeEntryBody } from "./lyricEntry.util";
-
-export const sectionTypeSchema = z.enum([
-  "intro",
-  "verse",
-  "prechorus",
-  "chorus",
-  "bridge",
-  "outro",
-]);
+import { normalizeEntryBody } from "./lyricEntry.util";
 
 const SONG_SPECIFIC_FIELDS = {
   album: true,
@@ -44,7 +35,7 @@ export const lyricEntryListItemSchema = entryBaseSchema
     excerpt: z.string(),
     lineCount: z.number().int().nonnegative(),
     wordCount: z.number().int().nonnegative(),
-  })
+  });
 
 export const readLyricEntryDetailSchema = entryBaseSchema
   .pick({
@@ -58,7 +49,7 @@ export const readLyricEntryDetailSchema = entryBaseSchema
   .extend({
     lineCount: z.number().int().nonnegative(),
     wordCount: z.number().int().nonnegative(),
-  })
+  });
 
 const createLyricEntrySchemaBase = entryBaseSchema
   .pick({
@@ -75,14 +66,15 @@ const createLyricEntrySchemaBase = entryBaseSchema
 
 export const createLyricEntrySchema = z.discriminatedUnion("kind", [
   createLyricEntrySchemaBase.omit({}).extend({
-    kind: "song",
+    kind: z.literal("song"),
   }),
 
   createLyricEntrySchemaBase.omit(SONG_SPECIFIC_FIELDS).extend({
-    kind: "poem",
+    kind: z.literal("poem"),
   }),
 ]);
 
 export type LyricEntry = z.infer<typeof lyricEntrySchema>;
 export type LyricEntryListItem = z.infer<typeof lyricEntryListItemSchema>;
-export type LyricEntrySectionType = z.infer<typeof sectionTypeSchema>;
+export type ReadLyricEntryDetail = z.infer<typeof readLyricEntryDetailSchema>;
+export type CreateLyricEntryInput = z.infer<typeof createLyricEntrySchema>;

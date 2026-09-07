@@ -9,10 +9,9 @@
         ".": "./src/index.ts"
     },
     "scripts": {
-        "postinstall": "prisma generate",
+        "postinstall": "pnpm build",
         "build": "prisma generate",
         "migrate": "prisma migrate dev",
-        "seed": "tsx src/seed.ts",
         "studio": "prisma studio",
         "typecheck": "prisma generate && tsc --noEmit",
         "fmt": "oxfmt",

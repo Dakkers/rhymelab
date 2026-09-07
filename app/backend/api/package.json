@@ -24,6 +24,7 @@
     "@rhymelab/api-contract": "workspace:*",
     "@rhymelab/database": "workspace:*",
     "@rhymelab/fixtures": "workspace:*",
+    "@rhymelab/utils": "workspace:*",
     "fastify": "5.10.0",
     "zod": "4.4.3"
   },

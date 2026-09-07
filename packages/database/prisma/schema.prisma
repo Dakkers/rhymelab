@@ -5,31 +5,74 @@ generator client {
   importFileExtension = ""
 }
 
+generator zod {
+  provider = "prisma-zod-generator"
+  output   = "../src/_generated/prisma-zod"
+  config   = "../.config/prisma-to-zod.config.json"
+}
+
 datasource db {
   provider = "postgresql"
 }
 
+enum LyricEntryKind {
+  poem
+  song
+}
+
+enum LyricEntrySectionType {
+  verse
+  chorus
+  bridge
+  prechorus
+  intro
+  outro
+  stanza
+  postchorus
+  refrain
+  interlude
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  email        String @unique
+  displayName  String @map("display_name")
+  passwordHash String @map("password_hash")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  entries LyricEntry[]
+
+  @@map("users")
+}
+
 model LyricEntry {
-  id     String @id @default(uuid()) @db.Uuid
-  userId String @map("user_id")
-  kind   String
+  id   String         @id @default(uuid()) @db.Uuid
+  kind LyricEntryKind
 
   title     String
   body      String
-  structure String[] @default([])
+  structure LyricEntrySectionType[] @default([])
 
-  author String[] @default([])
-  year   Int?
+  authors String[] @default([])
+  year    Int?
+  artists String[] @default([])
+  album   String?
+  isrc    String?
+  iswc    String?
 
-  artist String[] @default([])
-  album  String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @map("updated_at")
-
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
+
+  userId String @map("user_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([kind])
   @@index([userId, deletedAt])
-  @@map("entries")
+  @@map("lyric_entries")
 }

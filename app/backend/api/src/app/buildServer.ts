@@ -16,7 +16,7 @@ import { OpenAPIHandler } from "@orpc/openapi/fastify";
 import { onError } from "@orpc/server";
 import Fastify from "fastify";
 import { createOrpcRouter, type Session } from "./createOrpcRouter";
-import { COOKIE_NAME, COOKIE_VALUE, sessionSecret } from "./session";
+import { COOKIE_NAME, COOKIE_VALUE, sessionSecret, TEMP_USER_ID } from "./session";
 import { instantiateControllers } from "./instantiateControllers";
 
 export async function buildServer(factory) {
@@ -40,7 +40,9 @@ export async function buildServer(factory) {
     const raw = req.cookies[COOKIE_NAME];
     const unsigned = raw ? req.unsignCookie(raw) : { valid: false as const, value: null };
     const session: Session | null =
-      unsigned.valid && unsigned.value === COOKIE_VALUE ? { authed: true } : null;
+      unsigned.valid && unsigned.value === COOKIE_VALUE
+        ? { authed: true, userId: TEMP_USER_ID }
+        : null;
 
     const { matched } = await handler.handle(req, reply, {
       prefix: "/api",

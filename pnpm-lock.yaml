@@ -53,6 +53,9 @@ importers:
       '@rhymelab/fixtures':
         specifier: workspace:*
         version: link:../../../packages/fixtures
+      '@rhymelab/utils':
+        specifier: workspace:*
+        version: link:../../../packages/utils
       fastify:
         specifier: 5.10.0
         version: 5.10.0
@@ -235,6 +238,9 @@ importers:
       '@rhymelab/database':
         specifier: workspace:*
         version: link:../database
+      '@rhymelab/utils':
+        specifier: workspace:*
+        version: link:../utils
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -290,6 +296,8 @@ importers:
       zod-schema-faker:
         specifier: 2.1.1
         version: 2.1.1(@faker-js/faker@10.5.0)(randexp@0.5.3)(zod@4.4.3)
+
+  packages/utils: {}
 
 packages:
 

@@ -4,6 +4,7 @@ packages:
   - app/backend/api
   - packages/database
   - packages/core
+  - packages/utils
   - packages/api-contract
   - packages/fixtures
 
