@@ -9,6 +9,7 @@
         ".": "./src/index.ts"
     },
     "scripts": {
+        "dev:db:reset": "prisma migrate reset",
         "postinstall": "pnpm build",
         "build": "prisma generate",
         "migrate": "prisma migrate dev",

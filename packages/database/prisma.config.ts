@@ -1,15 +1,5 @@
 import { defineConfig } from "prisma/config";
 
-export default defineConfig({
-  schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-  },
-  datasource: {
-    url: withUtcTimeZone(process.env["DATABASE_URL"]),
-  },
-});
-
 function withUtcTimeZone(url: string | undefined): string | undefined {
   if (!url) return url;
 
@@ -27,3 +17,13 @@ function withUtcTimeZone(url: string | undefined): string | undefined {
 }
 
 const UTC_OPTIONS = "-c TimeZone=UTC";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+  },
+  datasource: {
+    url: withUtcTimeZone(process.env["DATABASE_URL"]),
+  },
+});
