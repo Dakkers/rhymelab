@@ -151,11 +151,7 @@ export class LyricEntryController {
    * @param body  The replacement text
    * @param tx    Transaction client to run the read + write on.
    */
-  async updateBody(
-    id: string,
-    body: string,
-    tx: Prisma.TransactionClient,
-  ): Promise<ReadLyricEntryDetail> {
+  async updateBody(id: string, body: string, tx: Prisma.TransactionClient): Promise<void> {
     const normalizedBody = normalizeEntryBody(body);
 
     if (normalizedBody.length === 0) {
@@ -174,8 +170,6 @@ export class LyricEntryController {
       data: { body: normalizedBody, structure },
       select: { id: true },
     });
-
-    return this.getDetails(id, tx);
   }
 
   /**
@@ -189,7 +183,7 @@ export class LyricEntryController {
     id: string,
     structure: LyricEntrySectionType[],
     tx: Prisma.TransactionClient,
-  ): Promise<ReadLyricEntryDetail> {
+  ): Promise<void> {
     const current = await tx.lyricEntry.findUniqueOrThrow({
       where: { id },
       select: { body: true, structure: true },
@@ -208,7 +202,5 @@ export class LyricEntryController {
       data: { structure },
       select: { id: true },
     });
-
-    return this.getDetails(id, tx);
   }
 }

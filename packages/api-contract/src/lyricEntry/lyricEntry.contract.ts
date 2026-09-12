@@ -5,7 +5,6 @@ import {
   readLyricEntryDetailSchema,
   lyricEntryListItemSchema,
 } from "./lyricEntry.schemas";
-import { normalizeEntryBody } from "./lyricEntry.util";
 import { LyricEntrySectionTypeSchema } from "@rhymelab/database";
 
 /**
@@ -37,7 +36,7 @@ export const getItem = oc
 export const remove = oc
   .route({ method: "DELETE", path: "/entries/{id}" })
   .input(z.object({ id: z.uuidv4() }))
-  .output(z.object({ ok: z.literal(true) }));
+  .output(z.void());
 
 /**
  * Rewrite a saved piece's text. Named for the half of the entry it touches —
@@ -51,7 +50,7 @@ export const updateBody = oc
       body: z.string().min(1),
     }),
   )
-  .output(readLyricEntryDetailSchema);
+  .output(z.void());
 
 /**
  * Re-label a saved piece's sections — replace its `structure` array. The body is
@@ -60,4 +59,4 @@ export const updateBody = oc
 export const updateStructure = oc
   .route({ method: "PUT", path: "/entries/{id}/structure" })
   .input(z.object({ id: z.uuidv4(), structure: z.array(LyricEntrySectionTypeSchema) }))
-  .output(readLyricEntryDetailSchema);
+  .output(z.void());

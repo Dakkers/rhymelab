@@ -51,6 +51,7 @@ export async function buildServer(factory) {
         reply,
         ...factory,
         ...instantiateControllers(factory),
+        userId: session?.userId ?? "-1",
       },
     });
 

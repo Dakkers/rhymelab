@@ -1,43 +1,49 @@
-import { ORPCError } from "@orpc/server";
 import type { ContractImplementer } from "../../app/createOrpcRouter";
+import { RlNotFoundError, RlUnauthorizedError } from "@rhymelab/utils";
 
 export function createLyricEntryHandlers(os: ContractImplementer) {
   const preventIdor = os.middleware(async ({ context, next }, input: { id: string }) => {
     const userId = context.session?.userId;
     if (!userId) {
-      throw new ORPCError("UNAUTHORIZED");
+      throw new RlUnauthorizedError();
     }
     if (!(await context.LyricEntryController.userOwns(userId, input.id))) {
-      throw new ORPCError("NOT_FOUND");
+      throw new RlNotFoundError();
     }
     return next();
   });
 
   return {
-    create: os.lyricEntries.create.handler(async ({ context }) => {
-      return context.LyricEntryController.create(context.session?.userId!);
+    create: os.lyricEntries.create.handler(async ({ context, input }) => {
+      return context.LyricEntryController.create({ ...input, userId: context.userId });
     }),
     list: os.lyricEntries.list.handler(async ({ context }) => {
-      return context.LyricEntryController.listForLibrary(context.session?.userId!);
+      return context.LyricEntryController.listForLibrary(context.userId);
     }),
     getItem: os.lyricEntries.getItem.use(preventIdor).handler(async ({ context, input }) => {
-      return context.LyricEntryController.getDetails(input.id);
+      const result = await context.LyricEntryController.getDetails(input.id);
+      if (!result) {
+        throw new RlNotFoundError();
+      }
+      return result;
     }),
     updateBody: os.lyricEntries.updateBody.use(preventIdor).handler(async ({ context, input }) => {
-      return context.db.$transaction(async (tx) =>
+      await context.db.$transaction(async (tx) =>
         context.LyricEntryController.updateBody(input.id, input.body, tx),
       );
+      return context.reply.status(204).send();
     }),
     updateStructure: os.lyricEntries.updateStructure
       .use(preventIdor)
       .handler(async ({ context, input }) => {
-        return context.db.$transaction(async (tx) =>
+        await context.db.$transaction(async (tx) =>
           context.LyricEntryController.updateStructure(input.id, input.structure, tx),
         );
+        return context.reply.status(204).send();
       }),
     delete: os.lyricEntries.delete.use(preventIdor).handler(async ({ context, input }) => {
       await context.LyricEntryController.delete(input.id);
-      return { ok: true as const };
+      return context.reply.status(204).send();
     }),
   };
 }

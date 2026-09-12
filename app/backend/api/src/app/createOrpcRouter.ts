@@ -29,6 +29,7 @@ export type Session = { authed: true; userId: string };
 
 export interface OrpcContext {
   db: PrismaClient;
+  userId: string;
   session: Session | null;
   reply: FastifyReply;
   LyricEntryController: LyricEntryController;
