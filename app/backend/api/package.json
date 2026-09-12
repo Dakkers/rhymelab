@@ -9,11 +9,7 @@
     "test": "vitest run --config .config/vitest.config.ts --project unit",
     "test:watch": "vitest --config .config/vitest.config.ts --project unit",
     "test:integration": "vitest run --config .config/vitest.config.ts --project integration",
-    "typecheck": "tsc --noEmit",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
-    "lint": "oxlint --fix",
-    "lint:check": "oxlint"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",

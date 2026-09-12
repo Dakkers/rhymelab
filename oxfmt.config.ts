@@ -1,1 +1,3 @@
-export default {};
+export default {
+  ignorePatterns: ["**/routeTree.gen.ts"],
+};

@@ -9,11 +9,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
-    "lint": "oxlint --fix",
-    "lint:check": "oxlint"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@orpc/contract": "1.14.5",

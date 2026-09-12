@@ -14,9 +14,9 @@ description: >-
 This is **not a 1:1 transpile**, and you should not pretend it is. The two test
 kinds do fundamentally different things:
 
-- **Playwright (E2E)** drives the *real running stack* — live web + API +
+- **Playwright (E2E)** drives the _real running stack_ — live web + API +
   Postgres, real auth cookie, navigating across pages like a user.
-- **Vitest here (integration)** mounts *one route in isolation* with the network
+- **Vitest here (integration)** mounts _one route in isolation_ with the network
   mocked by MSW reading an in-memory store, no server, no real auth.
 
 So conversion is a **re-authoring**: keep the intent (what the user does, what
@@ -39,7 +39,7 @@ import { makeLongIslandEntry } from "#/test/mocks/fixtures";
 import { seedEntry, observeSetAnnotation } from "#/test/mocks/handlers";
 
 test("does the thing the E2E did", async () => {
-  seedEntry(makeLongIslandEntry());                 // data the flow assumed exists
+  seedEntry(makeLongIslandEntry()); // data the flow assumed exists
   renderRoute(Route, { path: "/entries/$entryId", initialEntries: ["/entries/1"] });
   const user = userEvent.setup();
 
@@ -56,7 +56,7 @@ Save co-located next to the route as `<name>.integration.test.tsx` (the
 
 1. **Read the source** — a `.spec.ts` path, codegen output, or pasted `page.*`
    lines. List the routes it touches and the data it assumes exists.
-2. **Split by route.** `renderRoute` mounts *one* route and does not follow
+2. **Split by route.** `renderRoute` mounts _one_ route and does not follow
    in-app navigation. A journey that spans pages becomes one test per route,
    each rendering its own `Route` and seeding its own data. Map each
    `page.goto('/entries/1')` (or a link-click that navigates) to the matching
@@ -74,26 +74,26 @@ Save co-located next to the route as `<name>.integration.test.tsx` (the
    as an unhandled error.
 5. **Translate** actions and assertions with the table below.
 6. **Verify.** `pnpm --filter @rhymelab/web test`. Iterate to green, then tell
-   the user plainly what did *not* convert (see Gaps).
+   the user plainly what did _not_ convert (see Gaps).
 
 ## Mapping
 
-| Playwright | Vitest + Testing Library |
-| --- | --- |
-| `import { test, expect } from "@playwright/test"` | `import { expect, test, vi } from "vitest"` + TL + repo helpers |
-| `test("n", async ({ page }) => {…})` | `test("n", async () => { const user = userEvent.setup(); … })` |
-| `page.goto("/entries/1")` | `renderRoute(Route, { path: "/entries/$entryId", initialEntries: ["/entries/1"] })` |
-| `page.getByRole("button", { name })` | `screen.getByRole("button", { name })` |
-| `getByText` / `getByLabel` / `getByPlaceholder` / `getByTestId` | `getByText` / `getByLabelText` / `getByPlaceholderText` / `getByTestId` |
-| `page.locator("css")` | a role/text query if at all possible; else `container.querySelector(...)` or `el.closest(...)` (`renderRoute` returns `container`) |
-| `await loc.click()` | `await user.click(el)` |
-| `await loc.fill(v)` | `await user.clear(el); await user.type(el, v)` |
-| `await loc.selectOption(v)` | `await user.selectOptions(el, v)` |
-| `await loc.check()` / `.press("Enter")` | `await user.click(el)` / `await user.keyboard("{Enter}")` |
-| `await expect(loc).toBeVisible()` | appears async → `expect(await screen.findBy…(…)).toBeInTheDocument()`; already present → `expect(el).toBeVisible()` |
-| `toHaveText` / `toHaveValue` / `toHaveCount(n)` | `toHaveTextContent` / `toHaveValue` / `expect(screen.getAllBy…).toHaveLength(n)` |
-| `waitForSelector` / auto-wait | `findBy…` (async, retries) or `await waitFor(() => expect(…))` |
-| `page.waitForResponse(...)` / network assert | `observeSetAnnotation(vi.fn())` then assert the payload, and/or assert the resulting UI |
+| Playwright                                                      | Vitest + Testing Library                                                                                                           |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `import { test, expect } from "@playwright/test"`               | `import { expect, test, vi } from "vitest"` + TL + repo helpers                                                                    |
+| `test("n", async ({ page }) => {…})`                            | `test("n", async () => { const user = userEvent.setup(); … })`                                                                     |
+| `page.goto("/entries/1")`                                       | `renderRoute(Route, { path: "/entries/$entryId", initialEntries: ["/entries/1"] })`                                                |
+| `page.getByRole("button", { name })`                            | `screen.getByRole("button", { name })`                                                                                             |
+| `getByText` / `getByLabel` / `getByPlaceholder` / `getByTestId` | `getByText` / `getByLabelText` / `getByPlaceholderText` / `getByTestId`                                                            |
+| `page.locator("css")`                                           | a role/text query if at all possible; else `container.querySelector(...)` or `el.closest(...)` (`renderRoute` returns `container`) |
+| `await loc.click()`                                             | `await user.click(el)`                                                                                                             |
+| `await loc.fill(v)`                                             | `await user.clear(el); await user.type(el, v)`                                                                                     |
+| `await loc.selectOption(v)`                                     | `await user.selectOptions(el, v)`                                                                                                  |
+| `await loc.check()` / `.press("Enter")`                         | `await user.click(el)` / `await user.keyboard("{Enter}")`                                                                          |
+| `await expect(loc).toBeVisible()`                               | appears async → `expect(await screen.findBy…(…)).toBeInTheDocument()`; already present → `expect(el).toBeVisible()`                |
+| `toHaveText` / `toHaveValue` / `toHaveCount(n)`                 | `toHaveTextContent` / `toHaveValue` / `expect(screen.getAllBy…).toHaveLength(n)`                                                   |
+| `waitForSelector` / auto-wait                                   | `findBy…` (async, retries) or `await waitFor(() => expect(…))`                                                                     |
+| `page.waitForResponse(...)` / network assert                    | `observeSetAnnotation(vi.fn())` then assert the payload, and/or assert the resulting UI                                            |
 
 ## Gaps — call these out, don't paper over them
 
@@ -114,5 +114,5 @@ Save co-located next to the route as `<name>.integration.test.tsx` (the
 ## Notes
 
 - Runner: `pnpm --filter @rhymelab/web test` (or `test:watch`).
-- Keep the repo's heavily-commented style — explain *why* a step or assertion
+- Keep the repo's heavily-commented style — explain _why_ a step or assertion
   matters, deriving offsets/counts from seeded data rather than hard-coding.

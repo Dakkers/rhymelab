@@ -1,6 +1,0 @@
-{
-  "*.{ts,tsx,js,jsx,mjs,cjs}": [
-    "oxfmt --config .config/oxfmt.config.ts",
-    "oxlint --config .config/oxlint.config.ts"
-  ]
-}
