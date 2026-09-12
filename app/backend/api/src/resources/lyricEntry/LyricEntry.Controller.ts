@@ -19,11 +19,9 @@ import type {
 import { RlInvalidDataError } from "@rhymelab/utils";
 
 export class LyricEntryController {
-  #db: PrismaClient;
   lyricEntryOrm: LyricEntryOrm;
 
   constructor(factory: { db: PrismaClient; LyricEntryOrm: LyricEntryOrm }) {
-    this.#db = factory.db;
     this.lyricEntryOrm = factory.LyricEntryOrm;
   }
 

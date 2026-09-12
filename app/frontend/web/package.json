@@ -21,10 +21,10 @@
     "e2e:ui": "playwright test --config .config/playwright.config.ts --ui",
     "e2e:record": "playwright codegen --target playwright-test http://localhost:3000",
     "e2e:report": "playwright show-report playwright-report",
-    "fmt": "oxfmt --config .oxfmtrc.json .",
-    "fmt:check": "oxfmt --config .oxfmtrc.json --check .",
-    "lint": "oxlint --config .config/.oxlintrc.json --fix",
-    "lint:check": "oxlint --config .config/.oxlintrc.json"
+    "fmt": "oxfmt --config .config/oxfmt.config.ts .",
+    "fmt:check": "oxfmt --config .config/oxfmt.config.ts --check .",
+    "lint": "oxlint --config .config/oxlint.config.ts --fix",
+    "lint:check": "oxlint --config .config/oxlint.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.6.0",
