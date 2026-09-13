@@ -1,4 +1,7 @@
-import { LyricEntrySectionTypeSchema, type LyricEntrySectionType } from "@rhymelab/database";
+import {
+  LyricEntrySectionTypeSchema,
+  type LyricEntrySectionType,
+} from "@rhymelab/database/schemas";
 
 const DEFAULT_SECTION_TYPE: LyricEntrySectionType = "verse";
 

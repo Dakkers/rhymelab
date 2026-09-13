@@ -5,7 +5,7 @@ import {
   readLyricEntryDetailSchema,
   lyricEntryListItemSchema,
 } from "./lyricEntry.schemas";
-import { LyricEntrySectionTypeSchema } from "@rhymelab/database";
+import { LyricEntrySectionTypeSchema } from "@rhymelab/database/schemas";
 
 /**
  * Save a new piece.

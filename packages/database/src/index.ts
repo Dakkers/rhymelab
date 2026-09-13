@@ -1,7 +1,5 @@
 export { PrismaClient, Prisma } from "./_generated/prisma/client";
-export * from "./_generated/prisma-zod/schemas/enums/LyricEntryKind.schema";
-export * from "./_generated/prisma-zod/schemas/enums/LyricEntrySectionType.schema";
-export * from "./_generated/prisma-zod/schemas/models";
+export * from "./schemas";
 
 export { initializeOrms } from "./orms";
 export { LyricEntryOrm } from "./orms/LyricEntry";

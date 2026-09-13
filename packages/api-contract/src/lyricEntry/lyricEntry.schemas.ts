@@ -1,5 +1,5 @@
 import z from "zod";
-import { LyricEntryModelSchema } from "@rhymelab/database";
+import { LyricEntryModelSchema } from "@rhymelab/database/schemas";
 import { normalizeEntryBody } from "./lyricEntry.util";
 
 const SONG_SPECIFIC_FIELDS = {
