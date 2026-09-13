@@ -1,9 +1,13 @@
 import { Fragment, type ReactNode } from "react";
 import { Flex, Text } from "@saintly-software/baritone";
-import { splitSections, type EntryDetail, type SectionType } from "@rhymelab/api-contract";
 import { Eyebrow } from "#/components/Eyebrow";
+import {
+  splitSections,
+  type LyricEntrySectionType,
+  type ReadLyricEntryDetail,
+} from "@rhymelab/api-contract";
 
-const SECTION_TYPE_LABEL: Record<SectionType, string> = {
+const SECTION_TYPE_LABEL: Record<LyricEntrySectionType, string> = {
   intro: "Intro",
   verse: "Verse",
   prechorus: "Pre-Chorus",
@@ -12,11 +16,6 @@ const SECTION_TYPE_LABEL: Record<SectionType, string> = {
   outro: "Outro",
 };
 
-/**
- * A piece laid out as labelled blocks, one per section. How a line itself renders
- * is the caller's call, handed in as `renderLine`, so the layout looks the same
- * whether the piece is being read or edited.
- */
 export function LyricSections({ sections, renderLine }: LyricSectionsProps) {
   return (
     <Flex direction="column" gap="6">
@@ -47,24 +46,17 @@ function LyricSection({
   );
 }
 
-/** A line of the sheet: its text, plus the index it holds in the whole piece. */
 export type SheetLine = { text: string; globalIndex: number };
 
-/** One section of the sheet: its type, and the lines it holds in order. */
-export type SheetSection = { label: SectionType; lines: readonly SheetLine[] };
+export type SheetSection = { label: LyricEntrySectionType; lines: readonly SheetLine[] };
 
 export interface LyricSectionsProps {
   sections: readonly SheetSection[];
   renderLine: (line: SheetLine) => ReactNode;
 }
 
-/**
- * Split a piece's body into the sections it renders as, each line carrying the
- * index it holds in the whole piece — the coordinate space annotations are
- * authored in.
- */
 export function toSheetSections(
-  entry: Pick<EntryDetail, "body" | "structure">,
+  entry: Pick<ReadLyricEntryDetail, "body" | "structure">,
 ): readonly SheetSection[] {
   let cursor = 0;
   return splitSections(entry.body).map((section, index) => {

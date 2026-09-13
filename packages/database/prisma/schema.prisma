@@ -1,0 +1,78 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/_generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = ""
+}
+
+generator zod {
+  provider = "prisma-zod-generator"
+  output   = "../src/_generated/prisma-zod"
+  config   = "../.config/prisma-to-zod.config.json"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum LyricEntryKind {
+  poem
+  song
+}
+
+enum LyricEntrySectionType {
+  verse
+  chorus
+  bridge
+  prechorus
+  intro
+  outro
+  stanza
+  postchorus
+  refrain
+  interlude
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  email        String @unique
+  displayName  String @map("display_name")
+  passwordHash String @map("password_hash")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  entries LyricEntry[]
+
+  @@map("users")
+}
+
+model LyricEntry {
+  id   String         @id @default(uuid()) @db.Uuid
+  kind LyricEntryKind
+
+  title     String
+  body      String
+  structure LyricEntrySectionType[] @default([])
+
+  authors String[] @default([])
+  year    Int?
+  artists String[] @default([])
+  album   String?
+  isrc    String?
+  iswc    String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  userId String @map("user_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([kind])
+  @@index([userId, deletedAt])
+  @@map("lyric_entries")
+}

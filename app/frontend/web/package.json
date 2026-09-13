@@ -20,11 +20,7 @@
     "e2e": "playwright test --config .config/playwright.config.ts",
     "e2e:ui": "playwright test --config .config/playwright.config.ts --ui",
     "e2e:record": "playwright codegen --target playwright-test http://localhost:3000",
-    "e2e:report": "playwright show-report playwright-report",
-    "fmt": "oxfmt --config .oxfmtrc.json .",
-    "fmt:check": "oxfmt --config .oxfmtrc.json --check .",
-    "lint": "oxlint --config .config/.oxlintrc.json --fix",
-    "lint:check": "oxlint --config .config/.oxlintrc.json"
+    "e2e:report": "playwright show-report playwright-report"
   },
   "dependencies": {
     "@base-ui/react": "1.6.0",
@@ -69,8 +65,6 @@
     "@vitest/browser": "4.1.10",
     "@vitest/browser-playwright": "4.1.10",
     "msw": "2.15.0",
-    "oxfmt": "0.50.0",
-    "oxlint": "1.64.0",
     "playwright": "1.62.0",
     "typescript": "6.0.3",
     "vite": "8.1.4",
