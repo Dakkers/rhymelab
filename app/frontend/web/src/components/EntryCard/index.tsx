@@ -18,7 +18,7 @@ export function EntryCard({ entry }: { entry: LyricEntryListItem }) {
       subheader={<InlineList>{entry.bylineParts}</InlineList>}
       action={<Badge text={KIND_LABEL[entry.kind]} shape="square" saliency="low" />}
       description={entry.excerpt}
-      href={`/lyricEntries/${entry.id}`}
+      href={`/entries/${entry.id}`}
       render={<RouterLink to="/entries/$entryId" params={{ entryId: entry.id }} />}
     >
       <InlineList

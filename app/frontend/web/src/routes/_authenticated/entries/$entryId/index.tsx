@@ -37,21 +37,6 @@ function EntryPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const [editingText, setEditingText] = useState(false);
-  const [draft, setDraft] = useState(entry.body);
-  const normalizedDraft = normalizeEntryBody(draft);
-  const normalizedStored = normalizeEntryBody(entry.body);
-
-  const updateBody = useMutation(
-    orpc.lyricEntries.updateBody.mutationOptions({
-      onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: orpc.lyricEntries.getItem.key({ input: { id: entryId } }),
-        });
-        void queryClient.invalidateQueries({ queryKey: orpc.lyricEntries.list.key() });
-        setEditingText(false);
-      },
-    }),
-  );
 
   const deleteEntry = useMutation(
     orpc.lyricEntries.delete.mutationOptions({
@@ -76,10 +61,7 @@ function EntryPage() {
             <Menu.Item
               key="edit"
               icon={<PenLine />}
-              onClick={() => {
-                setDraft(entry.body);
-                setEditingText(true);
-              }}
+              onClick={() => setEditingText(true)}
             >
               Edit Text
             </Menu.Item>,
@@ -101,43 +83,7 @@ function EntryPage() {
         <LyricSections sections={toSheetSections(entry)} renderLine={(line) => line.text} />
       </Card>
 
-      <Drawer
-        open={editingText}
-        onOpenChange={setEditingText}
-        disabled={updateBody.isPending}
-        header={<Drawer.Header title="Edit text" subtitle={entry.title} />}
-        footer={
-          <Drawer.Footer
-            actions={[
-              <Button
-                key="cancel"
-                saliency="low"
-                disabled={updateBody.isPending}
-                onClick={() => setEditingText(false)}
-              >
-                Cancel
-              </Button>,
-              <Button
-                key="save"
-                loading={updateBody.isPending}
-                disabled={!normalizedDraft || normalizedDraft === normalizedStored}
-                onClick={() => updateBody.mutate({ id: entryId, body: draft })}
-              >
-                Save
-              </Button>,
-            ]}
-          />
-        }
-      >
-        <TextInput
-          multiline
-          rows={18}
-          label="Text"
-          value={draft}
-          onChange={(value) => setDraft(value)}
-          required
-        />
-      </Drawer>
+      <EditTextDrawer entry={entry} open={editingText} onOpenChange={setEditingText} />
 
       <ConfirmationModal
         open={confirmingDelete}
@@ -153,11 +99,82 @@ function EntryPage() {
         }}
       >
         <Text>
-          It won’t appear in your library any more. The text isn’t erased from the database, so this
-          can be undone by hand — but not from the app.
+          This entry will no longer appear in your library.
         </Text>
       </ConfirmationModal>
     </Page>
+  );
+}
+
+function EditTextDrawer({
+  entry,
+  open,
+  onOpenChange,
+}: {
+  entry: ReadLyricEntryDetail;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState(entry.body);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setDraft(entry.body);
+  }
+  const normalizedDraft = normalizeEntryBody(draft);
+  const normalizedStored = normalizeEntryBody(entry.body);
+
+  const updateBody = useMutation(
+    orpc.lyricEntries.updateBody.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: orpc.lyricEntries.getItem.key({ input: { id: entry.id } }),
+        });
+        void queryClient.invalidateQueries({ queryKey: orpc.lyricEntries.list.key() });
+        onOpenChange(false);
+      },
+    }),
+  );
+
+  return (
+    <Drawer
+      open={open}
+      onOpenChange={onOpenChange}
+      disabled={updateBody.isPending}
+      header={<Drawer.Header title="Edit text" subtitle={entry.title} />}
+      footer={
+        <Drawer.Footer
+          actions={[
+            <Button
+              key="cancel"
+              saliency="low"
+              disabled={updateBody.isPending}
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>,
+            <Button
+              key="save"
+              loading={updateBody.isPending}
+              disabled={!normalizedDraft || normalizedDraft === normalizedStored}
+              onClick={() => updateBody.mutate({ id: entry.id, body: draft })}
+            >
+              Save
+            </Button>,
+          ]}
+        />
+      }
+    >
+      <TextInput
+        multiline
+        rows={18}
+        label="Text"
+        value={draft}
+        onChange={(value) => setDraft(value)}
+        required
+      />
+    </Drawer>
   );
 }
 
