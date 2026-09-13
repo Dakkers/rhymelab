@@ -81,11 +81,7 @@ function EntryPage() {
           items={[
             <Menu.Item
               key="edit"
-              icon={
-                <Icon>
-                  <PenLine />
-                </Icon>
-              }
+              // icon={<PenLine />}
               onClick={() => {
                 setDraft(entry.body);
                 setEditingText(true);
@@ -96,11 +92,7 @@ function EntryPage() {
             <Menu.Item
               key="delete"
               intent="negative"
-              icon={
-                <Icon>
-                  <Trash2 />
-                </Icon>
-              }
+              // icon={<Trash2 />}
               onClick={() => {
                 setConfirmingDelete(true);
               }}
@@ -111,7 +103,7 @@ function EntryPage() {
         />
       }
     >
-      <Card header={<Card.Header title={KIND_LABEL[entry.kind]} />}>
+      <Card>
         <LyricSections sections={toSheetSections(entry)} renderLine={(line) => line.text} />
       </Card>
 

@@ -41,6 +41,8 @@ export const lyricEntryListItemSchema = LyricEntryModelSchema.pick({
   })
   .transform((datum) => ({
     authorsFormatted: formatAuthorList(datum.authors),
+    updatedAtFormatted: formatSince(datum.updatedAt),
+    bylineParts: buildBylineParts(datum),
     ...datum,
   }));
 
@@ -83,6 +85,46 @@ export const createLyricEntrySchema = z.discriminatedUnion("kind", [
     kind: z.literal("poem"),
   }),
 ]);
+
+/**
+ * Build the credit line shown under an entry's title, as the ordered parts a client
+ * joins with its own separator. Parts with nothing to say are omitted, so the array
+ * MAY be empty. Songs are credited to their artists and carry an album; poems are
+ * credited to their authors.
+ */
+function buildBylineParts(datum: {
+  kind: "song" | "poem";
+  authors: readonly string[];
+  artists: readonly string[];
+  album?: string | null;
+  year?: number | null;
+}): string[] {
+  const credits = datum.kind === "song" ? datum.artists : datum.authors;
+  return [
+    formatAuthorList(credits),
+    datum.kind === "song" ? datum.album : null,
+    datum.year === null || datum.year === undefined ? null : String(datum.year),
+  ].filter((part): part is string => Boolean(part));
+}
+
+/**
+ * Render an instant as a coarse "time ago" label ("just now", "3h ago", "2mo ago"),
+ * relative to the moment the value is serialized.
+ */
+function formatSince(at: Date | string): string {
+  const diff = Date.now() - (at instanceof Date ? at.getTime() : Date.parse(at));
+  const sec = Math.round(diff / 1000);
+  if (sec < 45) return "just now";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  const mo = Math.round(day / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.round(mo / 12)}y ago`;
+}
 
 function formatAuthorList(list: readonly string[]): string {
   if (list.length < 2) return list[0] ?? "";
