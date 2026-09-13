@@ -22,36 +22,44 @@ export const songEntrySchema = entryBaseSchema.omit({}).extend({
 /** A "proper typesafe" version of the {@link LyricEntryModelSchema} - discriminated union on `kind`. */
 export const lyricEntrySchema = z.discriminatedUnion("kind", [poemEntrySchema, songEntrySchema]);
 
-export const lyricEntryListItemSchema = entryBaseSchema
-  .pick({
-    id: true,
-    title: true,
-    body: true,
-    authors: true,
-    year: true,
-    album: true,
-    artists: true,
-  })
+export const lyricEntryListItemSchema = LyricEntryModelSchema.pick({
+  kind: true,
+  id: true,
+  title: true,
+  body: true,
+  authors: true,
+  year: true,
+  album: true,
+  artists: true,
+  createdAt: true,
+  updatedAt: true,
+})
   .extend({
     excerpt: z.string(),
     lineCount: z.number().int().nonnegative(),
     wordCount: z.number().int().nonnegative(),
-  });
-
-export const readLyricEntryDetailSchema = entryBaseSchema
-  .pick({
-    id: true,
-    title: true,
-    body: true,
-    authors: true,
-    year: true,
-    album: true,
-    artists: true,
   })
-  .extend({
-    lineCount: z.number().int().nonnegative(),
-    wordCount: z.number().int().nonnegative(),
-  });
+  .transform((datum) => ({
+    authorsFormatted: formatAuthorList(datum.authors),
+    ...datum,
+  }));
+
+export const readLyricEntryDetailSchema = LyricEntryModelSchema.pick({
+  kind: true,
+  id: true,
+  title: true,
+  body: true,
+  authors: true,
+  year: true,
+  album: true,
+  artists: true,
+  createdAt: true,
+  updatedAt: true,
+  structure: true,
+}).extend({
+  lineCount: z.number().int().nonnegative(),
+  wordCount: z.number().int().nonnegative(),
+});
 
 const createLyricEntrySchemaBase = entryBaseSchema
   .pick({
@@ -75,6 +83,13 @@ export const createLyricEntrySchema = z.discriminatedUnion("kind", [
     kind: z.literal("poem"),
   }),
 ]);
+
+function formatAuthorList(list: readonly string[]): string {
+  if (list.length < 2) return list[0] ?? "";
+  const last = list[list.length - 1];
+  const rest = list.slice(0, -1);
+  return `${rest.join(", ")}${rest.length > 1 ? "," : ""} & ${last}`;
+}
 
 export type LyricEntry = z.infer<typeof lyricEntrySchema>;
 export type LyricEntryListItem = z.infer<typeof lyricEntryListItemSchema>;

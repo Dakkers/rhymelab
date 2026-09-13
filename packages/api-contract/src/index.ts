@@ -19,3 +19,4 @@ export const contract = {
 
 export * from "./lyricEntry/lyricEntry.schemas";
 export * from "./lyricEntry/lyricEntry.util";
+export { type LyricEntryKind, type LyricEntrySectionType } from "@rhymelab/database";

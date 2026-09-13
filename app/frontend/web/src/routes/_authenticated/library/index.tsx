@@ -12,24 +12,17 @@ import {
   Text,
 } from "@saintly-software/baritone";
 import { AlignLeft, Clock, PenLine, Plus, CaseSensitive } from "lucide-react";
-import type { EntrySummary } from "@rhymelab/api-contract";
 import { Page } from "../../../components/Page";
 import { orpc } from "../../../lib/orpc";
 import { names, pluralize, since } from "../../../lib/format";
 import { useMounted } from "../../../lib/hooks";
+import type { LyricEntryListItem } from "@rhymelab/api-contract";
 
-const KIND_LABEL: Record<EntrySummary["kind"], string> = {
-  lyrics: "Lyrics",
+const KIND_LABEL: Record<LyricEntryListItem["kind"], string> = {
+  song: "Song",
   poem: "Poem",
 };
 
-/**
- * The Library is the signed-in default landing page: the list of lyrics and
- * poems the user has saved (over oRPC's `lyricEntries.list`, newest-edited first).
- * Reads go through the TanStack Query cache: the loader primes it so the list is
- * ready on first paint, and the component subscribes so an invalidation
- * elsewhere (e.g. after creating an entry) refetches it here.
- */
 export const Route = createFileRoute("/_authenticated/library/")({
   loader: ({ context }) =>
     context.queryClient.ensureQueryData(orpc.lyricEntries.list.queryOptions()),
@@ -59,7 +52,7 @@ function LibraryPage() {
     >
       {lyricEntries.length === 0 ? (
         <Text saliency="low">
-          Nothing saved yet. Your lyrics and poems will show up here once you start writing.
+          Nothing saved yet. Your song and poems will show up here once you start writing.
         </Text>
       ) : (
         <CardList aria-label="Saved pieces" gap="3">
@@ -72,7 +65,7 @@ function LibraryPage() {
   );
 }
 
-function EntryCard({ entry }: { entry: EntrySummary }) {
+function EntryCard({ entry }: { entry: LyricEntryListItem }) {
   return (
     <Card
       header={entry.title}
@@ -91,8 +84,8 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
       >
         <Stat icon={<AlignLeft />}>{pluralize(entry.lineCount, "line")}</Stat>
         <Stat icon={<CaseSensitive />}>{pluralize(entry.wordCount, "word")}</Stat>
-        {entry.kind === "lyrics" && names(entry.author) && (
-          <Stat icon={<PenLine />}>Words by {names(entry.author)}</Stat>
+        {entry.kind === "song" && names(entry.authors) && (
+          <Stat icon={<PenLine />}>Words by {names(entry.authors)}</Stat>
         )}
         <Updated at={entry.updatedAt} />
       </InlineList>
@@ -100,43 +93,21 @@ function EntryCard({ entry }: { entry: EntrySummary }) {
   );
 }
 
-/**
- * The identity line under the title: who made it and when. A poem leads with its
- * author; lyrics lead with the performer and the record it's on. Every part is
- * optional — an unattributed piece, a single with no album, a year we don't know
- * — so the parts go in as bare strings and `InlineList` drops the empty ones
- * along with their separators. Typography is inherited from the `subheader`
- * slot, so nothing here imposes its own.
- */
-function byline(entry: EntrySummary): ReactNode {
+function byline(entry: LyricEntryListItem): ReactNode {
   return (
     <InlineList>
-      {entry.kind === "lyrics" ? names(entry.artist) : names(entry.author)}
-      {entry.kind === "lyrics" && entry.album}
+      {entry.kind === "song" ? names(entry.artists) : names(entry.authors)}
+      {entry.kind === "song" && entry.album}
       {entry.year}
     </InlineList>
   );
 }
 
-/**
- * Relative edited-time, gated behind a mount check: `since` reads the wall clock,
- * so rendering it during SSR would mismatch the client's first paint.
- */
 function Updated({ at }: { at: string }) {
   const mounted = useMounted();
   return <Stat icon={<Clock />}>{mounted ? `Edited ${since(at)}` : "Edited recently"}</Stat>;
 }
 
-/**
- * One metadata item in a card's stat line: a small icon ahead of its label.
- *
- * The icons are decorative — `Icon` without a `label` is `aria-hidden`, so a
- * screen reader hears "12 lines", not "document icon, 12 lines". The words are
- * what carry the meaning; the glyph only makes the line scannable. Colour is
- * inherited: `Icon` inside a `Text` picks up that text's resolved colour via
- * `--iconColor`, so the icon dims with the label rather than needing its own
- * `saliency`.
- */
 function Stat({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <Text size="sm" saliency="low" render={<Flex inline align="center" gap="1" />}>

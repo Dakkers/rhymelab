@@ -13,27 +13,21 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { PenLine, Trash2 } from "lucide-react";
-import { normalizeEntryBody, type EntryDetail } from "@rhymelab/api-contract";
+import { normalizeEntryBody, type ReadLyricEntryDetail } from "@rhymelab/api-contract";
 import { LyricSections, toSheetSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
 import { orpc } from "#/lib/orpc";
 
-const KIND_LABEL: Record<EntryDetail["kind"], string> = {
-  lyrics: "Lyrics",
+const KIND_LABEL: Record<ReadLyricEntryDetail["kind"], string> = {
+  song: "Song",
   poem: "Poem",
 };
 
-/**
- * A saved piece's detail view — fetched over oRPC's `entries.get`, scoped to the
- * id in the URL. Reads go through the TanStack Query cache the same way the
- * Library does: the loader primes it so the piece is ready on first paint, and
- * the component subscribes with `useSuspenseQuery`.
- */
 export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
   loader: ({ params, context }) =>
     context.queryClient.ensureQueryData(
-      orpc.entries.get.queryOptions({ input: { id: params.entryId } }),
+      orpc.lyricEntries.getItem.queryOptions({ input: { id: params.entryId } }),
     ),
   component: EntryPage,
 });
@@ -43,7 +37,7 @@ function EntryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: entry } = useSuspenseQuery(
-    orpc.entries.get.queryOptions({ input: { id: entryId } }),
+    orpc.lyricEntries.getItem.queryOptions({ input: { id: entryId } }),
   );
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -54,22 +48,24 @@ function EntryPage() {
   const normalizedStored = normalizeEntryBody(entry.body);
 
   const updateBody = useMutation(
-    orpc.entries.updateBody.mutationOptions({
+    orpc.lyricEntries.updateBody.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries({
-          queryKey: orpc.entries.get.key({ input: { id: entryId } }),
+          queryKey: orpc.lyricEntries.getItem.key({ input: { id: entryId } }),
         });
-        void queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
+        void queryClient.invalidateQueries({ queryKey: orpc.lyricEntries.list.key() });
         setEditingText(false);
       },
     }),
   );
 
   const deleteEntry = useMutation(
-    orpc.entries.delete.mutationOptions({
+    orpc.lyricEntries.delete.mutationOptions({
       onSuccess: async () => {
-        queryClient.removeQueries({ queryKey: orpc.entries.get.key({ input: { id: entryId } }) });
-        await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
+        queryClient.removeQueries({
+          queryKey: orpc.lyricEntries.getItem.key({ input: { id: entryId } }),
+        });
+        await queryClient.invalidateQueries({ queryKey: orpc.lyricEntries.list.key() });
         await navigate({ to: "/library" });
       },
     }),
@@ -179,15 +175,9 @@ function EntryPage() {
   );
 }
 
-/**
- * The identity line under the title: who made it and when. A poem leads with
- * its author; lyrics lead with the performer and the record it's on — same
- * convention as the Library's `byline`, minus the excerpt/line/word stats the
- * summary carries and the detail view doesn't.
- */
-function byline(entry: EntryDetail): ReactNode {
-  const credit = entry.kind === "lyrics" ? names(entry.artist) : names(entry.author);
-  const album = entry.kind === "lyrics" ? entry.album : undefined;
+function byline(entry: ReadLyricEntryDetail): ReactNode {
+  const credit = entry.kind === "song" ? names(entry.artists) : names(entry.authors);
+  const album = entry.kind === "song" ? entry.album : undefined;
 
   if (!credit && !album && entry.year === undefined) return undefined;
 
