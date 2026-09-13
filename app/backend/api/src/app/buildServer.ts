@@ -18,8 +18,10 @@ import Fastify from "fastify";
 import { createOrpcRouter, type Session } from "./createOrpcRouter";
 import { COOKIE_NAME, COOKIE_VALUE, sessionSecret, TEMP_USER_ID } from "./session";
 import { instantiateControllers } from "./instantiateControllers";
+import { initializeOrms, PrismaClient } from "@rhymelab/database";
 
-export async function buildServer(factory) {
+export async function buildServer({ db }: { db: PrismaClient }) {
+  const orms = initializeOrms({ prisma: db, readonlyPrisma: db });
   const handler = new OpenAPIHandler(createOrpcRouter(), {
     interceptors: [onError((error) => console.error(error))],
   });
@@ -49,8 +51,8 @@ export async function buildServer(factory) {
       context: {
         session,
         reply,
-        ...factory,
-        ...instantiateControllers(factory),
+        db,
+        ...instantiateControllers({ db, ...orms }),
         userId: session?.userId ?? "-1",
       },
     });

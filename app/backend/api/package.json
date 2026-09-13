@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "dev:db:seed": "tsx ./src/_dev/seed.ts",
     "start": "tsx src/main.ts",
     "test": "vitest run --config .config/vitest.config.ts --project unit",
     "test:watch": "vitest --config .config/vitest.config.ts --project unit",

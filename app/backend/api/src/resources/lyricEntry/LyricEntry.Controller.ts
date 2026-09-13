@@ -10,11 +10,12 @@ import {
   normalizeEntryBody,
   splitSections,
 } from "@rhymelab/api-contract";
-import type {
-  LyricEntryOrm,
-  LyricEntrySectionType,
-  Prisma,
-  PrismaClient,
+import {
+  LyricEntryModelSchema,
+  type LyricEntryOrm,
+  type LyricEntrySectionType,
+  type Prisma,
+  type PrismaClient,
 } from "@rhymelab/database";
 import { RlInvalidDataError } from "@rhymelab/utils";
 
@@ -76,11 +77,13 @@ export class LyricEntryController {
         album: true,
         createdAt: true,
         updatedAt: true,
+        structure: true,
+        userId: true,
       },
     });
     return rows.map((row) => {
-      const datum = lyricEntryListItemSchema.parse(row);
-      return { ...datum, ...deriveEntrySummaryFields(row.body) };
+      const datum = LyricEntryModelSchema.parse(row);
+      return lyricEntryListItemSchema.parse({ ...datum, ...deriveEntrySummaryFields(row.body) });
     });
   }
 
@@ -101,11 +104,11 @@ export class LyricEntryController {
         id: true,
         kind: true,
         title: true,
-        author: true,
+        authors: true,
         year: true,
         body: true,
         structure: true,
-        artist: true,
+        artists: true,
         album: true,
         createdAt: true,
         updatedAt: true,

@@ -1,22 +1,23 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { normalizeEntryBody, splitSections, type SectionType } from "@rhymelab/api-contract";
+import { normalizeEntryBody, splitSections } from "@rhymelab/api-contract";
 import { loadEnv } from "../load-env";
 import { TEMP_USER_ID } from "../app/session";
-import type { PrismaClient } from "@rhymelab/database";
+import {
+  initializeOrms,
+  LyricEntryKindSchema,
+  LyricEntrySectionTypeSchema,
+  type PrismaClient,
+} from "@rhymelab/database";
+import z from "zod";
 
 loadEnv();
 
-const { initializeDb } = await import("./../app/initializeDb");
+const { initializeDb } = await import("../app/initializeDb");
 const db = initializeDb();
-
-try {
-  await main(db);
-} catch (err) {
-  console.error(err);
-  await db.$disconnect();
-  process.exit(1);
-}
+const { instantiateControllers } = await import("../app/instantiateControllers");
+const orms = initializeOrms({ prisma: db, readonlyPrisma: db });
+const ctrls = instantiateControllers({ db, ...orms });
 
 async function main(db: PrismaClient) {
   await createTempUser(db);
@@ -30,60 +31,59 @@ async function main(db: PrismaClient) {
     ).map((e) => e.title),
   );
 
-  const toCreate: EntryCreateData[] = [];
   let skipped = 0;
   let missing = 0;
   let invalid = 0;
 
-  for (const seed of SEEDS) {
-    if (existing.has(seed.title)) {
-      console.log(`• ${seed.title} — already present, skipping`);
-      skipped++;
-      continue;
-    }
+  await db.$transaction(async (tx) => {
+    for (const seed of SEEDS) {
+      if (existing.has(seed.title)) {
+        console.log(`• ${seed.title} — already present, skipping`);
+        skipped++;
+        continue;
+      }
 
-    const body = readBody(seed.file);
-    if (body === null) {
-      console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
-      missing++;
-      continue;
-    }
+      const body = readBody(seed.file);
+      if (body === null) {
+        console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
+        missing++;
+        continue;
+      }
 
-    const sections = splitSections(body);
-    if (sections.length !== seed.structure.length) {
-      console.error(
-        `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
-          `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
-          `in seed.ts to match. Skipping.`,
+      const sections = splitSections(body);
+      if (sections.length !== seed.structure.length) {
+        console.error(
+          `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
+            `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
+            `in seed.ts to match. Skipping.`,
+        );
+        invalid++;
+        continue;
+      }
+
+      // @ts-expect-error Ignore for now
+      const createResult = await ctrls.LyricEntryController.create({
+        userId: TEMP_USER_ID,
+        kind: LyricEntryKindSchema.parse(seed.kind),
+        title: seed.title,
+        authors: seed.authors ?? [],
+        year: seed.year,
+        body,
+      });
+
+      await ctrls.LyricEntryController.updateStructure(
+        createResult.id,
+        z.array(LyricEntrySectionTypeSchema).parse(seed.structure),
+        tx,
       );
-      invalid++;
-      continue;
     }
-
-    toCreate.push({
-      userId: TEMP_USER_ID,
-      kind: seed.kind,
-      title: seed.title,
-      author: seed.author ?? [],
-      year: seed.year,
-      body,
-      structure: seed.structure,
-      artist: seed.artist ?? [],
-      album: seed.album,
-    });
-  }
-
-  await db.$transaction(
-    toCreate.map((data) => {
-      console.log(`✓ ${data.title} (${data.kind}) — ${data.structure.length} sections`);
-      return db.lyricEntry.create({ data });
-    }),
-  );
+  });
 
   console.log(
-    `\nSeed complete: ${toCreate.length} created, ${skipped} skipped, ` +
+    `\nSeed complete: ${SEEDS.length - skipped - missing - invalid} created, ${skipped} skipped, ` +
       `${missing} missing, ${invalid} invalid.`,
   );
+
   if (missing === SEEDS.length) {
     console.log(`No demo files found in ${DUMMY_DIR}. Drop the DEMO_*.txt files there and re-run.`);
   }
@@ -128,69 +128,55 @@ function stripSectionHeaders(raw: string): string {
     .join("\n");
 }
 
-const SEEDS: Seed[] = [
+const SEEDS = [
   {
     file: "DEMO_LongIsland.txt",
     title: "Long Island",
-    kind: "lyrics",
+    kind: "song",
     structure: ["verse", "prechorus", "chorus", "verse", "prechorus", "chorus", "bridge", "chorus"],
   },
   {
     file: "DEMO_RocketGirl.txt",
     title: "Rocket Girl",
-    kind: "lyrics",
+    kind: "song",
     structure: ["verse", "chorus", "verse", "chorus", "outro"],
   },
   {
     file: "DEMO_RoundHere.txt",
     title: "Round Here",
-    kind: "lyrics",
+    kind: "song",
     structure: ["verse", "chorus", "verse", "chorus", "bridge", "verse", "chorus", "outro"],
   },
   {
     file: "DEMO_TheDays.txt",
     title: "The Days",
-    kind: "lyrics",
+    kind: "song",
     structure: ["verse", "prechorus", "chorus", "verse", "prechorus", "chorus", "outro"],
   },
   {
     file: "DEMO_TheNightTheyDroveOldDixieDown.txt",
     title: "The Night They Drove Old Dixie Down",
-    kind: "lyrics",
+    kind: "song",
     structure: ["verse", "chorus", "verse", "chorus", "verse", "chorus"],
   },
   {
     file: "DEMO_TheWasteLand.txt",
     title: "The Waste Land",
     kind: "poem",
-    author: ["T. S. Eliot"],
+    authors: ["T. S. Eliot"],
     year: 1922,
     structure: ["verse"],
   },
 ];
 
-const DUMMY_DIR = resolve(import.meta.dirname, "../../../../.dummy");
+const DUMMY_DIR = resolve(import.meta.dirname, "../../../../../.dummy");
 
-type Seed = {
-  /** Untracked source file under `.dummy/`, e.g. `DEMO_RoundHere.txt`. */
-  file: string;
-  title: string;
-  kind: "poem" | "lyrics";
-  author?: string[];
-  artist?: string[];
-  album?: string;
-  year?: number;
-  structure: SectionType[];
-};
+// -- Run
 
-type EntryCreateData = {
-  userId: string;
-  kind: string;
-  title: string;
-  author: string[];
-  year?: number;
-  body: string;
-  structure: SectionType[];
-  artist: string[];
-  album?: string;
-};
+try {
+  await main(db);
+} catch (err) {
+  console.error(err);
+  await db.$disconnect();
+  process.exit(1);
+}

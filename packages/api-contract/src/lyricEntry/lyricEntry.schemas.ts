@@ -24,6 +24,7 @@ export const lyricEntrySchema = z.discriminatedUnion("kind", [poemEntrySchema, s
 
 export const lyricEntryListItemSchema = entryBaseSchema
   .pick({
+    id: true,
     title: true,
     body: true,
     authors: true,
@@ -39,6 +40,7 @@ export const lyricEntryListItemSchema = entryBaseSchema
 
 export const readLyricEntryDetailSchema = entryBaseSchema
   .pick({
+    id: true,
     title: true,
     body: true,
     authors: true,
