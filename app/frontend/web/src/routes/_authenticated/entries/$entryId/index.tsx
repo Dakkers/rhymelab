@@ -6,7 +6,6 @@ import {
   Card,
   ConfirmationModal,
   Drawer,
-  Icon,
   InlineList,
   Menu,
   Text,
@@ -18,11 +17,6 @@ import { LyricSections, toSheetSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
 import { orpc } from "#/lib/orpc";
-
-const KIND_LABEL: Record<ReadLyricEntryDetail["kind"], string> = {
-  song: "Song",
-  poem: "Poem",
-};
 
 export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
   loader: ({ params, context }) =>
@@ -81,7 +75,7 @@ function EntryPage() {
           items={[
             <Menu.Item
               key="edit"
-              // icon={<PenLine />}
+              icon={<PenLine />}
               onClick={() => {
                 setDraft(entry.body);
                 setEditingText(true);
@@ -92,7 +86,7 @@ function EntryPage() {
             <Menu.Item
               key="delete"
               intent="negative"
-              // icon={<Trash2 />}
+              icon={<Trash2 />}
               onClick={() => {
                 setConfirmingDelete(true);
               }}
