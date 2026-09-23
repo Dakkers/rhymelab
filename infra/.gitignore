@@ -1,0 +1,19 @@
+# Terraform state — contains secrets, never commit.
+*.tfstate
+*.tfstate.*
+
+# Local provider cache / plugins.
+.terraform/
+
+# Local backend + secret var files.
+backend.hcl
+*.auto.tfvars
+secrets.tfvars
+
+# Saved plans and crash logs.
+*.tfplan
+crash.log
+crash.*.log
+
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored — commit it to pin
+# provider hashes across machines.
