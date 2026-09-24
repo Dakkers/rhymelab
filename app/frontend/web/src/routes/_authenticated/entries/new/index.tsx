@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useForm } from "@tanstack/react-form";
+import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Flex, Text, TextInput, ToggleGroup } from "@saintly-software/baritone";
 import { Page } from "#/components/Page";
@@ -16,6 +16,79 @@ const DEFAULTS: NewEntryForm = {
   artists: [],
   album: "",
 };
+
+const { fieldContext, formContext } = createFormHookContexts();
+
+const { useAppForm, withForm } = createFormHook({
+  fieldContext,
+  formContext,
+  fieldComponents: {},
+  formComponents: {},
+});
+
+const SongFields = withForm({
+  defaultValues: DEFAULTS,
+  render: function SongFields({ form }) {
+    return (
+      <>
+        <form.Field name="artists">
+          {(field) => (
+            <TextInput
+              label="Artist"
+              value={field.state.value}
+              onChange={(value) => field.handleChange([value.trim()])}
+              onBlur={field.handleBlur}
+              placeholder="Optional"
+            />
+          )}
+        </form.Field>
+
+        <form.Field name="authors">
+          {(field) => (
+            <TextInput
+              label="Lyricist"
+              value={field.state.value}
+              onChange={(value) => field.handleChange([value.trim()])}
+              onBlur={field.handleBlur}
+              placeholder="Optional"
+            />
+          )}
+        </form.Field>
+
+        <form.Field name="album">
+          {(field) => (
+            <TextInput
+              label="Album"
+              value={field.state.value}
+              onChange={(value) => field.handleChange(value)}
+              placeholder="Optional"
+              onBlur={field.handleBlur}
+            />
+          )}
+        </form.Field>
+      </>
+    );
+  },
+});
+
+const PoemFields = withForm({
+  defaultValues: DEFAULTS,
+  render: function PoemFields({ form }) {
+    return (
+      <form.Field name="authors">
+        {(field) => (
+          <TextInput
+            label="Author"
+            value={field.state.value}
+            onChange={(value) => field.handleChange([value.trim()])}
+            onBlur={field.handleBlur}
+            placeholder="Optional"
+          />
+        )}
+      </form.Field>
+    );
+  },
+});
 
 export const Route = createFileRoute("/_authenticated/entries/new/")({
   component: NewEntryPage,
@@ -34,14 +107,14 @@ function NewEntryPage() {
     }),
   );
 
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: DEFAULTS,
     onSubmit: async ({ value }) => {
-      await createEntry.mutateAsync(buildCreatePayload(value)).catch(() => { });
+      await createEntry.mutateAsync(buildCreatePayload(value)).catch(() => {});
     },
   });
 
-  const songStep = (
+  const lyricsStep = (
     <>
       <Flex justify="between" align="start" gap="6">
         <Flex.Item grow>
@@ -115,49 +188,7 @@ function NewEntryPage() {
   const metadataStep = (
     <>
       <form.Subscribe selector={(state) => state.values.kind}>
-        {(kind) => (
-          <>
-            {kind === "song" ? (
-              <form.Field name="artists">
-                {(field) => (
-                  <TextInput
-                    label="Artist"
-                    value={field.state.value}
-                    onChange={(value) => field.handleChange([value.trim()])}
-                    onBlur={field.handleBlur}
-                    placeholder="Optional"
-                  />
-                )}
-              </form.Field>
-            ) : null}
-
-            <form.Field name="authors">
-              {(field) => (
-                <TextInput
-                  label={kind === "song" ? "Lyricist" : "Author"}
-                  value={field.state.value}
-                  onChange={(value) => field.handleChange([value.trim()])}
-                  onBlur={field.handleBlur}
-                  placeholder="Optional"
-                />
-              )}
-            </form.Field>
-
-            {kind === "song" ? (
-              <form.Field name="album">
-                {(field) => (
-                  <TextInput
-                    label="Album"
-                    value={field.state.value}
-                    onChange={(value) => field.handleChange(value)}
-                    placeholder="Optional"
-                    onBlur={field.handleBlur}
-                  />
-                )}
-              </form.Field>
-            ) : null}
-          </>
-        )}
+        {(kind) => (kind === "song" ? <SongFields form={form} /> : <PoemFields form={form} />)}
       </form.Subscribe>
 
       <form.Field name="year">
@@ -205,7 +236,7 @@ function NewEntryPage() {
           gap="4"
         >
           <form.Subscribe selector={(state) => state.values.step}>
-            {(step) => (step === 1 ? songStep : metadataStep)}
+            {(step) => (step === 1 ? lyricsStep : metadataStep)}
           </form.Subscribe>
         </Flex>
       </Card>
@@ -222,17 +253,17 @@ function buildCreatePayload({ step: _step, ...values }: NewEntryForm): CreateLyr
   };
   return values.kind === "song"
     ? {
-      ...base,
-      kind: "song" as const,
-      artists: values.artists,
-      album: values.album.trim() || undefined,
-    }
+        ...base,
+        kind: "song" as const,
+        artists: values.artists,
+        album: values.album.trim() || undefined,
+      }
     : { ...base, kind: "poem" as const };
 }
 
-type NewEntryForm = Omit<CreateLyricEntryInput, 'year'> & {
+type NewEntryForm = Omit<CreateLyricEntryInput, "year"> & {
   step: 1 | 2;
   album: string;
   artists: string[];
   year: string;
-}
+};

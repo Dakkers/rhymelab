@@ -1,9 +1,7 @@
 /**
- * Browser-safe entry: the Prisma-derived zod schemas, enums, and their inferred
- * types — and nothing that pulls the Prisma **client runtime**. Code that runs
- * in the browser (the shared api-contract, and through it the web app) MUST
- * import schemas from here rather than the package root, whose `PrismaClient`
- * re-export drags a Node-only runtime into the client bundle.
+ * Browser-safe entry: Prisma-derived zod schemas, enums, and types, without
+ * the Prisma client runtime. Browser code MUST import schemas from here, not
+ * the package root, whose `PrismaClient` export pulls Node-only code into the bundle.
  */
 export * from "./_generated/prisma-zod/schemas/enums/LyricEntryKind.schema";
 export * from "./_generated/prisma-zod/schemas/enums/LyricEntrySectionType.schema";

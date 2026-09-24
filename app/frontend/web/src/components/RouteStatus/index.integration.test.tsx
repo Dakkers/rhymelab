@@ -1,10 +1,6 @@
 /**
- * `RouteError` picks the screen a thrown route error renders as. That dispatch
- * is our logic (oRPC and TanStack Router are assumed to work), so it's what's
- * worth pinning: an oRPC `NOT_FOUND` gets the not-found screen, everything
- * else falls through to the generic error screen with a working retry. Uses
- * `renderComponent`, not `renderRoute` — `RouteError` takes its error as a
- * prop rather than one thrown from a loader, so no router is needed here.
+ * Uses `renderComponent`, not `renderRoute`: `RouteError` takes its error as a
+ * prop, so no router is needed.
  */
 import { expect, test, vi } from "vitest";
 import { screen } from "@testing-library/react";

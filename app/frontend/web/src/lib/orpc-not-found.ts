@@ -1,18 +1,11 @@
 /**
- * Turns an oRPC `NOT_FOUND` into the router's own `notFound()` inside a
- * loader — e.g. `loader: ({ params, context }) => orNotFound(context.queryClient
- * .ensureQueryData(orpc.entries.get.queryOptions({ input: { id: params.entryId } })))`.
+ * Await `promise`, rethrowing an oRPC `NOT_FOUND` as the router's `notFound()`.
+ * Loaders SHOULD wrap single-resource fetches in this.
  *
- * Why bother, instead of letting the `ORPCError` propagate to the root's
- * `errorComponent`: TanStack Router's SSR hydration only round-trips a plain
- * `{ name, message }` for a *thrown* error (`defaultSerializeError` in
- * `@tanstack/router-core`), so on a direct navigation or full-page reload the
- * `ORPCError` shape is gone and `error.code` isn't there to check by the time
- * the client re-renders — the reader gets "Something went wrong" for what is
- * really just a missing row. `notFound()` is the router's own first-class "no
- * data here" signal and doesn't have that problem: the already-wired
- * `notFoundComponent` renders for it either way. Route through this whenever a
- * loader fetches a single resource by id.
+ * SSR hydration serializes thrown errors to `{ name, message }`
+ * (`defaultSerializeError` in `@tanstack/router-core`), so an `ORPCError`'s
+ * `code` is lost on a full page load and it renders as a generic error.
+ * `notFound()` survives.
  */
 import { notFound } from "@tanstack/react-router";
 import { ORPCError } from "@orpc/client";

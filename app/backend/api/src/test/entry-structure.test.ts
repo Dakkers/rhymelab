@@ -1,12 +1,6 @@
 /**
- * The `structure` domain logic — `splitSections`, `initStructure`, and the
- * drift-preventing `resyncStructure`. These are pure functions exported from
- * `@rhymelab/api-contract`; that package ships no test runner of its own, so
- * they're pinned here (the api package already imports the contract and has
- * Vitest wired up). No ORM is involved — this is entirely our logic.
- *
- * The invariant every case guards, directly or by the explicit length assertion:
- * a resynced `structure` is always exactly one label per section of the new body.
+ * Tests for the `structure` helpers in `@rhymelab/api-contract`. They live
+ * here because that package has no test runner.
  */
 import { describe, expect, it } from "vitest";
 import { initStructure, resyncStructure, splitSections } from "@rhymelab/api-contract";

@@ -1,18 +1,12 @@
 /**
  * Session helpers. Alpha is a single user behind one shared password; the
- * session is a signed, httpOnly cookie holding nothing but "authenticated" —
- * no server-side store. Swap in a real user store + password hashing when that
- * changes.
- *
- * Ported from the original TanStack Start `session.ts`; the cookie is now issued
- * by Fastify (`@fastify/cookie`) instead of `useSession`.
+ * session is a signed cookie with no server-side store.
  */
 import type { CookieSerializeOptions } from "@fastify/cookie";
 
 const DEV_SESSION_SECRET = "dev-only-insecure-session-secret-change-me-0123456789";
 const DEV_APP_PASSWORD = "password";
 
-/** Cookie name + the sentinel value stored in it. */
 export const COOKIE_NAME = "rhymelab_session";
 export const COOKIE_VALUE = "authed";
 
@@ -20,7 +14,7 @@ export const TEMP_USER_ID = "c5dfd261-6b04-4dc2-b5eb-97821c01bed5";
 
 const THIRTY_DAYS_SECONDS = 60 * 60 * 24 * 30;
 
-/** Secret that signs the session cookie. `@fastify/cookie` is registered with it. */
+/** The session cookie signing secret. Warns in production if the fallback is used. */
 export function sessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (secret && secret.length >= 32) return secret;
@@ -48,7 +42,7 @@ export function cookieOptions(): CookieSerializeOptions {
   };
 }
 
-/** Constant-time password check: compare SHA-256 digests byte-by-byte. */
+/** Compare passwords in constant time. */
 export async function passwordsMatch(candidate: string, actual: string): Promise<boolean> {
   const enc = new TextEncoder();
   const [a, b] = await Promise.all([

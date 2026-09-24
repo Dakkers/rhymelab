@@ -6,11 +6,8 @@ import {
 const DEFAULT_SECTION_TYPE: LyricEntrySectionType = "verse";
 
 /**
- * Derive the list-view fields (`excerpt`, `lineCount`, `wordCount`) from an
- * entry's `body`. Kept beside the schema they populate and shared by the API
- * handler (which derives them on read) and the web MSW mock (which mirrors it),
- * so the two can't drift. A line is anything between newlines, blank ones
- * included; `excerpt` previews the opening non-blank lines.
+ * Derive an entry's list-view fields from its `body`. Blank lines count toward
+ * `lineCount`; `excerpt` previews the opening non-blank lines.
  */
 export function deriveEntrySummaryFields(body: string): {
   excerpt: string;
@@ -32,22 +29,17 @@ export function deriveEntrySummaryFields(body: string): {
 }
 
 /**
- * The `structure` a freshly-saved body gets: one {@link DEFAULT_SECTION_TYPE}
- * per section, so the invariant holds from the first write and the user assigns
- * real labels afterward.
+ * The initial `structure` for a body: the default label for every section.
  */
 export function initStructure(body: string): LyricEntrySectionType[] {
   return Array.from({ length: splitSections(body).length }, () => DEFAULT_SECTION_TYPE);
 }
 
 /**
- * Split a `body` into its sections — the units a `structure` array labels. One
- * definition of "a section" for every path: normalize first (so a section is a
- * run of non-blank lines, delimited by exactly one blank line), then split on
- * the blank line. An empty body has no sections.
+ * Split a `body` into sections: runs of non-blank lines separated by blank
+ * lines. An empty body has no sections.
  *
- * The invariant the whole feature rests on is `structure.length ===
- * splitSections(body).length`; this is the right-hand side.
+ * A `structure` MUST have exactly `splitSections(body).length` labels.
  */
 export function splitSections(body: string): string[] {
   const normalized = normalizeEntryBody(body);
@@ -55,8 +47,8 @@ export function splitSections(body: string): string[] {
 }
 
 /**
- * Standardize a submitted `body` before it's stored: trim every line, and
- * separate sections (runs of non-blank lines) by exactly one blank line.
+ * Normalize a `body`: every line trimmed, sections separated by exactly one
+ * blank line, no leading or trailing blank lines.
  */
 export function normalizeEntryBody(body: string): string {
   const lines = body.split("\n").map((line) => line.trim());
@@ -74,22 +66,12 @@ export function normalizeEntryBody(body: string): string {
 }
 
 /**
- * Re-derive an entry's `structure` after its `body` was edited, so the array
- * never drifts from the section count — the crux of the feature.
+ * Re-derive `structure` after `body` changes. Returns exactly
+ * `splitSections(nextBody).length` labels.
  *
- * It aligns the old and new sections by their *text* (a longest-common-
- * subsequence over the section blocks, exact-match), then: a section that
- * survived the edit keeps whatever label it had; an inserted section takes the
- * default; a removed section's label is dropped with it. Because the alignment
- * respects order, this is correct even when the edit is in the middle of the
- * piece — inserting a verse after the first chorus doesn't shift every label
- * below it, the way a naive "pad/truncate the tail" would.
- *
- * The result is always exactly `splitSections(nextBody).length` labels long.
- *
- * Not handled specially (all acceptable — the count invariant always holds):
- * reordering sections and editing text *within* a section both read as a
- * remove + insert, so the affected section falls back to the default label.
+ * Sections whose text is unchanged keep their label, even when sections are
+ * inserted or removed around them. New sections get the default label. A
+ * reordered or edited section counts as new.
  */
 export function resyncStructure(
   prevBody: string,
@@ -133,10 +115,8 @@ export function resyncStructure(
 }
 
 /**
- * Coerce a stored `structure` to a clean array of exactly `length` labels —
- * padding short arrays (a legacy row that predates the column reads as `[]`) and
- * mapping any value that isn't a current section type to the default. Keeps the
- * alignment below working on trustworthy input.
+ * Coerce a stored `structure` to exactly `length` valid labels. Missing or
+ * unknown values become the default; legacy rows predating the column read as `[]`.
  */
 function coerceStructure(structure: readonly string[], length: number): LyricEntrySectionType[] {
   return Array.from({ length }, (_, i) =>

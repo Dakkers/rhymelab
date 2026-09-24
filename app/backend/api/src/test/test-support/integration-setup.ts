@@ -1,12 +1,6 @@
 /**
- * Global before/after hooks for every DB-backed integration test file, wired in
- * as the integration project's `setupFiles` (see `.config/vitest.config.ts`).
- * Keeping them here means the test files hold assertions only — no per-file
- * connection ceremony.
- *
- * Note there's no `afterEach`: the suite deliberately does NOT reset the database
- * between tests. Each test scopes its rows under a unique `freshUser()`, so tests
- * are idempotent against pre-existing data instead of depending on a clean slate.
+ * Global hooks for DB-backed integration tests. There is no `afterEach`: tests
+ * isolate themselves with `freshUser()` instead of resetting the database.
  */
 import { afterAll, beforeAll } from "vitest";
 import { cleanupRun, prisma } from "./integration-db";

@@ -1,19 +1,7 @@
 /**
- * Generated sample data shared between the API stub (`entries.list`) and the web
- * MSW mock, so the two can't drift.
- *
- * `fakeEntries` builds rows shaped like the api-contract's read model: a schema-
- * valid piece whose presentation fields (`title` / `authors` / `artists` /
- * `album`) are dressed with faker's music / person helpers so a seeded Library is
- * eyeball-friendly rather than lorem-filled. A fixed seed makes the output
- * reproducible, so the list doesn't reshuffle between requests and tests can
- * assert against it.
- *
- * Each row carries a real `body` — `excerpt` / `lineCount` / `wordCount` are
- * derived from it via `deriveEntrySummaryFields` (the same function the real API
- * applies on read) and `structure` via `initStructure`, rather than faking those
- * independently of any actual text. That gives `entries.getItem` mocks/fixtures
- * real content to serve.
+ * Seeded sample entries shared by the API stub and the web MSW mock.
+ * Summary fields and `structure` are derived from each row's real `body`
+ * with the same functions the API uses.
  */
 import { faker } from "@faker-js/faker";
 import {
@@ -26,13 +14,11 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 const EPOCH = Date.UTC(2026, 7, 12, 12, 0, 0);
 
-/** Arbitrary — fixed only so the generated set is reproducible. */
 const DEFAULT_SEED = 20260812;
 
 /**
- * A stable, seeded set of saved entries, newest-edited first. Pass a distinct
- * `seed` to get a different-but-reproducible set (e.g. so the mock and the API
- * stub don't serve identical rows).
+ * A deterministic set of entries, newest-edited first. Same `count` and
+ * `seed`, same entries.
  */
 export function fakeEntries(
   count = 6,
@@ -44,18 +30,12 @@ export function fakeEntries(
   );
 }
 
-/** One short, capitalized lyric-style line (no trailing punctuation). */
 function fakeLine(): string {
   const words = faker.lorem.words({ min: 3, max: 7 });
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/**
- * A multi-section body: several stanzas (blank-line-separated, the delimiter
- * `splitSections` keys off), each a handful of short lines. This gives
- * `structure` a real length to label and lets line-level marks fall *within* a
- * stanza instead of one unbroken block.
- */
+/** A body with several blank-line-separated sections of a few lines each. */
 function fakeBody(): string {
   const stanzaCount = faker.number.int({ min: 2, max: 5 });
   return Array.from({ length: stanzaCount }, () =>
@@ -89,10 +69,5 @@ function makeEntry(rank: number): FakeEntry {
   };
 }
 
-/**
- * A generated fixture row: the full read-detail shape plus the list-view
- * `excerpt`. `deriveEntrySummaryFields` also supplies `lineCount` / `wordCount`,
- * which the detail model carries too — so one row satisfies both the list and
- * detail projections a mock handler makes from it.
- */
+/** A fixture row that satisfies both the list and detail read shapes. */
 export type FakeEntry = ReadLyricEntryDetail & { excerpt: string };

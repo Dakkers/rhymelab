@@ -1,26 +1,16 @@
 import { config } from "dotenv";
 
-/** Loads the env files into `process.env`. Call this before anything reads config. */
+/** Load env files into `process.env`. MUST run before anything reads config. */
 export function loadEnv(): void {
   config({ path: envFilePaths() });
 }
 
 /**
- * Ordered list of env files to load, most specific first.
+ * The env files for the current `NODE_ENV`, highest priority first. Paths are
+ * relative to the cwd, which MUST be this package's root.
  *
- * NODE_ENV drives which environment's files are used (defaults to
- * "development"). Secrets live in the gitignored `.env.<env>.local` files;
- * committed `.env.<env>` and `.env` hold non-secret defaults.
- *
- * Precedence matches dotenv semantics: variables already present in the
- * environment are never overwritten, so the earlier a file appears here, the
- * higher its priority.
- *
- * The files live in `.config/` alongside the other tooling config, matching
- * where the web app keeps its own (`envDir: ".config"`). Paths are relative to
- * the process cwd, which is this package's root for every entry point that
- * calls this — `pnpm dev`/`start`, the Prisma CLI via `prisma.config.ts`, and
- * Vitest.
+ * Existing variables are never overwritten. Secrets belong in the gitignored
+ * `.env.<env>.local`.
  */
 export function envFilePaths(): string[] {
   const nodeEnv = process.env.NODE_ENV ?? "development";

@@ -1,14 +1,5 @@
 /**
- * Fastify app wiring the oRPC router in over the OpenAPI (REST) protocol.
- *
- * Procedures carry `.route({ method, path })` in the contract, so oRPC's
- * `OpenAPIHandler` serves each as a real HTTP verb + path under `/api` — e.g.
- * `GET /api/entries`, `POST /api/entries`, `DELETE /api/entries/{id}`.
- *
- * The session cookie is parsed here (before oRPC) and handed to handlers as
- * context; auth procedures set/clear it via `context.reply`. CORS runs in
- * credentials mode against the web app's exact origin so the browser attaches the
- * cookie on cross-port requests.
+ * Build the Fastify API server, serving the oRPC contract as REST under `/api`.
  */
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
