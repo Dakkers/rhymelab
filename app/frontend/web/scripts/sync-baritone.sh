@@ -1,20 +1,13 @@
 #!/usr/bin/env bash
 #
 # Rebuild the local Baritone design system and sync it into this app.
+# Restart `pnpm dev` afterward.
 #
-# pnpm installs `@saintly-software/baritone` as a `file:` dependency, which it
-# COPIES into its content-addressed store at install time. Rebuilding Baritone's
-# `dist/` does NOT update that copy — and `pnpm install --force` won't either,
-# because pnpm keys the cache off the dependency path, not its contents. On top
-# of that, Vite pre-bundles the dep into `node_modules/.vite` and won't
-# re-optimize just because `node_modules` changed. So this script:
-#   1. rebuilds Baritone's dist,
-#   2. copies the fresh dist over pnpm's store copy,
-#   3. clears Vite's pre-bundle cache.
-# After it finishes, restart `pnpm dev` to load the rebuilt Baritone.
+# pnpm copies a `file:` dependency into its store at install time and keys it
+# by path, not contents, so neither a rebuild nor `pnpm install --force`
+# refreshes it. Vite's pre-bundle cache is stale too, so it's cleared.
 #
-# Override the Baritone location with BARITONE_DIR=/path/to/repo if it doesn't
-# sit at ../baritone-design-system next to this app.
+# BARITONE_DIR overrides the Baritone checkout location.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -30,9 +23,6 @@ fi
 echo "==> Building Baritone ($BARITONE_DIR)"
 ( cd "$BARITONE_DIR" && pnpm build )
 
-# Resolve the real (copied) location of the package inside pnpm's store. The
-# entry in node_modules is a symlink into node_modules/.pnpm/...; realpath
-# follows it to the actual directory we need to overwrite.
 LINK="$APP_DIR/node_modules/$PKG"
 if [ ! -e "$LINK" ]; then
   echo "error: $PKG is not installed under $APP_DIR/node_modules — run 'pnpm install' first." >&2

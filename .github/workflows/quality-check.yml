@@ -15,15 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Format check
         run: pnpm fmt:check
@@ -31,44 +23,28 @@ jobs:
       - name: Lint check
         run: pnpm lint:check
 
-      # `worker-configuration.d.ts` is generated (gitignored) but referenced by
-      # tsconfig, so regenerate it from the bindings before typechecking.
+      # worker-configuration.d.ts is gitignored but tsconfig references it.
       - name: Generate Cloudflare types
         run: pnpm cf-typegen
 
       - name: Typecheck
         run: pnpm typecheck
 
-  # Node unit tests (core + api). Kept separate from quality-check so a test
-  # failure and a lint/type failure surface independently. Deliberately excludes
-  # the web package (browser-mode vitest, needs Playwright) and the api
-  # DB-backed integration tests (need Postgres) — those want their own jobs.
+  # Excludes web (needs Playwright) and api integration tests (need Postgres).
   unit-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # The api unit tests import the generated Prisma client, so it must exist
-      # before vitest runs. `prisma generate` needs no database connection.
+      # api unit tests import the generated client; no DB needed.
       - name: Generate Prisma client
-        run: pnpm --filter @rhymelab/api db:generate
+        run: pnpm db:generate
 
       - name: Unit tests
         run: pnpm test:unit
 
-  # DB-backed integration tests (api). Runs against a throwaway Postgres service
-  # container, migrated fresh each run. Separate from unit-tests so the fast,
-  # DB-free feedback isn't gated behind spinning up a database.
   integration-tests:
     runs-on: ubuntu-latest
 
@@ -81,7 +57,6 @@ jobs:
           POSTGRES_DB: rhymelab
         ports:
           - 5432:5432
-        # Hold the job until Postgres accepts connections.
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -89,31 +64,93 @@ jobs:
           --health-retries 5
 
     env:
-      # Points at the service above. Set in the process env so it wins over the
-      # committed .env default (dotenv doesn't override an existing variable),
-      # for both `prisma migrate deploy` and the tests.
+      # Process env wins over the committed .env; dotenv won't override it.
       DATABASE_URL: postgresql://rhymelab:rhymelab@localhost:5432/rhymelab
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Generate Prisma client
-        run: pnpm --filter @rhymelab/api db:generate
+        run: pnpm db:generate
 
-      # `migrate deploy` applies the committed migrations only (no shadow DB, no
-      # prompts) — the right command for CI, unlike the `migrate dev` used locally.
       - name: Apply migrations
-        run: pnpm --filter @rhymelab/api exec prisma migrate deploy
+        run: pnpm --filter @rhymelab/database exec prisma migrate deploy
 
       - name: Integration tests
         run: pnpm test:integration
+
+  smoke-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Install Playwright browser
+        run: pnpm --filter @rhymelab/web exec playwright install --with-deps chromium
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Smoke tests
+        run: pnpm test:smoke
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rhymelab
+          POSTGRES_PASSWORD: rhymelab
+          POSTGRES_DB: rhymelab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://rhymelab:rhymelab@localhost:5432/rhymelab
+      APP_PASSWORD: smoke-test-password
+      E2E_APP_PASSWORD: smoke-test-password
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Install Playwright browser
+        run: pnpm --filter @rhymelab/web exec playwright install --with-deps chromium
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Generate Cloudflare types
+        run: pnpm cf-typegen
+
+      - name: Apply migrations
+        run: pnpm --filter @rhymelab/database exec prisma migrate deploy
+
+      - name: Start API
+        run: |
+          pnpm start:api > api.log 2>&1 &
+          npx --yes wait-on --timeout 60000 tcp:localhost:4000
+
+      # Playwright's webServer starts the web app itself.
+      - name: E2E tests
+        run: pnpm --filter @rhymelab/web e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            app/frontend/web/playwright-report
+            api.log
