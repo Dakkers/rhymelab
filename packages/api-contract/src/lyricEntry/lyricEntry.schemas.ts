@@ -87,10 +87,9 @@ export const createLyricEntrySchema = z.discriminatedUnion("kind", [
 ]);
 
 /**
- * Build the credit line shown under an entry's title, as the ordered parts a client
- * joins with its own separator. Parts with nothing to say are omitted, so the array
- * MAY be empty. Songs are credited to their artists and carry an album; poems are
- * credited to their authors.
+ * Build the byline parts shown under an entry's title, in display order.
+ * Songs yield artists, album, year. Poems yield authors, year.
+ * Empty parts are dropped. The result MAY be empty.
  */
 function buildBylineParts(datum: {
   kind: "song" | "poem";

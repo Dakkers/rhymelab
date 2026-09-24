@@ -16,6 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config .config/vitest.config.ts",
     "test:watch": "vitest --config .config/vitest.config.ts",
+    "test:integration": "vitest run --config .config/vitest.config.ts --project integration",
+    "test:smoke": "vitest run --config .config/vitest.config.ts --project smoke",
     "test:debug": "VITEST_KEEP_DOM=1 vitest --config .config/vitest.config.ts",
     "e2e": "playwright test --config .config/playwright.config.ts",
     "e2e:ui": "playwright test --config .config/playwright.config.ts --ui",

@@ -23,6 +23,7 @@
     "db:studio": "pnpm --filter @rhymelab/database studio",
     "test:unit": "pnpm --filter @rhymelab/core --filter @rhymelab/api test",
     "test:integration": "pnpm --filter @rhymelab/api test:integration",
+    "test:smoke": "pnpm --filter @rhymelab/web test:smoke",
     "typecheck": "pnpm -r typecheck",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
