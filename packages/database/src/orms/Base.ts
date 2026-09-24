@@ -2,6 +2,10 @@ import type { PrismaClient, Prisma } from "../_generated/prisma/client";
 
 type ModelName = Prisma.ModelName;
 type Delegate<M extends ModelName> = PrismaClient[Uncapitalize<M>];
+type UntypedDelegate = Record<
+  "findUnique" | "findFirst" | "findMany" | "create",
+  (args: unknown) => Promise<unknown>
+>;
 
 export abstract class BaseOrm<M extends ModelName> {
   protected readonly db: PrismaClient;
@@ -12,41 +16,33 @@ export abstract class BaseOrm<M extends ModelName> {
     this.modelName = opts.model;
   }
 
-  private get delegate(): Delegate<M> {
+  private get delegate(): UntypedDelegate {
     const key = (this.modelName[0].toLowerCase() + this.modelName.slice(1)) as Uncapitalize<M>;
-    return this.db[key] as Delegate<M>;
+    return this.db[key] as unknown as UntypedDelegate;
   }
 
   async findUnique<A extends Prisma.Args<Delegate<M>, "findUnique">>(
     args: Prisma.Exact<A, Prisma.Args<Delegate<M>, "findUnique">>,
   ): Promise<Prisma.Result<Delegate<M>, A, "findUnique">> {
-    return this.delegate.findUnique(args as Prisma.Args<Delegate<M>, "findUnique">) as Promise<
-      Prisma.Result<Delegate<M>, A, "findUnique">
-    >;
+    return this.delegate.findUnique(args) as Promise<Prisma.Result<Delegate<M>, A, "findUnique">>;
   }
 
   async findFirst<A extends Prisma.Args<Delegate<M>, "findFirst">>(
     args: Prisma.Exact<A, Prisma.Args<Delegate<M>, "findFirst">>,
   ): Promise<Prisma.Result<Delegate<M>, A, "findFirst">> {
-    return this.delegate.findFirst(args as Prisma.Args<Delegate<M>, "findFirst">) as Promise<
-      Prisma.Result<Delegate<M>, A, "findFirst">
-    >;
+    return this.delegate.findFirst(args) as Promise<Prisma.Result<Delegate<M>, A, "findFirst">>;
   }
 
   async findMany<A extends Prisma.Args<Delegate<M>, "findMany">>(
     args: Prisma.Exact<A, Prisma.Args<Delegate<M>, "findMany">>,
   ): Promise<Prisma.Result<Delegate<M>, A, "findMany">> {
-    return this.delegate.findMany(args as Prisma.Args<Delegate<M>, "findMany">) as Promise<
-      Prisma.Result<Delegate<M>, A, "findMany">
-    >;
+    return this.delegate.findMany(args) as Promise<Prisma.Result<Delegate<M>, A, "findMany">>;
   }
 
   async create<A extends Prisma.Args<Delegate<M>, "create">>(
     args: Prisma.Exact<A, Prisma.Args<Delegate<M>, "create">>,
   ): Promise<Prisma.Result<Delegate<M>, A, "create">> {
-    return this.delegate.create(args as Prisma.Args<Delegate<M>, "create">) as Promise<
-      Prisma.Result<Delegate<M>, A, "create">
-    >;
+    return this.delegate.create(args) as Promise<Prisma.Result<Delegate<M>, A, "create">>;
   }
 
   protected async softDeleteTemplate(
