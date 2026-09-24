@@ -58,11 +58,7 @@ function EntryPage() {
         <Menu
           trigger={<Menu.Trigger saliency="low">Actions</Menu.Trigger>}
           items={[
-            <Menu.Item
-              key="edit"
-              icon={<PenLine />}
-              onClick={() => setEditingText(true)}
-            >
+            <Menu.Item key="edit" icon={<PenLine />} onClick={() => setEditingText(true)}>
               Edit Text
             </Menu.Item>,
             <Menu.Item
@@ -98,9 +94,7 @@ function EntryPage() {
           },
         }}
       >
-        <Text>
-          This entry will no longer appear in your library.
-        </Text>
+        <Text>This entry will no longer appear in your library.</Text>
       </ConfirmationModal>
     </Page>
   );
