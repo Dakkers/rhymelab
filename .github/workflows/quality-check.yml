@@ -40,7 +40,7 @@ jobs:
 
       # api unit tests import the generated client; no DB needed.
       - name: Generate Prisma client
-        run: pnpm --filter @rhymelab/api db:generate
+        run: pnpm db:generate
 
       - name: Unit tests
         run: pnpm test:unit
@@ -73,10 +73,10 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Generate Prisma client
-        run: pnpm --filter @rhymelab/api db:generate
+        run: pnpm db:generate
 
       - name: Apply migrations
-        run: pnpm --filter @rhymelab/api exec prisma migrate deploy
+        run: pnpm --filter @rhymelab/database exec prisma migrate deploy
 
       - name: Integration tests
         run: pnpm test:integration
@@ -92,7 +92,7 @@ jobs:
         run: pnpm --filter @rhymelab/web exec playwright install --with-deps chromium
 
       - name: Generate Prisma client
-        run: pnpm --filter @rhymelab/api db:generate
+        run: pnpm db:generate
 
       - name: Smoke tests
         run: pnpm test:smoke
@@ -129,13 +129,13 @@ jobs:
         run: pnpm --filter @rhymelab/web exec playwright install --with-deps chromium
 
       - name: Generate Prisma client
-        run: pnpm --filter @rhymelab/api db:generate
+        run: pnpm db:generate
 
       - name: Generate Cloudflare types
         run: pnpm cf-typegen
 
       - name: Apply migrations
-        run: pnpm --filter @rhymelab/api exec prisma migrate deploy
+        run: pnpm --filter @rhymelab/database exec prisma migrate deploy
 
       - name: Start API
         run: |
