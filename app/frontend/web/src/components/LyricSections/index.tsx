@@ -14,6 +14,10 @@ const SECTION_TYPE_LABEL: Record<LyricEntrySectionType, string> = {
   chorus: "Chorus",
   bridge: "Bridge",
   outro: "Outro",
+  stanza: "Stanza",
+  postchorus: "Post-Chorus",
+  refrain: "Refrain",
+  interlude: "Interlude",
 };
 
 export function LyricSections({ sections, renderLine }: LyricSectionsProps) {
