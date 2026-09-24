@@ -10,12 +10,16 @@
  */
 import { createORPCClient } from "@orpc/client";
 import type { ContractRouterClient } from "@orpc/contract";
-import type { JsonifiedClient } from "@orpc/openapi-client";
+import type { JsonifiedClient, JsonifiedValue } from "@orpc/openapi-client";
 import { OpenAPILink } from "@orpc/openapi-client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getRequestHeaders, getRequestUrl } from "@tanstack/react-start/server";
-import { contract } from "@rhymelab/api-contract";
+import {
+  contract,
+  type LyricEntryListItem,
+  type ReadLyricEntryDetail,
+} from "@rhymelab/api-contract";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
@@ -70,3 +74,9 @@ export const client: JsonifiedClient<ContractRouterClient<typeof contract>> =
   createORPCClient(getLink());
 
 export const orpc = createTanstackQueryUtils(client);
+
+/** A lyric entry detail as the client receives it. Timestamps are ISO strings. */
+export type ReadLyricEntryDetailJson = JsonifiedValue<ReadLyricEntryDetail>;
+
+/** A library list item as the client receives it. Timestamps are ISO strings. */
+export type LyricEntryListItemJson = JsonifiedValue<LyricEntryListItem>;

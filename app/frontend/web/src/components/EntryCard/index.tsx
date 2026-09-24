@@ -3,15 +3,15 @@ import { Link as RouterLink } from "@tanstack/react-router";
 import { Badge, Card, Flex, Icon, InlineList, Text } from "@saintly-software/baritone";
 import { AlignLeft, Clock, PenLine, CaseSensitive } from "lucide-react";
 import { pluralize } from "../../lib/format";
-import type { LyricEntryListItem } from "@rhymelab/api-contract";
+import type { LyricEntryListItemJson } from "#/lib/orpc";
 
-const KIND_LABEL: Record<LyricEntryListItem["kind"], string> = {
+const KIND_LABEL: Record<LyricEntryListItemJson["kind"], string> = {
   song: "Song",
   poem: "Poem",
 };
 
 /** Summary card linking to a single saved lyric entry. */
-export function EntryCard({ entry }: { entry: LyricEntryListItem }) {
+export function EntryCard({ entry }: { entry: LyricEntryListItemJson }) {
   return (
     <Card
       header={entry.title}

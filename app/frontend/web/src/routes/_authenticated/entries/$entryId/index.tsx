@@ -12,11 +12,11 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { PenLine, Trash2 } from "lucide-react";
-import { normalizeEntryBody, type ReadLyricEntryDetail } from "@rhymelab/api-contract";
+import { normalizeEntryBody } from "@rhymelab/api-contract";
 import { LyricSections, toSheetSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
-import { orpc } from "#/lib/orpc";
+import { orpc, type ReadLyricEntryDetailJson } from "#/lib/orpc";
 
 export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
   loader: ({ params, context }) =>
@@ -105,7 +105,7 @@ function EditTextDrawer({
   open,
   onOpenChange,
 }: {
-  entry: ReadLyricEntryDetail;
+  entry: ReadLyricEntryDetailJson;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -172,7 +172,7 @@ function EditTextDrawer({
   );
 }
 
-function byline(entry: ReadLyricEntryDetail): ReactNode {
+function byline(entry: ReadLyricEntryDetailJson): ReactNode {
   const credit = entry.kind === "song" ? names(entry.artists) : names(entry.authors);
   const album = entry.kind === "song" ? entry.album : undefined;
 
