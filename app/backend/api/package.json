@@ -9,7 +9,7 @@
     "start": "tsx src/main.ts",
     "test": "vitest run --config .config/vitest.config.ts --project unit",
     "test:watch": "vitest --config .config/vitest.config.ts --project unit",
-    "test:integration": "vitest run --config .config/vitest.config.ts --project integration",
+    "test:integration": "vitest run --config .config/vitest.config.ts --project integration --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
