@@ -70,9 +70,28 @@ model LyricEntry {
 
   userId String @map("user_id") @db.Uuid
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  annotations LineAnnotation[]
 
   @@index([kind])
   @@index([userId, deletedAt])
   @@map("lyric_entries")
+}
+
+model LineAnnotation {
+  entryId   String @map("entry_id") @db.Uuid
+  lineIndex Int    @map("line_index")
+  quote     String
+
+  rhymeGroup Int?    @map("rhyme_group")
+  enjambed   Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  entry LyricEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, lineIndex])
+  @@index([entryId, rhymeGroup])
+  @@map("line_annotations")
 }
