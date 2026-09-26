@@ -76,7 +76,7 @@ under `src/**`:
 - **Structure**: one `test(...)` with a behavioral name ("assigns a rhyme group
   to a line", not "test"). Split genuinely separate journeys into separate
   tests. Drop redundant waits and duplicate navigations.
-- **Comments**: explain *why* a step matters, in the repo's voice.
+- **Comments**: explain _why_ a step matters, in the repo's voice.
 - Save to `app/frontend/web/e2e/<feature>.spec.ts`.
 
 ## 4. Verify

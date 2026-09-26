@@ -11,11 +11,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
-    "lint": "oxlint --fix",
-    "lint:check": "oxlint"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "vitest": "4.1.10"

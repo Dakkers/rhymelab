@@ -6,10 +6,10 @@ import { loadEnv } from "./load-env";
 
 loadEnv();
 
-const { buildServer } = await import("./server");
+const { initializeHttpServer } = await import("./app/initializeHttpServer");
+await initializeHttpServer({
+  host: "127.0.0.1",
+  port: process.env.PORT,
+});
 
-const app = await buildServer();
-const port = Number(process.env.PORT ?? 4000);
-
-await app.listen({ port, host: "127.0.0.1" });
-console.log(`API listening on http://localhost:${port}/api`);
+console.log(`API initialized.`);

@@ -3,13 +3,10 @@ import { Link as RouterLink } from "@tanstack/react-router";
 import { Menu, Text, type TextProps } from "@saintly-software/baritone";
 
 /**
- * The black app bar. The brand sits left; the nav sits right. Rendered once by the
- * `_authenticated` layout, so it appears on every signed-in page and carries no
- * page-specific content.
+ * The app bar: brand on the left, account nav on the right.
  *
- * The bar is the one piece of chrome Baritone's tokens don't cover — a dark strip
- * inside a light theme — so the `Text` in it is given its colour explicitly
- * rather than inheriting the ambient one.
+ * Baritone's light-theme tokens don't cover this dark strip, so its `Text`
+ * gets colour explicitly.
  */
 export function NavBar() {
   return (
@@ -52,10 +49,7 @@ export function NavBar() {
   );
 }
 
-/**
- * The wordmark. Also used by the landing and login pages, which sit on the cream
- * canvas and so take their colour from the theme rather than the bar.
- */
+/** The RhymeLab wordmark. Takes the theme's colour unless `style` overrides it. */
 export function BrandName({ size, saliency = "high", style }: BrandProps) {
   return (
     <Text
@@ -90,12 +84,7 @@ export function AlphaChip({ size = "xs", saliency, style }: BrandProps) {
   );
 }
 
-/**
- * The nav links' type, from the design system — `nav` size + `medium` weight — so
- * the label carries no hand-rolled `font-*` (`.rl-nav` is colour + hover only). The
- * dark bar is outside Baritone's colour tokens, so the label takes the anchor's
- * colour by inheritance rather than a token.
- */
+/** A nav link label. Inherits the link's colour; see {@link NavBar}. */
 function NavLabel({ children }: { children: ReactNode }) {
   return (
     <Text as="span" size="nav" weight="medium" style={{ color: "inherit" }}>
@@ -104,5 +93,4 @@ function NavLabel({ children }: { children: ReactNode }) {
   );
 }
 
-/** The knobs the brand marks expose — the rest of their type is fixed. */
 type BrandProps = Pick<TextProps, "size" | "saliency" | "style">;

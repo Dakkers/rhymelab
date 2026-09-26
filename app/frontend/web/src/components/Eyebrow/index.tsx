@@ -1,12 +1,8 @@
 import { Text, type DistributiveOmit, type TextProps } from "@saintly-software/baritone";
 
 /**
- * Eyebrow — the small, uppercase, letter-spaced label used above page titles and
- * as the section labels in the workbench inspector. It's a plain `Text` fixed to
- * the design system's typographic tokens: size, weight, colour, and now the
- * tracking too (`letterSpacing="widest"`, which Baritone recommends for small
- * uppercase labels). `saliency` / `intent` / spacing props pass straight through,
- * and a caller can still override the tracking with its own `letterSpacing`.
+ * A small, bold, uppercase, letter-spaced label. Size, weight, and case are
+ * fixed; other `Text` props, including `letterSpacing`, pass through.
  */
 export function Eyebrow({ style, ...rest }: EyebrowProps) {
   return (

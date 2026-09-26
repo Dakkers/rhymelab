@@ -1,21 +1,94 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useForm } from "@tanstack/react-form";
+import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Flex, Text, TextInput, ToggleGroup } from "@saintly-software/baritone";
-import type { EntryKind } from "@rhymelab/api-contract";
 import { Page } from "#/components/Page";
 import { orpc } from "#/lib/orpc";
+import type { CreateLyricEntryInput } from "@rhymelab/api-contract";
 
 const DEFAULTS: NewEntryForm = {
   step: 1,
   body: "",
-  kind: "lyrics",
+  kind: "song",
   title: "",
-  author: "",
+  authors: [],
   year: "",
-  artist: "",
+  artists: [],
   album: "",
 };
+
+const { fieldContext, formContext } = createFormHookContexts();
+
+const { useAppForm, withForm } = createFormHook({
+  fieldContext,
+  formContext,
+  fieldComponents: {},
+  formComponents: {},
+});
+
+const SongFields = withForm({
+  defaultValues: DEFAULTS,
+  render: function SongFields({ form }) {
+    return (
+      <>
+        <form.Field name="artists">
+          {(field) => (
+            <TextInput
+              label="Artist"
+              value={field.state.value}
+              onChange={(value) => field.handleChange([value.trim()])}
+              onBlur={field.handleBlur}
+              placeholder="Optional"
+            />
+          )}
+        </form.Field>
+
+        <form.Field name="authors">
+          {(field) => (
+            <TextInput
+              label="Lyricist"
+              value={field.state.value}
+              onChange={(value) => field.handleChange([value.trim()])}
+              onBlur={field.handleBlur}
+              placeholder="Optional"
+            />
+          )}
+        </form.Field>
+
+        <form.Field name="album">
+          {(field) => (
+            <TextInput
+              label="Album"
+              value={field.state.value}
+              onChange={(value) => field.handleChange(value)}
+              placeholder="Optional"
+              onBlur={field.handleBlur}
+            />
+          )}
+        </form.Field>
+      </>
+    );
+  },
+});
+
+const PoemFields = withForm({
+  defaultValues: DEFAULTS,
+  render: function PoemFields({ form }) {
+    return (
+      <form.Field name="authors">
+        {(field) => (
+          <TextInput
+            label="Author"
+            value={field.state.value}
+            onChange={(value) => field.handleChange([value.trim()])}
+            onBlur={field.handleBlur}
+            placeholder="Optional"
+          />
+        )}
+      </form.Field>
+    );
+  },
+});
 
 export const Route = createFileRoute("/_authenticated/entries/new/")({
   component: NewEntryPage,
@@ -26,15 +99,15 @@ function NewEntryPage() {
   const queryClient = useQueryClient();
 
   const createEntry = useMutation(
-    orpc.entries.create.mutationOptions({
+    orpc.lyricEntries.create.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: orpc.entries.list.key() });
+        await queryClient.invalidateQueries({ queryKey: orpc.lyricEntries.list.key() });
         await navigate({ to: "/library" });
       },
     }),
   );
 
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: DEFAULTS,
     onSubmit: async ({ value }) => {
       await createEntry.mutateAsync(buildCreatePayload(value)).catch(() => {});
@@ -69,7 +142,7 @@ function NewEntryPage() {
             >
               {({ ToggleGroupItem }) => (
                 <>
-                  <ToggleGroupItem value="lyrics">Lyrics</ToggleGroupItem>
+                  <ToggleGroupItem value="song">Song</ToggleGroupItem>
                   <ToggleGroupItem value="poem">Poem</ToggleGroupItem>
                 </>
               )}
@@ -115,49 +188,7 @@ function NewEntryPage() {
   const metadataStep = (
     <>
       <form.Subscribe selector={(state) => state.values.kind}>
-        {(kind) => (
-          <>
-            {kind === "lyrics" ? (
-              <form.Field name="artist">
-                {(field) => (
-                  <TextInput
-                    label="Artist"
-                    value={field.state.value}
-                    onChange={(value) => field.handleChange(value)}
-                    onBlur={field.handleBlur}
-                    placeholder="Optional"
-                  />
-                )}
-              </form.Field>
-            ) : null}
-
-            <form.Field name="author">
-              {(field) => (
-                <TextInput
-                  label={kind === "lyrics" ? "Lyricist" : "Author"}
-                  value={field.state.value}
-                  onChange={(value) => field.handleChange(value)}
-                  onBlur={field.handleBlur}
-                  placeholder="Optional"
-                />
-              )}
-            </form.Field>
-
-            {kind === "lyrics" ? (
-              <form.Field name="album">
-                {(field) => (
-                  <TextInput
-                    label="Album"
-                    value={field.state.value}
-                    onChange={(value) => field.handleChange(value)}
-                    placeholder="Optional"
-                    onBlur={field.handleBlur}
-                  />
-                )}
-              </form.Field>
-            ) : null}
-          </>
-        )}
+        {(kind) => (kind === "song" ? <SongFields form={form} /> : <PoemFields form={form} />)}
       </form.Subscribe>
 
       <form.Field name="year">
@@ -213,54 +244,26 @@ function NewEntryPage() {
   );
 }
 
-/**
- * Build the create payload from the form. Drops the UI-only `step`, coerces
- * `year`, and narrows the lyrics-only fields off `kind` so the shape matches the
- * contract's `EntryCreateInput` union. Blank `album` goes out as
- * `undefined` rather than "", so it's stored absent. `author` and `artist` are
- * lists on the wire — the form still collects one value each, so a blank one
- * becomes `[]` (see `toList`). The server derives excerpt / line count / word
- * count from `body`, so none of those are sent.
- */
-function buildCreatePayload({ step: _step, ...values }: NewEntryForm) {
+function buildCreatePayload({ step: _step, ...values }: NewEntryForm): CreateLyricEntryInput {
   const base = {
     title: values.title.trim(),
-    author: toList(values.author),
+    authors: values.authors,
     body: values.body,
     year: values.year.trim() ? Number(values.year) : undefined,
   };
-  return values.kind === "lyrics"
+  return values.kind === "song"
     ? {
         ...base,
-        kind: "lyrics" as const,
-        artist: toList(values.artist),
+        kind: "song" as const,
+        artists: values.artists,
         album: values.album.trim() || undefined,
       }
     : { ...base, kind: "poem" as const };
 }
 
-function toList(value: string) {
-  return value.trim() ? [value.trim()] : [];
-}
-
-/**
- * The two-step "new entry" form. `step` lives in the form's own state (rather than
- * a separate `useState`) so advancing is just `setFieldValue("step", …)` and every
- * pane reads it through the same `form.Subscribe` the fields use. It's UI state, so
- * it's stripped back out before the create payload is built.
- */
-interface NewEntryForm {
-  /** Which pane is showing. Set on Next / Back; not part of the saved entry. */
+type NewEntryForm = Omit<CreateLyricEntryInput, "year"> & {
   step: 1 | 2;
-  /** Step 1 — the raw text of the piece. */
-  body: string;
-  /** Step 2 — metadata. */
-  kind: EntryKind;
-  title: string;
-  author: string;
-  /** Kept as a string for the text control; parsed when the payload is built. */
-  year: string;
-  /** Lyrics-only; ignored for poems. */
-  artist: string;
   album: string;
-}
+  artists: string[];
+  year: string;
+};

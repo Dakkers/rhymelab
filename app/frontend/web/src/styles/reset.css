@@ -1,10 +1,8 @@
 /*
- * Reset — strips the browser's default styling so nothing renders with
- * user-agent opinions baked in. `__root.tsx` links the bundled output of this
- * file *before* `styles.css`, so Baritone and the app's own rules always win.
+ * MUST load before `styles.css` so Baritone and app rules win.
  *
- * Deliberately not reset: `:focus-visible` outlines and `prefers-reduced-motion`
- * behaviour, both of which are accessibility defaults worth keeping.
+ * `:focus-visible` outlines and `prefers-reduced-motion` are left alone for
+ * accessibility.
  */
 *,
 *::before,

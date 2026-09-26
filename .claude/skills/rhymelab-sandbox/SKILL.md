@@ -17,7 +17,7 @@ current worktree**: a dedicated Postgres database inside the one shared
 container, plus the API and web servers on free, per-worktree ports. It exists so
 worktrees stop sharing the single `rhymelab` dev database and stepping on each
 other's data. (Contrast `boot-frontend-worktree`, which boots web + API but
-*shares* the DB. Prefer this skill whenever data isolation matters.)
+_shares_ the DB. Prefer this skill whenever data isolation matters.)
 
 Your job: the user hands you an **arbitrary, free-form request** ("spin it up",
 "wipe my data", "how many entries are in here?", "what's my db called?", "nuke
@@ -52,14 +52,14 @@ commands need them and they're derived per-worktree, never hardcoded.
 
 `./rhymelab-sandbox` accepts these subcommands — this is your vocabulary:
 
-| Subcommand         | Does                                                        |
-| ------------------ | ---------------------------------------------------------- |
-| `./rhymelab-sandbox status` | slug, database, ports, up/down state                       |
-| `./rhymelab-sandbox migrate`| ensure the DB exists + apply migrations (no servers)       |
-| `./rhymelab-sandbox reset`  | drop + recreate + migrate — **wipes** this worktree's data |
-| `./rhymelab-sandbox down`   | **drop** this worktree's database                          |
-| `./rhymelab-sandbox up`     | provision + migrate, then run API + web (**blocks**)       |
-| `./rhymelab-sandbox psql`   | interactive psql shell (for humans, not you — see §4)      |
+| Subcommand                   | Does                                                       |
+| ---------------------------- | ---------------------------------------------------------- |
+| `./rhymelab-sandbox status`  | slug, database, ports, up/down state                       |
+| `./rhymelab-sandbox migrate` | ensure the DB exists + apply migrations (no servers)       |
+| `./rhymelab-sandbox reset`   | drop + recreate + migrate — **wipes** this worktree's data |
+| `./rhymelab-sandbox down`    | **drop** this worktree's database                          |
+| `./rhymelab-sandbox up`      | provision + migrate, then run API + web (**blocks**)       |
+| `./rhymelab-sandbox psql`    | interactive psql shell (for humans, not you — see §4)      |
 
 Run `status`, `migrate`, `reset`, `down` directly with the Bash tool — they're
 fast and non-blocking. `reset`/`down` take `-y` to skip their prompt.
@@ -92,14 +92,14 @@ go through the Browser pane regardless. So boot it there:
    }
    ```
 
-4. Verify you're looking at *this* sandbox, not another worktree's server:
+4. Verify you're looking at _this_ sandbox, not another worktree's server:
    - `preview_logs` — the banner prints the **actual** ports; expect `API
-     listening on http://localhost:<API_PORT>` and the Prisma line `Datasource
-     "db": … database "rhymelab_<slug>"`, plus Vite's `Local:
-     http://localhost:<WEB_PORT>`. If `up` shifted off an occupied base, these are
+listening on http://localhost:<API_PORT>` and the Prisma line `Datasource
+"db": … database "rhymelab_<slug>"`, plus Vite's `Local:
+http://localhost:<WEB_PORT>`. If `up` shifted off an occupied base, these are
      the true ports — re-point the launch config's `port` and restart preview if
      the pane was still waiting on the step-1 guess. (Once running, `./rhymelab-sandbox
-     status` also reports the real bound ports.)
+status` also reports the real bound ports.)
    - `read_network_requests` — the app's `/api/*` calls hit `:<API_PORT>` and
      return 2xx (a CORS failure means the ports/origin don't line up).
    - `read_page` + a `screenshot` as proof.
@@ -122,7 +122,7 @@ docker exec -i rhymelab-postgres psql -U rhymelab -d <DB_NAME> -c "SELECT count(
 ```
 
 `<DB_NAME>` is the `database` value from `./rhymelab-sandbox status` (e.g.
-`rhymelab_annotation_types_b62dee`). This is the *only* place you name the DB by
+`rhymelab_annotation_types_b62dee`). This is the _only_ place you name the DB by
 hand — everything else derives it. Never point these at the shared `rhymelab`
 database unless the user explicitly asks about shared/dev data.
 

@@ -1,39 +1,30 @@
 /**
- * RhymeLab's declarations for Baritone's *open* typographic vocabularies — the
- * half of the theme contract that only exists in the consuming app. Baritone
- * ships each registry empty, so the matching prop stays a loose `string` until an
- * app names its values here; declaring them is what makes `<Text font="serif">`
- * and `<Heading lineHeight="title">` type-check (and `font="serfi"` or an unnamed
- * leading fail).
+ * The app's names for Baritone's open type registries, so props like
+ * `font="serif"` type-check.
  *
- * Every name has a value side in `lib/theme.ts`, which hands the matching family,
- * leading, weight and size to `BaritoneTheme` (`fonts={{ serif: … }}`,
- * `lineHeights={{ title: … }}`, `weights={{ medium: … }}`, `sizes={{ nav: … }}`).
- * That's what publishes the `--font-serif` / `--lineHeight-<name>` /
- * `--fontWeight-<name>` / `--fontSize-<name>` custom properties the props read.
- * Keep the two in step: a name declared here but not published there resolves to
- * nothing.
+ * Every name here MUST have a value in `lib/theme.ts`; one without resolves
+ * to nothing at runtime.
  */
 declare module "@saintly-software/baritone" {
   interface FontRegistry {
-    /** The Iowan Old Style stack — titles, bylines and the lyrics themselves. */
+    /** The Iowan Old Style stack. */
     serif: true;
   }
 
   interface LineHeightRegistry {
-    /** Tight display leading (1.04) for the serif page and entry titles. */
+    /** Tight display leading for serif titles. */
     title: true;
-    /** Loose lyric-body leading (1.85) — leaves room for the per-line rhyme badges. */
+    /** Loose lyric leading, with room for per-line rhyme badges. */
     lyric: true;
   }
 
   interface FontWeightRegistry {
-    /** Medium (500) — between the built-in `default` and `semibold`; the nav links. */
+    /** Between the built-in `default` and `semibold`. */
     medium: true;
   }
 
   interface FontSizeRegistry {
-    /** The compact nav-link label (0.82rem), a step between built-in `xs` and `sm`. */
+    /** Between the built-in `xs` and `sm`. */
     nav: true;
   }
 }

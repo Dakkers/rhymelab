@@ -16,7 +16,7 @@ folder under `app/frontend/web/src/routes/` containing an `index.tsx`. There is
 tree (by the dev server, or `pnpm --filter @rhymelab/web generate-routes`).
 Never hand-edit `routeTree.gen.ts`.
 
-Goal here is an *empty* route: correct placement, correct boilerplate, nothing
+Goal here is an _empty_ route: correct placement, correct boilerplate, nothing
 more. Don't invent product content.
 
 ## 1. Decide placement (this determines the path prefix)
@@ -32,7 +32,7 @@ reachable without logging in, put it there. Two buckets:
   directly under `routes/`. Existing examples: `index.tsx` (landing),
   `auth/login/`, `auth/logout/`.
 
-The folder path maps straight to the URL. `_authenticated` is a *pathless*
+The folder path maps straight to the URL. `_authenticated` is a _pathless_
 layout segment — it does **not** appear in the URL. So
 `_authenticated/settings/index.tsx` serves `/settings`.
 

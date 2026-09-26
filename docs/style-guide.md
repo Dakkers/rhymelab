@@ -6,7 +6,7 @@ gets pinned down.
 
 Prose-level standards (`Pick` over `Omit`, marking methods `async`, the
 unit/integration test split) live in [`CLAUDE.md`](../CLAUDE.md); this doc is about
-the *shape* of a file.
+the _shape_ of a file.
 
 ## Ordering of things
 
@@ -16,13 +16,13 @@ look: the headline first, its supporting cast below, and the type noise last.
 Within a file, declarations appear in this order:
 
 1. **File docstring** — a `/** … */` block at the very top, where one is
-   appropriate. Say what the file *is* and any invariant a reader needs before
+   appropriate. Say what the file _is_ and any invariant a reader needs before
    touching it. Use `/**`, not `//`.
 2. **Imports.**
 3. **`SCREAMING_SNAKE_CASE` constants** — the module's fixed vocabulary and
    configuration (enums-as-`as const`, colour tables, tunables, keys).
 4. **`export default`** — if the file has one.
-5. **The main export** — the one thing the file is *about*. It usually shares its
+5. **The main export** — the one thing the file is _about_. It usually shares its
    name with the file or the directory (`entry.ts` → `EntryController`,
    `NavBar/index.tsx` → `NavBar`). It goes near the top so the reader meets the
    headline before the supporting cast.
@@ -32,7 +32,7 @@ Within a file, declarations appear in this order:
    vocabulary and aren't the main export: singletons, lookup tables built from the
    functions above, and the like.
 8. **TypeScript types** — every `type` and `interface`, all the way at the bottom.
-   This includes *derived* types (`type Foo = (typeof FOO)[number]`): the constant
+   This includes _derived_ types (`type Foo = (typeof FOO)[number]`): the constant
    stays up in section 3, its type comes down here. Types are erased at runtime and
    resolve regardless of position, so nothing is lost by collecting them last.
 
@@ -41,7 +41,7 @@ this relative order.
 
 ### Call-graph order
 
-Top-level functions are ordered by *who calls whom*, depth-first: a function
+Top-level functions are ordered by _who calls whom_, depth-first: a function
 appears **above** the functions it calls. Read the file top-down and you descend
 the call tree — the entry point first, the leaves last.
 
@@ -66,12 +66,12 @@ export const entryKindLabel = (kind: EntryKind): string => { … }
 Two reasons: `function` declarations hoist, so call-graph order never fights the
 compiler; and `function foo` reads as a definition at a glance, where `const foo =`
 reads as a value and buries the fact that it's callable. (Arrows are still the norm
-*inside* function bodies, for callbacks, and for genuinely value-like things such
+_inside_ function bodies, for callbacks, and for genuinely value-like things such
 as React components assigned to a memoized `const`.)
 
 ### When runtime order wins
 
-This ordering is about *reading*, and it must never break *running*. Module-level
+This ordering is about _reading_, and it must never break _running_. Module-level
 code is evaluated top-to-bottom and `const`s are not hoisted, so if a genuine
 initialization dependency forces a different order — an "other constant" that a
 later one is built from, say — the dependency wins. Prefer to restructure so the

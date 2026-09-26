@@ -1,44 +1,30 @@
 /**
- * The oRPC client + TanStack Query utils, typed from the shared contract (never
- * from backend code). Data flows over HTTP to the API (`@rhymelab/api`) using
- * oRPC's OpenAPI (REST) protocol — the same `.route()`-annotated contract the
- * server serves, so calls land on real verbs + paths (`GET /api/entries`, …).
+ * The oRPC client and TanStack Query utils for the API.
  *
- * The client type is wrapped in `JsonifiedClient` because the OpenAPI protocol
- * serializes over plain JSON rather than oRPC's richer RPC envelope; for this
- * contract every field is already JSON-native (ISO-string timestamps, numbers,
- * arrays), so it's structurally identical to the bare `ContractRouterClient`.
+ * During SSR the Worker has no cookie jar, so the incoming request's `Cookie`
+ * header is forwarded.
  *
- * The link is isomorphic: in the browser it lets the browser attach the session
- * cookie (`credentials: "include"`); during SSR (inside the Cloudflare worker,
- * which has no cookie jar) it forwards the incoming request's `Cookie` header so
- * loaders authenticate. The header function is lazy so a module-level client is
- * safe — only the per-request cookie read happens per request.
- *
- * Mock mode (dev only): append `?__mock` to any URL under `vite dev` and every
- * API call is answered by the in-memory mock API (`#/mocks`) instead of the real
- * backend — no server needed. In the browser that's a real MSW Service Worker
- * intercepting the fetch; during SSR (where MSW can't run in the Cloudflare
- * Worker runtime) the same handler is invoked in-process. Both paths sit behind a
- * dynamic `import()` guarded by `import.meta.env.DEV`, so a production build
- * eliminates the branch — and with it the mock and its dev-only deps (MSW, the
- * fixture/faker generators, the oRPC server handler) never reach the bundle.
+ * Mock mode (dev only): add `?__mock` to any URL to answer API calls from
+ * `#/mocks` instead of the backend. The mock imports MUST stay behind
+ * `import.meta.env.DEV` so production builds drop them.
  */
 import { createORPCClient } from "@orpc/client";
 import type { ContractRouterClient } from "@orpc/contract";
-import type { JsonifiedClient } from "@orpc/openapi-client";
+import type { JsonifiedClient, JsonifiedValue } from "@orpc/openapi-client";
 import { OpenAPILink } from "@orpc/openapi-client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getRequestHeaders, getRequestUrl } from "@tanstack/react-start/server";
-import { contract } from "@rhymelab/api-contract";
+import {
+  contract,
+  type LyricEntryListItem,
+  type ReadLyricEntryDetail,
+} from "@rhymelab/api-contract";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
-/** The global mock switch (`?__mock`). See the module header. */
 const MOCK_PARAM = "__mock";
 
-/** Is `?__mock` set on the request currently being server-rendered? */
 function serverMockEnabled(): boolean {
   try {
     return getRequestUrl().searchParams.has(MOCK_PARAM);
@@ -88,3 +74,9 @@ export const client: JsonifiedClient<ContractRouterClient<typeof contract>> =
   createORPCClient(getLink());
 
 export const orpc = createTanstackQueryUtils(client);
+
+/** A lyric entry detail as the client receives it. Timestamps are ISO strings. */
+export type ReadLyricEntryDetailJson = JsonifiedValue<ReadLyricEntryDetail>;
+
+/** A library list item as the client receives it. Timestamps are ISO strings. */
+export type LyricEntryListItemJson = JsonifiedValue<LyricEntryListItem>;

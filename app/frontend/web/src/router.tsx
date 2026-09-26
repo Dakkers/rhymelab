@@ -30,16 +30,11 @@ export function getRouter() {
   return router;
 }
 
-/** The user-facing line for a failed write; falls back when the error is opaque. */
 function mutationErrorMessage(error: unknown): string {
   return error instanceof Error && error.message ? error.message : "Please try again.";
 }
 
-/**
- * Opt a mutation out of the global error toast by setting `meta.hideToast` on
- * its `mutationOptions` — for flows that render their own inline error, or
- * where a toast would be redundant.
- */
+/** Set `meta.hideToast` to opt a mutation out of the global error toast. */
 declare module "@tanstack/react-query" {
   interface Register {
     mutationMeta: { hideToast?: boolean };

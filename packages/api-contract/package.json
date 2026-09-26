@@ -9,15 +9,13 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
-    "lint": "oxlint --fix",
-    "lint:check": "oxlint"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@orpc/contract": "1.14.5",
     "@rhymelab/core": "workspace:*",
+    "@rhymelab/database": "workspace:*",
+    "@rhymelab/utils": "workspace:*",
     "zod": "4.4.3"
   }
 }

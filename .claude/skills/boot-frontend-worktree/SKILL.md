@@ -11,13 +11,13 @@ description: >-
 
 # Boot a worktree's own web + API stack
 
-**Default: this worktree gets its own web server *and* its own API server, on
+**Default: this worktree gets its own web server _and_ its own API server, on
 ports nobody else holds.** Worktrees are meant to run side by side, so something
-is usually already listening on 3000 and 4000 — but that something is *another
-worktree's source code*. A page that loads at :3000 or an API that answers at
+is usually already listening on 3000 and 4000 — but that something is _another
+worktree's source code_. A page that loads at :3000 or an API that answers at
 :4000 proves nothing about the checkout you're working in. Never treat "the port
 is busy, so it's already running" as success: it is the exact failure this skill
-exists to prevent. Always start fresh processes from *this* worktree root and
+exists to prevent. Always start fresh processes from _this_ worktree root and
 verify they're the ones you're looking at.
 
 Boot only the web server (skipping the API) when the user explicitly asks for
@@ -33,7 +33,7 @@ over:
 2. `worker-configuration.d.ts` — generated Worker binding types; regenerate with
    `pnpm cf-typegen`. The dev server boots without it (Vite doesn't typecheck), but
    `pnpm typecheck` and the editor error until it exists. `src/routeTree.gen.ts` is
-   *tracked*, so it does carry over — don't confuse the two.
+   _tracked_, so it does carry over — don't confuse the two.
 3. Secret env overrides (`*.local`, `.config/.dev.vars`) — copy from the main
    checkout **if they exist**. They usually don't.
 
@@ -107,7 +107,7 @@ printf 'VITE_API_URL=http://localhost:%s/api\n' "$API_PORT" \
 
 `.env.development.local` is the highest-priority file Vite loads in dev mode, so
 it wins over the `VITE_API_URL=http://localhost:4000/api` in the committed
-`.config/.env`. Skip the web-side write only when `API_PORT` is 4000 *and* that
+`.config/.env`. Skip the web-side write only when `API_PORT` is 4000 _and_ that
 4000 is the API you just started from this worktree.
 
 If step 1 copied an existing `app/backend/api/.config/.env.development.local`,
@@ -118,7 +118,7 @@ second copy.
 ## 5. Start Postgres (shared)
 
 One Postgres container serves every worktree — this is the single piece of the
-stack you should *not* duplicate:
+stack you should _not_ duplicate:
 
 ```bash
 docker compose up -d
@@ -158,7 +158,7 @@ step 4; the
 the web server. Editing `launch.json` dirties only this worktree's copy — it's
 reversible.
 
-## 7. Verify you're looking at *this* worktree
+## 7. Verify you're looking at _this_ worktree
 
 A rendered page is not proof. Confirm both processes are yours:
 

@@ -2,10 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Flex, Heading, Text } from "@saintly-software/baritone";
 
 /**
- * Placeholder signed-in home. The product surface (library / workbench) was
- * removed while the UX is redesigned from the ground up; this keeps the
- * authenticated shell (guard + nav) rendering somewhere and gives login a
- * destination. Replace it with the new home once the UX is settled.
+ * Placeholder signed-in home while the UX is redesigned. Replace once the new
+ * home is settled.
  */
 export const Route = createFileRoute("/_authenticated/home/")({
   component: HomePage,

@@ -2,14 +2,14 @@
   "name": "rhymelab",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
-  "packageManager": "pnpm@11.22.0",
   "workspaces": [
     "app/frontend/*",
     "app/backend/*",
     "packages/*"
   ],
+  "type": "module",
   "scripts": {
+    "dev:seed": "pnpm --filter @rhymelab/api dev:db:seed",
     "dev:web": "pnpm --filter @rhymelab/web dev",
     "dev:api": "pnpm --filter @rhymelab/api dev",
     "build:web": "pnpm --filter @rhymelab/web build",
@@ -18,17 +18,17 @@
     "start:api": "pnpm --filter @rhymelab/api start",
     "sandbox": "./rhymelab-sandbox",
     "cf-typegen": "pnpm --filter @rhymelab/web cf-typegen",
-    "db:generate": "pnpm --filter @rhymelab/api db:generate",
-    "db:migrate": "pnpm --filter @rhymelab/api db:migrate",
-    "db:seed": "pnpm --filter @rhymelab/api db:seed",
-    "db:studio": "pnpm --filter @rhymelab/api db:studio",
+    "db:generate": "pnpm --filter @rhymelab/database build",
+    "db:migrate": "pnpm --filter @rhymelab/database migrate",
+    "db:studio": "pnpm --filter @rhymelab/database studio",
     "test:unit": "pnpm --filter @rhymelab/core --filter @rhymelab/api test",
     "test:integration": "pnpm --filter @rhymelab/api test:integration",
+    "test:smoke": "pnpm --filter @rhymelab/web test:smoke",
     "typecheck": "pnpm -r typecheck",
-    "fmt": "pnpm -r fmt",
-    "fmt:check": "pnpm -r fmt:check",
-    "lint": "pnpm -r lint",
-    "lint:check": "pnpm -r lint:check",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint --fix",
+    "lint:check": "oxlint",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "prepare": "husky"
@@ -40,5 +40,6 @@
     "oxfmt": "0.50.0",
     "oxlint": "1.64.0",
     "typescript": "6.0.3"
-  }
+  },
+  "packageManager": "pnpm@11.22.0"
 }

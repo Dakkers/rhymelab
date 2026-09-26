@@ -18,12 +18,11 @@ import {
   contract,
   deriveEntrySummaryFields,
   initStructure,
+  resyncStructure,
   splitSections,
-  type EntryDetail,
-  type SectionType,
+  type ReadLyricEntryDetail,
 } from "@rhymelab/api-contract";
 import type { z } from "zod";
-import { fakeAnnotations } from "@rhymelab/fixtures";
 import { db, type MockEntry } from "./db";
 import { fakeSchema } from "./fake-schema";
 
@@ -53,8 +52,8 @@ export async function dispatchMock(request: Request): Promise<Response | null> {
 /**
  * Look a stored entry up by id, or 404 the way the real API does — which also
  * 404s a piece owned by another user, so "not yours" and "doesn't exist" look
- * identical to the caller. Shared by every by-id procedure (`get`, the updates,
- * `delete`).
+ * identical to the caller. Shared by every by-id procedure (`getItem`, the
+ * updates, `delete`).
  */
 function entryOr404(id: string): MockEntry {
   const entry = db.entries.find((candidate) => candidate.id === id);
@@ -63,35 +62,23 @@ function entryOr404(id: string): MockEntry {
 }
 
 /**
- * A stable numeric seed derived from an entry's id, so each piece gets its own
- * reproducible annotation set — and marks never collide on `id` across entries.
- * A plain rolling hash; reproducibility, not cryptographic strength.
+ * Project a stored row onto the detail shape: drop the list-view-only `excerpt`.
+ * The row carries `structure`, `lineCount`, and `wordCount` already, so the rest
+ * is a complete `ReadLyricEntryDetail`.
  */
-function annotationSeed(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (Math.imul(hash, 31) + id.charCodeAt(i)) | 0;
-  }
-  return hash >>> 0;
+function toDetail(entry: MockEntry): ReadLyricEntryDetail {
+  const { excerpt: _excerpt, ...detail } = entry;
+  return detail;
 }
 
 /**
- * Project a stored row onto the detail shape: drop the list-view-only derived
- * fields (`excerpt`/`lineCount`/`wordCount`) and attach the `structure` the
- * detail view renders. The stored row always carries a real `body`, so the
- * result is a complete `EntryDetail`.
- *
- * `annotations` are derived on read like `structure` is: nothing stores them yet
- * (see {@link annotationSchema}), so the mock stands in a seeded set anchored to
- * this body, stable across reads. The real API returns `[]`.
+ * Project a stored row onto the list-item shape: drop the detail-only
+ * `structure`. `excerpt`/`lineCount`/`wordCount` stay; the contract's own
+ * transform then dresses the credit-line fields on serialization.
  */
-function toDetail(entry: MockEntry, structure: SectionType[]): EntryDetail {
-  const { excerpt: _excerpt, lineCount: _lineCount, wordCount: _wordCount, ...detail } = entry;
-  return {
-    ...detail,
-    structure,
-    annotations: fakeAnnotations(entry.body, { seed: annotationSeed(entry.id) }),
-  };
+function toListItem(entry: MockEntry) {
+  const { structure: _structure, ...item } = entry;
+  return item;
 }
 
 /**
@@ -143,60 +130,53 @@ const router = {
       return { ok: true as const };
     }),
   },
-  entries: {
-    list: os.entries.list.handler(() =>
-      [...db.entries].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
+  lyricEntries: {
+    list: os.lyricEntries.list.handler(() =>
+      [...db.entries].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).map(toListItem),
     ),
-    create: os.entries.create.handler(({ input }) => {
-      const now = new Date().toISOString();
-      const base = {
+    create: os.lyricEntries.create.handler(({ input }) => {
+      const now = new Date();
+      const entry: MockEntry = {
         id: crypto.randomUUID(),
+        kind: input.kind,
         title: input.title,
-        author: input.author,
-        year: input.year,
         body: input.body,
+        structure: initStructure(input.body),
+        authors: input.authors,
+        year: input.year,
+        artists: input.kind === "song" ? input.artists : [],
+        album: input.kind === "song" ? (input.album ?? null) : null,
         ...deriveEntrySummaryFields(input.body),
         createdAt: now,
         updatedAt: now,
       };
-      const entry =
-        input.kind === "lyrics"
-          ? {
-              ...base,
-              kind: "lyrics" as const,
-              artist: input.artist,
-              album: input.album ?? "",
-            }
-          : { ...base, kind: "poem" as const };
       db.entries = [entry, ...db.entries];
-      return entry;
+      return toDetail(entry);
     }),
-    get: os.entries.get.handler(({ input }) => {
+    getItem: os.lyricEntries.getItem.handler(({ input }) => toDetail(entryOr404(input.id))),
+    updateBody: os.lyricEntries.updateBody.handler(({ input }) => {
       const entry = entryOr404(input.id);
-      return toDetail(entry, initStructure(entry.body));
-    }),
-    updateBody: os.entries.updateBody.handler(({ input }) => {
-      const entry = entryOr404(input.id);
-      const updated = {
+      const updated: MockEntry = {
         ...entry,
         body: input.body,
+        structure: resyncStructure(entry.body, entry.structure, input.body),
         ...deriveEntrySummaryFields(input.body),
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       };
       db.entries = db.entries.map((candidate) => (candidate.id === input.id ? updated : candidate));
-      return toDetail(updated, initStructure(updated.body));
     }),
-    updateStructure: os.entries.updateStructure.handler(({ input }) => {
+    updateStructure: os.lyricEntries.updateStructure.handler(({ input }) => {
       const entry = entryOr404(input.id);
       if (input.structure.length !== splitSections(entry.body).length) {
         throw new ORPCError("BAD_REQUEST");
       }
-      return toDetail(entry, input.structure);
+      db.entries = db.entries.map((candidate) =>
+        candidate.id === input.id ? { ...candidate, structure: input.structure } : candidate,
+      );
     }),
-    delete: os.entries.delete.handler(({ input }) => {
+    delete: os.lyricEntries.delete.handler(({ input }) => {
       entryOr404(input.id);
       db.entries = db.entries.filter((candidate) => candidate.id !== input.id);
-      return { ok: true } as const;
     }),
   },
 };
