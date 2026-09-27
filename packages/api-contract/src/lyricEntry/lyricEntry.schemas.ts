@@ -169,3 +169,16 @@ export type LyricEntryListItem = z.infer<typeof lyricEntryListItemSchema>;
 export type ReadLyricEntryDetail = z.infer<typeof readLyricEntryDetailSchema>;
 export type ReadLineAnnotation = z.infer<typeof readLineAnnotationSchema>;
 export type CreateLyricEntryInput = z.infer<typeof createLyricEntrySchema>;
+
+/**
+ * The pre-transform shape `readLyricEntryDetailSchema` accepts: `annotations`
+ * still carries the DB's raw `rhymeGroup` (the `-1` sentinel included, no
+ * `unrhymed`). Callers that hand a detail row to oRPC's own output validation
+ * MUST return this shape, not `ReadLyricEntryDetail` — the sentinel transform
+ * runs exactly once, at that boundary; feeding it an already-transformed row
+ * runs it a second time and silently loses `unrhymed`.
+ */
+export type ReadLyricEntryDetailRow = z.input<typeof readLyricEntryDetailSchema>;
+
+/** The pre-transform shape `readLineAnnotationSchema` accepts — see {@link ReadLyricEntryDetailRow}. */
+export type ReadLineAnnotationRow = z.input<typeof readLineAnnotationSchema>;
