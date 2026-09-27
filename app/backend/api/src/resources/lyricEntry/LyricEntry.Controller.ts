@@ -113,6 +113,15 @@ export class LyricEntryController {
         createdAt: true,
         updatedAt: true,
         userId: true,
+        annotations: {
+          select: {
+            lineIndex: true,
+            quote: true,
+            rhymeGroup: true,
+            enjambed: true,
+          },
+          orderBy: { lineIndex: "asc" },
+        },
       },
     });
     if (!record) {
