@@ -1,11 +1,18 @@
 import z from "zod";
-import { LyricEntryModelSchema } from "@rhymelab/database/schemas";
+import { LineAnnotationModelSchema, LyricEntryModelSchema } from "@rhymelab/database/schemas";
 import { normalizeEntryBody } from "./lyricEntry.util";
 
 const SONG_SPECIFIC_FIELDS = {
   album: true,
   artists: true,
 } as const;
+
+/**
+ * The DB's sentinel `rhymeGroup` value for "deliberately unrhymed" (X). MUST NOT
+ * appear on the wire — {@link readLineAnnotationSchema} maps it to
+ * `{ rhymeGroup: null, unrhymed: true }`.
+ */
+export const UNRHYMED_SENTINEL = -1;
 
 const entryBaseSchema = LyricEntryModelSchema.omit({
   kind: true,
@@ -46,6 +53,30 @@ export const lyricEntryListItemSchema = LyricEntryModelSchema.pick({
     ...datum,
   }));
 
+/**
+ * A `LineAnnotation` row on the wire: the DB's `-1` sentinel is resolved to
+ * `unrhymed`, so `rhymeGroup` is either a real song-wide group id or `null`.
+ * Carries no `entryId`/timestamps — it is always nested under its entry.
+ */
+export const readLineAnnotationSchema = LineAnnotationModelSchema.pick({
+  lineIndex: true,
+  quote: true,
+  rhymeGroup: true,
+  enjambed: true,
+})
+  .extend({
+    rhymeGroup: z
+      .number()
+      .int()
+      .refine((value) => value === UNRHYMED_SENTINEL || value >= 1)
+      .nullable(),
+  })
+  .transform(({ rhymeGroup, ...rest }) => ({
+    ...rest,
+    rhymeGroup: rhymeGroup === UNRHYMED_SENTINEL ? null : rhymeGroup,
+    unrhymed: rhymeGroup === UNRHYMED_SENTINEL,
+  }));
+
 export const readLyricEntryDetailSchema = LyricEntryModelSchema.pick({
   kind: true,
   id: true,
@@ -61,6 +92,7 @@ export const readLyricEntryDetailSchema = LyricEntryModelSchema.pick({
 }).extend({
   lineCount: z.number().int().nonnegative(),
   wordCount: z.number().int().nonnegative(),
+  annotations: z.array(readLineAnnotationSchema),
 });
 
 const createLyricEntrySchemaBase = entryBaseSchema
@@ -135,4 +167,5 @@ function formatAuthorList(list: readonly string[]): string {
 export type LyricEntry = z.infer<typeof lyricEntrySchema>;
 export type LyricEntryListItem = z.infer<typeof lyricEntryListItemSchema>;
 export type ReadLyricEntryDetail = z.infer<typeof readLyricEntryDetailSchema>;
+export type ReadLineAnnotation = z.infer<typeof readLineAnnotationSchema>;
 export type CreateLyricEntryInput = z.infer<typeof createLyricEntrySchema>;
