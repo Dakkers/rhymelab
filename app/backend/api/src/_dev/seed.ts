@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { normalizeEntryBody, splitSections } from "@rhymelab/api-contract";
+import { normalizeEntryBody, splitSections, UNRHYMED_SENTINEL } from "@rhymelab/api-contract";
+import { fakeAnnotations } from "@rhymelab/fixtures";
 import { loadEnv } from "../load-env";
 import { TEMP_USER_ID } from "../app/session";
 import {
@@ -76,6 +77,16 @@ async function main(db: PrismaClient) {
         z.array(LyricEntrySectionTypeSchema).parse(seed.structure),
         tx,
       );
+
+      await tx.lineAnnotation.createMany({
+        data: fakeAnnotations(body, { seed: hashTitle(seed.title) }).map((annotation) => ({
+          entryId: createResult.id,
+          lineIndex: annotation.lineIndex,
+          quote: annotation.quote,
+          rhymeGroup: annotation.unrhymed ? UNRHYMED_SENTINEL : annotation.rhymeGroup,
+          enjambed: annotation.enjambed,
+        })),
+      });
     }
   });
 
@@ -119,6 +130,15 @@ function readBody(file: string): string | null {
     throw err;
   }
   return normalizeEntryBody(stripSectionHeaders(raw));
+}
+
+/** A stable numeric seed derived from a title, so each demo's annotations are reproducible. */
+function hashTitle(title: string): number {
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) {
+    hash = (Math.imul(hash, 31) + title.charCodeAt(i)) | 0;
+  }
+  return hash >>> 0;
 }
 
 function stripSectionHeaders(raw: string): string {
