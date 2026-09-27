@@ -73,11 +73,11 @@ function toDetail(entry: MockEntry): ReadLyricEntryDetail {
 
 /**
  * Project a stored row onto the list-item shape: drop the detail-only
- * `structure`. `excerpt`/`lineCount`/`wordCount` stay; the contract's own
- * transform then dresses the credit-line fields on serialization.
+ * `structure` and `annotations`. `excerpt`/`lineCount`/`wordCount` stay; the
+ * contract's own transform then dresses the credit-line fields on serialization.
  */
 function toListItem(entry: MockEntry) {
-  const { structure: _structure, ...item } = entry;
+  const { structure: _structure, annotations: _annotations, ...item } = entry;
   return item;
 }
 
@@ -142,6 +142,7 @@ const router = {
         title: input.title,
         body: input.body,
         structure: initStructure(input.body),
+        annotations: [],
         authors: input.authors,
         year: input.year,
         artists: input.kind === "song" ? input.artists : [],
