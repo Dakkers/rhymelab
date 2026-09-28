@@ -8,8 +8,9 @@ import {
   deriveEntrySummaryFields,
   initStructure,
   splitSections,
-  type ReadLineAnnotation,
-  type ReadLyricEntryDetail,
+  UNRHYMED_SENTINEL,
+  type ReadLineAnnotationRow,
+  type ReadLyricEntryDetailRow,
 } from "@rhymelab/api-contract";
 
 const HOUR = 60 * 60 * 1000;
@@ -42,9 +43,11 @@ export function fakeEntries(
 
 /**
  * A deterministic set of line annotations over `body`'s non-blank lines. Same
- * `body` and `seed`, same annotations. Output is the wire shape
- * (`ReadLineAnnotation[]`, post-sentinel-transform) — what every consumer
- * (mock API, dev seed script) wants to attach to an entry directly.
+ * `body` and `seed`, same annotations. Output is the DB/input shape
+ * (`ReadLineAnnotationRow[]`, pre-sentinel-transform: `rhymeGroup` carries the
+ * raw `-1` sentinel for an unrhymed line, no `unrhymed` field) — what every
+ * consumer (mock API, dev seed script) wants, since each hands its rows to
+ * oRPC's own output validation, which MUST be the only place the transform runs.
  *
  * Each stanza gets a rhyme scheme (AABB/ABAB/ABBA/AAAA) cycled across its
  * lines; a scheme letter's first appearance in a stanza either starts a new
@@ -55,7 +58,7 @@ export function fakeEntries(
 export function fakeAnnotations(
   body: string,
   { seed = DEFAULT_SEED }: { seed?: number } = {},
-): ReadLineAnnotation[] {
+): ReadLineAnnotationRow[] {
   faker.seed(seed);
 
   const bodyLines = body.split("\n");
@@ -65,7 +68,7 @@ export function fakeAnnotations(
   const lastLineIndex = nonBlankLines.at(-1)?.lineIndex;
   const stanzaLineCounts = splitSections(body).map((section) => section.split("\n").length);
 
-  const annotations: ReadLineAnnotation[] = [];
+  const annotations: ReadLineAnnotationRow[] = [];
   const usedGroups: number[] = [];
   let nextGroup = 1;
   let offset = 0;
@@ -95,7 +98,12 @@ export function fakeAnnotations(
       }
 
       const enjambed = lineIndex !== lastLineIndex && faker.number.int({ min: 1, max: 10 }) <= 2;
-      annotations.push({ lineIndex, quote: text, rhymeGroup, unrhymed, enjambed });
+      annotations.push({
+        lineIndex,
+        quote: text,
+        rhymeGroup: unrhymed ? UNRHYMED_SENTINEL : rhymeGroup,
+        enjambed,
+      });
     }
   }
 
@@ -157,4 +165,4 @@ function makeEntry(rank: number): FakeEntry {
 }
 
 /** A fixture row that satisfies both the list and detail read shapes. */
-export type FakeEntry = ReadLyricEntryDetail & { excerpt: string };
+export type FakeEntry = ReadLyricEntryDetailRow & { excerpt: string };
