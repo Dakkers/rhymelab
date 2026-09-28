@@ -64,11 +64,8 @@ function entryOr404(id: string): MockEntry {
 /**
  * Project a stored row onto the detail shape: drop the list-view-only `excerpt`.
  * The row carries `structure`, `lineCount`, `wordCount`, and `annotations`
- * already, so the rest is a complete `ReadLyricEntryDetailRow` — the
- * pre-transform shape, since oRPC's own output validation (via the contract's
- * `readLyricEntryDetailSchema`) is what resolves each annotation's `-1`
- * sentinel to `unrhymed`. Handing it an already-transformed row here would
- * run that transform a second time and silently lose `unrhymed`.
+ * already, so the rest is a complete `ReadLyricEntryDetailRow`. The result
+ * MUST stay in the pre-transform shape; the contract's output schema resolves it.
  */
 function toDetail(entry: MockEntry): ReadLyricEntryDetailRow {
   const { excerpt: _excerpt, ...detail } = entry;
