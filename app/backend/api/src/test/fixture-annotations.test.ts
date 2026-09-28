@@ -39,15 +39,24 @@ describe("fakeAnnotations", () => {
     }
   });
 
-  it("produces rows that round-trip through the wire schema's sentinel mapping", () => {
+  it("emits the DB/input shape directly: rhymeGroup carries the sentinel, no unrhymed field", () => {
     for (const annotation of fakeAnnotations(BODY, { seed: 3 })) {
-      const dbShape = {
-        lineIndex: annotation.lineIndex,
-        quote: annotation.quote,
-        rhymeGroup: annotation.unrhymed ? UNRHYMED_SENTINEL : annotation.rhymeGroup,
-        enjambed: annotation.enjambed,
-      };
-      expect(readLineAnnotationSchema.parse(dbShape)).toEqual(annotation);
+      expect(annotation).not.toHaveProperty("unrhymed");
+      expect(
+        annotation.rhymeGroup === UNRHYMED_SENTINEL ||
+          annotation.rhymeGroup === null ||
+          annotation.rhymeGroup >= 1,
+      ).toBe(true);
+    }
+  });
+
+  it("parses through readLineAnnotationSchema in a single pass, resolving the sentinel", () => {
+    for (const annotation of fakeAnnotations(BODY, { seed: 3 })) {
+      const wire = readLineAnnotationSchema.parse(annotation);
+      expect(wire.unrhymed).toBe(annotation.rhymeGroup === UNRHYMED_SENTINEL);
+      expect(wire.rhymeGroup).toBe(
+        annotation.rhymeGroup === UNRHYMED_SENTINEL ? null : annotation.rhymeGroup,
+      );
     }
   });
 });

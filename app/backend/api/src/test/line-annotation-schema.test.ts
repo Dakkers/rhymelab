@@ -4,10 +4,33 @@
  * runner.
  */
 import { describe, expect, it } from "vitest";
-import { readLineAnnotationSchema, UNRHYMED_SENTINEL } from "@rhymelab/api-contract";
+import {
+  readLineAnnotationSchema,
+  readLyricEntryDetailSchema,
+  UNRHYMED_SENTINEL,
+} from "@rhymelab/api-contract";
 
 function row(rhymeGroup: number | null) {
   return { lineIndex: 0, quote: "a line", rhymeGroup, enjambed: false };
+}
+
+function detailRow(annotations: ReturnType<typeof row>[]) {
+  return {
+    kind: "poem" as const,
+    id: "00000000-0000-0000-0000-000000000000",
+    title: "A Title",
+    body: "a line",
+    authors: [],
+    year: null,
+    album: null,
+    artists: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    structure: [],
+    lineCount: 1,
+    wordCount: 2,
+    annotations,
+  };
 }
 
 describe("readLineAnnotationSchema", () => {
@@ -47,5 +70,26 @@ describe("readLineAnnotationSchema", () => {
 
   it("rejects a negative rhymeGroup other than the sentinel", () => {
     expect(readLineAnnotationSchema.safeParse(row(-2)).success).toBe(false);
+  });
+});
+
+describe("readLyricEntryDetailSchema (regression: transform must run exactly once)", () => {
+  it("resolves a DB-shaped -1 row to unrhymed:true in a single pass", () => {
+    const result = readLyricEntryDetailSchema.parse(detailRow([row(UNRHYMED_SENTINEL)]));
+    expect(result.annotations[0]).toEqual({
+      lineIndex: 0,
+      quote: "a line",
+      rhymeGroup: null,
+      unrhymed: true,
+      enjambed: false,
+    });
+  });
+
+  it("loses unrhymed:true if the already-transformed output is parsed a second time", () => {
+    const oncePassed = readLyricEntryDetailSchema.parse(detailRow([row(UNRHYMED_SENTINEL)]));
+    expect(oncePassed.annotations[0]?.unrhymed).toBe(true);
+
+    const twicePassed = readLyricEntryDetailSchema.parse(oncePassed);
+    expect(twicePassed.annotations[0]?.unrhymed).toBe(false);
   });
 });
