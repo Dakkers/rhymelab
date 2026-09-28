@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { normalizeEntryBody, splitSections, UNRHYMED_SENTINEL } from "@rhymelab/api-contract";
+import { normalizeEntryBody, splitSections } from "@rhymelab/api-contract";
 import { fakeAnnotations } from "@rhymelab/fixtures";
 import { loadEnv } from "../load-env";
 import { TEMP_USER_ID } from "../app/session";
@@ -81,10 +81,7 @@ async function main(db: PrismaClient) {
       await tx.lineAnnotation.createMany({
         data: fakeAnnotations(body, { seed: hashTitle(seed.title) }).map((annotation) => ({
           entryId: createResult.id,
-          lineIndex: annotation.lineIndex,
-          quote: annotation.quote,
-          rhymeGroup: annotation.unrhymed ? UNRHYMED_SENTINEL : annotation.rhymeGroup,
-          enjambed: annotation.enjambed,
+          ...annotation,
         })),
       });
     }
