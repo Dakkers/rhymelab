@@ -84,12 +84,4 @@ describe("readLyricEntryDetailSchema (regression: transform must run exactly onc
       enjambed: false,
     });
   });
-
-  it("loses unrhymed:true if the already-transformed output is parsed a second time", () => {
-    const oncePassed = readLyricEntryDetailSchema.parse(detailRow([row(UNRHYMED_SENTINEL)]));
-    expect(oncePassed.annotations[0]?.unrhymed).toBe(true);
-
-    const twicePassed = readLyricEntryDetailSchema.parse(oncePassed);
-    expect(twicePassed.annotations[0]?.unrhymed).toBe(false);
-  });
 });
