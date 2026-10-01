@@ -166,3 +166,9 @@ function makeEntry(rank: number): FakeEntry {
 
 /** A fixture row that satisfies both the list and detail read shapes. */
 export type FakeEntry = ReadLyricEntryDetailRow & { excerpt: string };
+
+export {
+  AnnotatedBodyError,
+  parseAnnotatedBody,
+  type ParsedAnnotatedBody,
+} from "./parseAnnotatedBody";
