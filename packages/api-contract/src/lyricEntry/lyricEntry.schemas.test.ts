@@ -1,14 +1,9 @@
-/**
- * Tests for `readLineAnnotationSchema`'s sentinel mapping, in
- * `@rhymelab/api-contract`. They live here because that package has no test
- * runner.
- */
 import { describe, expect, it } from "vitest";
 import {
   readLineAnnotationSchema,
   readLyricEntryDetailSchema,
   UNRHYMED_SENTINEL,
-} from "@rhymelab/api-contract";
+} from "./lyricEntry.schemas";
 
 function row(rhymeGroup: number | null) {
   return { lineIndex: 0, quote: "a line", rhymeGroup, enjambed: false };
