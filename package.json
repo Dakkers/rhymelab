@@ -21,7 +21,7 @@
     "db:generate": "pnpm --filter @rhymelab/database build",
     "db:migrate": "pnpm --filter @rhymelab/database migrate",
     "db:studio": "pnpm --filter @rhymelab/database studio",
-    "test:unit": "pnpm --filter @rhymelab/core --filter @rhymelab/fixtures --filter @rhymelab/api test",
+    "test:unit": "pnpm --filter @rhymelab/core --filter @rhymelab/fixtures --filter @rhymelab/api-contract --filter @rhymelab/api test",
     "test:integration": "pnpm --filter @rhymelab/api test:integration",
     "test:smoke": "pnpm --filter @rhymelab/web test:smoke",
     "typecheck": "pnpm -r typecheck",
