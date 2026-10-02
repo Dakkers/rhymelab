@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createLyricEntrySchema } from "@rhymelab/api-contract";
 import { AnnotatedBodyError, parseAnnotatedBody } from "@rhymelab/fixtures";
 import { loadEnv } from "../load-env";
 import { TEMP_USER_ID } from "../app/session";
-import { initializeOrms, LyricEntryKindSchema, type PrismaClient } from "@rhymelab/database";
+import { initializeOrms, type PrismaClient } from "@rhymelab/database";
 
 loadEnv();
 
@@ -55,15 +56,18 @@ async function main(db: PrismaClient) {
       }
       const { body, structure, annotations } = parsed;
 
-      // @ts-expect-error Ignore for now
-      const createResult = await ctrls.LyricEntryController.create({
-        userId: TEMP_USER_ID,
-        kind: LyricEntryKindSchema.parse(seed.kind),
+      const input = createLyricEntrySchema.parse({
+        kind: seed.kind,
         title: seed.title,
         authors: seed.authors ?? [],
+        artists: [],
         year: seed.year,
         body,
       });
+      const createResult = await ctrls.LyricEntryController.create(
+        { ...input, userId: TEMP_USER_ID },
+        tx,
+      );
 
       await ctrls.LyricEntryController.updateStructure(createResult.id, structure, tx);
 
