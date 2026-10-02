@@ -3,24 +3,23 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { UNRHYMED_SENTINEL } from "@rhymelab/api-contract";
 import { buildServer } from "../../app/buildServer";
 import { COOKIE_NAME, COOKIE_VALUE, TEMP_USER_ID } from "../../app/session";
-import { prisma, RUN } from "../../test-support/integration-db";
+import { prisma } from "../../test-support/integration-db";
 
 let app: FastifyInstance;
-let createdUser = false;
 
 beforeAll(async () => {
   app = await buildServer({ db: prisma });
-  if (!(await prisma.user.findUnique({ where: { id: TEMP_USER_ID } }))) {
-    await prisma.user.create({
-      data: { id: TEMP_USER_ID, email: `${RUN}@example.test`, displayName: RUN, passwordHash: "-" },
-    });
-    createdUser = true;
-  }
+  await prisma.user.create({
+    data: {
+      id: TEMP_USER_ID,
+      email: "itest@example.test",
+      displayName: "itest",
+      passwordHash: "-",
+    },
+  });
 });
 
 afterAll(async () => {
-  await prisma.lyricEntry.deleteMany({ where: { title: { startsWith: RUN } } });
-  if (createdUser) await prisma.user.delete({ where: { id: TEMP_USER_ID } });
   await app.close();
 });
 
@@ -29,7 +28,7 @@ test("getItem returns stored annotations ordered by line, with unrhymed resolved
     data: {
       userId: TEMP_USER_ID,
       kind: "poem",
-      title: `${RUN} getItem`,
+      title: "getItem",
       body: "first line\nsecond line\n\nthird line",
       structure: ["verse", "verse"],
       annotations: {
