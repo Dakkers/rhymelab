@@ -7,11 +7,7 @@ const SONG_SPECIFIC_FIELDS = {
   artists: true,
 } as const;
 
-/**
- * The DB's sentinel `rhymeGroup` value for "deliberately unrhymed" (X). MUST NOT
- * appear on the wire — {@link readLineAnnotationSchema} maps it to
- * `{ rhymeGroup: null, unrhymed: true }`.
- */
+/** The stored `rhymeGroup` for a deliberately unrhymed line. MUST NOT appear on the wire. */
 export const UNRHYMED_SENTINEL = -1;
 
 const entryBaseSchema = LyricEntryModelSchema.omit({
@@ -53,11 +49,7 @@ export const lyricEntryListItemSchema = LyricEntryModelSchema.pick({
     ...datum,
   }));
 
-/**
- * A `LineAnnotation` row on the wire: the DB's `-1` sentinel is resolved to
- * `unrhymed`, so `rhymeGroup` is either a real song-wide group id or `null`.
- * Carries no `entryId`/timestamps — it is always nested under its entry.
- */
+/** A line annotation on the wire. `rhymeGroup` is a song-wide group id, or `null`. */
 export const readLineAnnotationSchema = LineAnnotationModelSchema.pick({
   lineIndex: true,
   quote: true,
@@ -171,14 +163,11 @@ export type ReadLineAnnotation = z.infer<typeof readLineAnnotationSchema>;
 export type CreateLyricEntryInput = z.infer<typeof createLyricEntrySchema>;
 
 /**
- * The pre-transform shape `readLyricEntryDetailSchema` accepts: `annotations`
- * still carries the DB's raw `rhymeGroup` (the `-1` sentinel included, no
- * `unrhymed`). Callers that hand a detail row to oRPC's own output validation
- * MUST return this shape, not `ReadLyricEntryDetail` — the sentinel transform
- * runs exactly once, at that boundary; feeding it an already-transformed row
- * runs it a second time and silently loses `unrhymed`.
+ * A detail row before the contract's transform, with stored `rhymeGroup`s.
+ * Handlers MUST return this, not `ReadLyricEntryDetail`: the transform is not
+ * idempotent, and oRPC's output validation already runs it once.
  */
 export type ReadLyricEntryDetailRow = z.input<typeof readLyricEntryDetailSchema>;
 
-/** The pre-transform shape `readLineAnnotationSchema` accepts — see {@link ReadLyricEntryDetailRow}. */
+/** A line annotation before the contract's transform. See {@link ReadLyricEntryDetailRow}. */
 export type ReadLineAnnotationRow = z.input<typeof readLineAnnotationSchema>;

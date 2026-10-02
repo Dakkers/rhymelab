@@ -11,14 +11,13 @@ import {
  * Parse a hand-annotated lyrics file into an entry's `body`, `structure`, and
  * line annotations.
  *
- * Markup, all of it stripped from the returned `body`:
+ * Markup, stripped from the returned `body`:
  * - A line that is only `[Label]` or `[Label N]` (e.g. `[Verse 1]`,
  *   `[Pre-Chorus]`) labels every section up to the next header. Sections before
  *   the first header are labelled `verse`.
  * - A trailing `| tokens` annotates its line. Tokens are space-separated:
  *   - a letter group (`A`–`Z`, `AA`–`ZZ`) is a rhyme group scoped to its section,
- *   - `@name` joins the line's rhyme group to every other line tagged `@name`,
- *     across sections,
+ *   - `@name` joins the line's group with every group tagged `@name`,
  *   - `X` marks the line deliberately unrhymed,
  *   - `>` marks it enjambed.
  *   A line MUST NOT carry `X` alongside a letter group or `@name`.
@@ -27,7 +26,7 @@ import {
  * `lineIndex`es address `body.split("\n")`.
  *
  * @param raw  The file's contents.
- * @return The cleaned entry fields. Annotations are in DB shape.
+ * @return The entry fields. Annotations are pre-transform.
  * @throws {AnnotatedBodyError} When a header label or marker token is not recognised.
  */
 export function parseAnnotatedBody(raw: string): ParsedAnnotatedBody {
