@@ -288,9 +288,6 @@ importers:
       '@rhymelab/api-contract':
         specifier: workspace:*
         version: link:../api-contract
-      '@rhymelab/database':
-        specifier: workspace:*
-        version: link:../database
       zod:
         specifier: 4.4.3
         version: 4.4.3

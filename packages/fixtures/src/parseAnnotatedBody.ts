@@ -1,13 +1,11 @@
 import {
+  LyricEntrySectionTypeSchema,
   normalizeEntryBody,
   splitSections,
   UNRHYMED_SENTINEL,
+  type LyricEntrySectionType,
   type ReadLineAnnotationRow,
 } from "@rhymelab/api-contract";
-import {
-  LyricEntrySectionTypeSchema,
-  type LyricEntrySectionType,
-} from "@rhymelab/database/schemas";
 
 /**
  * Parse a hand-annotated lyrics file into an entry's `body`, `structure`, and
