@@ -27,10 +27,27 @@ describe("parseAnnotatedBody", () => {
   });
 
   it("assigns song-wide group ids in order of first appearance", () => {
+    const { annotations } = parseAnnotatedBody(["a | B", "b | C", "c | B", "d | AA"].join("\n"));
+    expect(annotations.map((a) => a.rhymeGroup)).toEqual([1, 2, 1, 3]);
+  });
+
+  it("scopes letters to their section", () => {
     const { annotations } = parseAnnotatedBody(
-      ["a | B", "b | C", "c | B", "", "d | C", "e | AA"].join("\n"),
+      ["[Verse]", "a | A", "b | A", "[Chorus]", "c | A", "d | A"].join("\n"),
     );
-    expect(annotations.map((a) => a.rhymeGroup)).toEqual([1, 2, 1, 2, 3]);
+    expect(annotations.map((a) => a.rhymeGroup)).toEqual([1, 1, 2, 2]);
+  });
+
+  it("joins section groups that share an @name", () => {
+    const { annotations } = parseAnnotatedBody(
+      ["a | A", "b | B @time", "c | A", "d | B", "", "e | A @time", "f | A", "g | B"].join("\n"),
+    );
+    expect(annotations.map((a) => a.rhymeGroup)).toEqual([1, 2, 1, 2, 2, 2, 3]);
+  });
+
+  it("groups lines that carry only an @name", () => {
+    const { annotations } = parseAnnotatedBody("a | @end\n\nb | @end\n\nc | A");
+    expect(annotations.map((a) => a.rhymeGroup)).toEqual([1, 1, 2]);
   });
 
   it("indexes annotations against the returned body, blank lines included", () => {
@@ -63,6 +80,7 @@ describe("parseAnnotatedBody", () => {
     ["an unknown token", "a | ?"],
     ["two rhyme groups on one line", "a | A B"],
     ["both X and a rhyme group", "a | A X"],
+    ["both X and an @name", "a | X @end"],
     ["a marker on a blank line", "a\n| A\nb"],
     ["an enjambed last line", "a | A\nb | A >"],
   ])("rejects %s", (_, raw) => {

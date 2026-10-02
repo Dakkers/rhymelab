@@ -16,11 +16,14 @@ import {
  *   `[Pre-Chorus]`) labels every section up to the next header. Sections before
  *   the first header are labelled `verse`.
  * - A trailing `| tokens` annotates its line. Tokens are space-separated:
- *   a letter group (`A`–`Z`, `AA`–`ZZ`) is a song-wide rhyme group, `X` marks the
- *   line deliberately unrhymed, and `>` marks it enjambed. A line MUST NOT carry
- *   both a letter group and `X`.
+ *   - a letter group (`A`–`Z`, `AA`–`ZZ`) is a rhyme group scoped to its section,
+ *   - `@name` joins the line's rhyme group to every other line tagged `@name`,
+ *     across sections,
+ *   - `X` marks the line deliberately unrhymed,
+ *   - `>` marks it enjambed.
+ *   A line MUST NOT carry `X` alongside a letter group or `@name`.
  *
- * Letter groups become rhyme group ids in order of first appearance. Annotation
+ * Rhyme groups become song-wide ids in order of first appearance. Annotation
  * `lineIndex`es address `body.split("\n")`.
  *
  * @param raw  The file's contents.
@@ -55,22 +58,40 @@ export function parseAnnotatedBody(raw: string): ParsedAnnotatedBody {
   const body = normalizeEntryBody(stripped.join("\n"));
   const lines = body.split("\n");
 
-  const groupIds = new Map<string, number>();
-  const annotations: ReadLineAnnotationRow[] = [];
+  const groups = new GroupUnion();
+  const rows: { lineIndex: number; quote: string; groupKey: string | null; marker: LineMarker }[] =
+    [];
+  let section = 0;
   let contentLine = 0;
   for (const [lineIndex, quote] of lines.entries()) {
-    if (quote === "") continue;
+    if (quote === "") {
+      section++;
+      continue;
+    }
     const marker = markers[contentLine++];
     if (!marker) continue;
-    let rhymeGroup: number | null = null;
-    if (marker.unrhymed) {
-      rhymeGroup = UNRHYMED_SENTINEL;
-    } else if (marker.letter) {
-      if (!groupIds.has(marker.letter)) groupIds.set(marker.letter, groupIds.size + 1);
-      rhymeGroup = groupIds.get(marker.letter) ?? null;
-    }
-    annotations.push({ lineIndex, quote, rhymeGroup, enjambed: marker.enjambed });
+    const keys = [
+      ...(marker.letter ? [`${section}:${marker.letter}`] : []),
+      ...marker.names.map((name) => `@${name}`),
+    ];
+    for (const key of keys.slice(1)) groups.join(keys[0] ?? key, key);
+    rows.push({ lineIndex, quote, groupKey: keys[0] ?? null, marker });
   }
+
+  const groupIds = new Map<string, number>();
+  const annotations: ReadLineAnnotationRow[] = rows.map(
+    ({ lineIndex, quote, groupKey, marker }) => {
+      let rhymeGroup: number | null = null;
+      if (marker.unrhymed) {
+        rhymeGroup = UNRHYMED_SENTINEL;
+      } else if (groupKey) {
+        const root = groups.find(groupKey);
+        if (!groupIds.has(root)) groupIds.set(root, groupIds.size + 1);
+        rhymeGroup = groupIds.get(root) ?? null;
+      }
+      return { lineIndex, quote, rhymeGroup, enjambed: marker.enjambed };
+    },
+  );
 
   if (annotations.at(-1)?.enjambed && annotations.at(-1)?.lineIndex === lines.length - 1) {
     throw new AnnotatedBodyError("the last line cannot be enjambed");
@@ -92,8 +113,27 @@ export interface ParsedAnnotatedBody {
 
 interface LineMarker {
   letter: string | null;
+  names: string[];
   unrhymed: boolean;
   enjambed: boolean;
+}
+
+class GroupUnion {
+  private readonly parent = new Map<string, string>();
+
+  find(key: string): string {
+    const parent = this.parent.get(key);
+    if (parent === undefined || parent === key) return key;
+    const root = this.find(parent);
+    this.parent.set(key, root);
+    return root;
+  }
+
+  join(a: string, b: string): void {
+    const rootA = this.find(a);
+    const rootB = this.find(b);
+    if (rootA !== rootB) this.parent.set(rootB, rootA);
+  }
 }
 
 function deriveStructure(
@@ -122,7 +162,7 @@ function parseSectionLabel(label: string, rawIndex: number): LyricEntrySectionTy
 }
 
 function parseMarker(tokens: string, rawIndex: number): LineMarker {
-  const marker: LineMarker = { letter: null, unrhymed: false, enjambed: false };
+  const marker: LineMarker = { letter: null, names: [], unrhymed: false, enjambed: false };
   for (const token of tokens.trim().split(/\s+/).filter(Boolean)) {
     if (token === ">") {
       marker.enjambed = true;
@@ -130,11 +170,13 @@ function parseMarker(tokens: string, rawIndex: number): LineMarker {
       marker.unrhymed = true;
     } else if (/^[A-Z]{1,2}$/.test(token) && marker.letter === null) {
       marker.letter = token;
+    } else if (/^@[\w-]+$/.test(token)) {
+      marker.names.push(token.slice(1));
     } else {
       throw new AnnotatedBodyError(`line ${rawIndex + 1}: unexpected marker token "${token}"`);
     }
   }
-  if (marker.unrhymed && marker.letter) {
+  if (marker.unrhymed && (marker.letter || marker.names.length > 0)) {
     throw new AnnotatedBodyError(`line ${rawIndex + 1}: a line cannot be both X and a rhyme group`);
   }
   return marker;
