@@ -1,17 +1,20 @@
 import type { ReadLineAnnotation } from "@rhymelab/api-contract";
 import type { SheetSection } from "#/components/LyricSections";
 
+/** A line's place in its section's rhyme scheme. */
+export type RhymeLabel = { letter: string; unrhymed: boolean };
+
 /**
- * Letter each annotated line by its rhyme group, keyed by song-wide line index.
+ * Label each annotated line by its rhyme group, keyed by song-wide line index.
  * Letters restart at "A" in every section, in order of first appearance.
  * Unrhymed lines are "X". Lines with no rhyme group are absent.
  */
 export function letterLines(
   sections: readonly SheetSection[],
   annotations: readonly Pick<ReadLineAnnotation, "lineIndex" | "rhymeGroup" | "unrhymed">[],
-): ReadonlyMap<number, string> {
+): ReadonlyMap<number, RhymeLabel> {
   const byLine = new Map(annotations.map((annotation) => [annotation.lineIndex, annotation]));
-  const letters = new Map<number, string>();
+  const letters = new Map<number, RhymeLabel>();
 
   for (const section of sections) {
     const sectionLetters = new Map<number, string>();
@@ -19,7 +22,7 @@ export function letterLines(
       const annotation = byLine.get(globalIndex);
       if (!annotation) continue;
       if (annotation.unrhymed) {
-        letters.set(globalIndex, "X");
+        letters.set(globalIndex, { letter: "X", unrhymed: true });
         continue;
       }
       if (annotation.rhymeGroup === null) continue;
@@ -28,7 +31,7 @@ export function letterLines(
         letter = toLetters(sectionLetters.size);
         sectionLetters.set(annotation.rhymeGroup, letter);
       }
-      letters.set(globalIndex, letter);
+      letters.set(globalIndex, { letter, unrhymed: false });
     }
   }
 

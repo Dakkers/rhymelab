@@ -16,7 +16,7 @@ import { normalizeEntryBody } from "@rhymelab/api-contract";
 import { LyricSections, toSheetSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
-import { letterLines } from "#/lib/rhymeScheme";
+import { letterLines, type RhymeLabel } from "#/lib/rhymeScheme";
 import { orpc, type ReadLyricEntryDetailJson } from "#/lib/orpc";
 
 export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
@@ -86,7 +86,7 @@ function EntryPage() {
         <LyricSections
           sections={sections}
           renderLine={(line) => line.text}
-          renderGutter={(line) => rhymeLetters.get(line.globalIndex)}
+          renderGutter={(line) => <RhymeLetter label={rhymeLetters.get(line.globalIndex)} />}
         />
       </Card>
 
@@ -180,6 +180,16 @@ function EditTextDrawer({
         required
       />
     </Drawer>
+  );
+}
+
+function RhymeLetter({ label }: { label: RhymeLabel | undefined }) {
+  if (!label) return null;
+  if (label.unrhymed) return label.letter;
+  return (
+    <Text as="span" saliency="mid" weight="semibold">
+      {label.letter}
+    </Text>
   );
 }
 
