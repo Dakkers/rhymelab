@@ -44,36 +44,18 @@ function LyricSection({
   return (
     <Flex direction="column" gap="1">
       <Eyebrow>{SECTION_TYPE_LABEL[label]}</Eyebrow>
-      {renderGutter ? (
-        <Grid columns="max-content minmax(0, 1fr)" align="baseline">
-          {lines.map((line) => (
-            <Fragment key={line.globalIndex}>
-              <Text
-                font="mono"
-                size="sm"
-                saliency="low"
-                textAlign="end"
-                pr="3"
-                style={{ minWidth: "2ch" }}
-              >
-                {renderGutter(line)}
-              </Text>
-              <Text whiteSpace="pre-wrap" lineHeight="lyric">
-                {renderLine(line)}
-              </Text>
-            </Fragment>
-          ))}
-        </Grid>
-      ) : (
-        <Text whiteSpace="pre-wrap" lineHeight="lyric">
-          {lines.map((line, i) => (
-            <Fragment key={i}>
-              {i > 0 && "\n"}
+      <Grid columns="2ch minmax(0, 1fr)" align="baseline">
+        {lines.map((line) => (
+          <Fragment key={line.globalIndex}>
+            <Text font="mono" size="sm" saliency="low" textAlign="end">
+              {renderGutter?.(line)}
+            </Text>
+            <Text whiteSpace="pre-wrap" lineHeight="lyric" pl="3">
               {renderLine(line)}
-            </Fragment>
-          ))}
-        </Text>
-      )}
+            </Text>
+          </Fragment>
+        ))}
+      </Grid>
     </Flex>
   );
 }
@@ -85,7 +67,7 @@ export type SheetSection = { label: LyricEntrySectionType; lines: readonly Sheet
 export interface LyricSectionsProps {
   sections: readonly SheetSection[];
   renderLine: (line: SheetLine) => ReactNode;
-  /** Content beside each line, in a fixed-width column. Omit for no column. */
+  /** Content beside each line, in a fixed-width column. Omitted, the column stays empty. */
   renderGutter?: (line: SheetLine) => ReactNode;
 }
 
