@@ -9,6 +9,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,5 +18,8 @@
     "@rhymelab/api-contract": "workspace:*",
     "zod": "4.4.3",
     "zod-schema-faker": "2.1.1"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
   }
 }

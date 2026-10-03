@@ -3,9 +3,8 @@ import {
   deriveEntrySummaryFields,
   lyricEntryListItemSchema,
   type LyricEntryListItem,
-  type ReadLyricEntryDetail,
+  type ReadLyricEntryDetailRow,
   type CreateLyricEntryInput,
-  readLyricEntryDetailSchema,
   resyncStructure,
   normalizeEntryBody,
   splitSections,
@@ -96,7 +95,7 @@ export class LyricEntryController {
   async getDetails(
     id: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<ReadLyricEntryDetail | null> {
+  ): Promise<ReadLyricEntryDetailRow | null> {
     const db = tx?.lyricEntry ?? this.lyricEntryOrm;
     const record = await db.findFirst({
       where: { id, deletedAt: null },
@@ -112,16 +111,24 @@ export class LyricEntryController {
         album: true,
         createdAt: true,
         updatedAt: true,
-        userId: true,
+        annotations: {
+          select: {
+            lineIndex: true,
+            quote: true,
+            rhymeGroup: true,
+            enjambed: true,
+          },
+          orderBy: { lineIndex: "asc" },
+        },
       },
     });
     if (!record) {
       return null;
     }
-    return readLyricEntryDetailSchema.parse({
+    return {
       ...record,
       ...deriveEntrySummaryFields(record.body),
-    });
+    };
   }
 
   /**
@@ -133,7 +140,7 @@ export class LyricEntryController {
   async create(
     data: CreateLyricEntryInput & { userId: string },
     tx?: Prisma.TransactionClient,
-  ): Promise<ReadLyricEntryDetail> {
+  ): Promise<ReadLyricEntryDetailRow> {
     const db = tx?.lyricEntry ?? this.lyricEntryOrm;
     const newRecord = await db.create({
       data: { ...data, structure: initStructure(data.body) },

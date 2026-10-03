@@ -1,9 +1,5 @@
-/**
- * Tests for the `structure` helpers in `@rhymelab/api-contract`. They live
- * here because that package has no test runner.
- */
 import { describe, expect, it } from "vitest";
-import { initStructure, resyncStructure, splitSections } from "@rhymelab/api-contract";
+import { initStructure, resyncStructure, splitSections } from "./lyricEntry.util";
 
 describe("splitSections", () => {
   it("has no sections for an empty body", () => {

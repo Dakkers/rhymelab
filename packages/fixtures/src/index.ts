@@ -7,7 +7,10 @@ import { faker } from "@faker-js/faker";
 import {
   deriveEntrySummaryFields,
   initStructure,
-  type ReadLyricEntryDetail,
+  splitSections,
+  UNRHYMED_SENTINEL,
+  type ReadLineAnnotationRow,
+  type ReadLyricEntryDetailRow,
 } from "@rhymelab/api-contract";
 
 const HOUR = 60 * 60 * 1000;
@@ -15,6 +18,13 @@ const DAY = 24 * HOUR;
 const EPOCH = Date.UTC(2026, 7, 12, 12, 0, 0);
 
 const DEFAULT_SEED = 20260812;
+
+const RHYME_SCHEMES: readonly (readonly string[])[] = [
+  ["A", "A", "B", "B"],
+  ["A", "B", "A", "B"],
+  ["A", "B", "B", "A"],
+  ["A", "A", "A", "A"],
+];
 
 /**
  * A deterministic set of entries, newest-edited first. Same `count` and
@@ -28,6 +38,74 @@ export function fakeEntries(
   return Array.from({ length: count }, (_, i) => makeEntry(i)).sort(
     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
   );
+}
+
+/**
+ * A deterministic set of line annotations for `body`. Same `body` and `seed`,
+ * same annotations. Rows are pre-transform. See {@link ReadLyricEntryDetailRow}.
+ */
+export function fakeAnnotations(
+  body: string,
+  { seed = DEFAULT_SEED }: { seed?: number } = {},
+): ReadLineAnnotationRow[] {
+  faker.seed(seed);
+
+  const bodyLines = body.split("\n");
+  const nonBlankLines = bodyLines
+    .map((text, lineIndex) => ({ lineIndex, text }))
+    .filter(({ text }) => text.trim() !== "");
+  const lastLineIndex = nonBlankLines.at(-1)?.lineIndex;
+  const stanzaLineCounts = splitSections(body).map((section) => section.split("\n").length);
+
+  const annotations: ReadLineAnnotationRow[] = [];
+  const usedGroups: number[] = [];
+  let nextGroup = 1;
+  let offset = 0;
+
+  for (const stanzaLength of stanzaLineCounts) {
+    const scheme = faker.helpers.arrayElement(RHYME_SCHEMES);
+    const letterGroups = new Map<string, number>();
+    const stanzaLines = nonBlankLines.slice(offset, offset + stanzaLength);
+    offset += stanzaLength;
+
+    for (const [i, { lineIndex, text }] of stanzaLines.entries()) {
+      const unrhymed = faker.number.int({ min: 1, max: 10 }) === 1;
+      let rhymeGroup: number | null = null;
+      if (!unrhymed) {
+        const letter = scheme[i % scheme.length];
+        if (!letterGroups.has(letter)) {
+          const reuseExisting = usedGroups.length > 0 && faker.number.int({ min: 1, max: 10 }) <= 2;
+          letterGroups.set(
+            letter,
+            reuseExisting ? faker.helpers.arrayElement(usedGroups) : nextGroup++,
+          );
+        }
+        rhymeGroup = letterGroups.get(letter) ?? null;
+        if (rhymeGroup !== null && !usedGroups.includes(rhymeGroup)) {
+          usedGroups.push(rhymeGroup);
+        }
+      }
+
+      const enjambed = lineIndex !== lastLineIndex && faker.number.int({ min: 1, max: 10 }) <= 2;
+      annotations.push({
+        lineIndex,
+        quote: text,
+        rhymeGroup: unrhymed ? UNRHYMED_SENTINEL : rhymeGroup,
+        enjambed,
+      });
+    }
+  }
+
+  return annotations;
+}
+
+/** A stable per-entry annotation seed derived from `id`. */
+function annotationSeedFromId(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (Math.imul(hash, 31) + id.charCodeAt(i)) | 0;
+  }
+  return hash >>> 0;
 }
 
 function fakeLine(): string {
@@ -46,16 +124,18 @@ function fakeBody(): string {
 function makeEntry(rank: number): FakeEntry {
   const kind = faker.datatype.boolean() ? "song" : "poem";
   const body = fakeBody();
+  const id = faker.string.uuid();
   const authors = Array.from({ length: faker.number.int({ min: 1, max: 2 }) }, () =>
     faker.person.fullName(),
   );
 
   return {
-    id: faker.string.uuid(),
+    id,
     kind,
     title: faker.music.songName(),
     body,
     structure: initStructure(body),
+    annotations: fakeAnnotations(body, { seed: annotationSeedFromId(id) }),
     authors,
     year: faker.number.int({ min: 1990, max: 2025 }),
     artists:
@@ -70,4 +150,10 @@ function makeEntry(rank: number): FakeEntry {
 }
 
 /** A fixture row that satisfies both the list and detail read shapes. */
-export type FakeEntry = ReadLyricEntryDetail & { excerpt: string };
+export type FakeEntry = ReadLyricEntryDetailRow & { excerpt: string };
+
+export {
+  AnnotatedBodyError,
+  parseAnnotatedBody,
+  type ParsedAnnotatedBody,
+} from "./parseAnnotatedBody";

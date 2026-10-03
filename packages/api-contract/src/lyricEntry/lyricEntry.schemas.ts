@@ -1,11 +1,14 @@
 import z from "zod";
-import { LyricEntryModelSchema } from "@rhymelab/database/schemas";
+import { LineAnnotationModelSchema, LyricEntryModelSchema } from "@rhymelab/database/schemas";
 import { normalizeEntryBody } from "./lyricEntry.util";
 
 const SONG_SPECIFIC_FIELDS = {
   album: true,
   artists: true,
 } as const;
+
+/** The stored `rhymeGroup` for a deliberately unrhymed line. MUST NOT appear on the wire. */
+export const UNRHYMED_SENTINEL = -1;
 
 const entryBaseSchema = LyricEntryModelSchema.omit({
   kind: true,
@@ -46,6 +49,26 @@ export const lyricEntryListItemSchema = LyricEntryModelSchema.pick({
     ...datum,
   }));
 
+/** A line annotation on the wire. `rhymeGroup` is a song-wide group id, or `null`. */
+export const readLineAnnotationSchema = LineAnnotationModelSchema.pick({
+  lineIndex: true,
+  quote: true,
+  rhymeGroup: true,
+  enjambed: true,
+})
+  .extend({
+    rhymeGroup: z
+      .number()
+      .int()
+      .refine((value) => value === UNRHYMED_SENTINEL || value >= 1)
+      .nullable(),
+  })
+  .transform(({ rhymeGroup, ...rest }) => ({
+    ...rest,
+    rhymeGroup: rhymeGroup === UNRHYMED_SENTINEL ? null : rhymeGroup,
+    unrhymed: rhymeGroup === UNRHYMED_SENTINEL,
+  }));
+
 export const readLyricEntryDetailSchema = LyricEntryModelSchema.pick({
   kind: true,
   id: true,
@@ -61,6 +84,7 @@ export const readLyricEntryDetailSchema = LyricEntryModelSchema.pick({
 }).extend({
   lineCount: z.number().int().nonnegative(),
   wordCount: z.number().int().nonnegative(),
+  annotations: z.array(readLineAnnotationSchema),
 });
 
 const createLyricEntrySchemaBase = entryBaseSchema
@@ -135,4 +159,15 @@ function formatAuthorList(list: readonly string[]): string {
 export type LyricEntry = z.infer<typeof lyricEntrySchema>;
 export type LyricEntryListItem = z.infer<typeof lyricEntryListItemSchema>;
 export type ReadLyricEntryDetail = z.infer<typeof readLyricEntryDetailSchema>;
+export type ReadLineAnnotation = z.infer<typeof readLineAnnotationSchema>;
 export type CreateLyricEntryInput = z.infer<typeof createLyricEntrySchema>;
+
+/**
+ * A detail row before the contract's transform, with stored `rhymeGroup`s.
+ * Handlers MUST return this, not `ReadLyricEntryDetail`: the transform is not
+ * idempotent, and oRPC's output validation already runs it once.
+ */
+export type ReadLyricEntryDetailRow = z.input<typeof readLyricEntryDetailSchema>;
+
+/** A line annotation before the contract's transform. See {@link ReadLyricEntryDetailRow}. */
+export type ReadLineAnnotationRow = z.input<typeof readLineAnnotationSchema>;

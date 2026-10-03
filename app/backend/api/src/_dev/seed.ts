@@ -1,15 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { normalizeEntryBody, splitSections } from "@rhymelab/api-contract";
+import { createLyricEntrySchema } from "@rhymelab/api-contract";
+import { AnnotatedBodyError, parseAnnotatedBody } from "@rhymelab/fixtures";
 import { loadEnv } from "../load-env";
 import { TEMP_USER_ID } from "../app/session";
-import {
-  initializeOrms,
-  LyricEntryKindSchema,
-  LyricEntrySectionTypeSchema,
-  type PrismaClient,
-} from "@rhymelab/database";
-import z from "zod";
+import { initializeOrms, type PrismaClient } from "@rhymelab/database";
 
 loadEnv();
 
@@ -43,39 +38,42 @@ async function main(db: PrismaClient) {
         continue;
       }
 
-      const body = readBody(seed.file);
-      if (body === null) {
+      const raw = readSeedFile(seed.file);
+      if (raw === null) {
         console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
         missing++;
         continue;
       }
 
-      const sections = splitSections(body);
-      if (sections.length !== seed.structure.length) {
-        console.error(
-          `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
-            `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
-            `in seed.ts to match. Skipping.`,
-        );
+      let parsed;
+      try {
+        parsed = parseAnnotatedBody(raw);
+      } catch (err) {
+        if (!(err instanceof AnnotatedBodyError)) throw err;
+        console.error(`✗ ${seed.title} — .dummy/${seed.file}: ${err.message}. Skipping.`);
         invalid++;
         continue;
       }
+      const { body, structure, annotations } = parsed;
 
-      // @ts-expect-error Ignore for now
-      const createResult = await ctrls.LyricEntryController.create({
-        userId: TEMP_USER_ID,
-        kind: LyricEntryKindSchema.parse(seed.kind),
+      const input = createLyricEntrySchema.parse({
+        kind: seed.kind,
         title: seed.title,
         authors: seed.authors ?? [],
+        artists: [],
         year: seed.year,
         body,
       });
-
-      await ctrls.LyricEntryController.updateStructure(
-        createResult.id,
-        z.array(LyricEntrySectionTypeSchema).parse(seed.structure),
+      const createResult = await ctrls.LyricEntryController.create(
+        { ...input, userId: TEMP_USER_ID },
         tx,
       );
+
+      await ctrls.LyricEntryController.updateStructure(createResult.id, structure, tx);
+
+      await tx.lineAnnotation.createMany({
+        data: annotations.map((annotation) => ({ entryId: createResult.id, ...annotation })),
+      });
     }
   });
 
@@ -109,23 +107,14 @@ async function createTempUser(db: PrismaClient) {
   }
 }
 
-/** Read and clean a seed's body, or return null if its source file is absent. */
-function readBody(file: string): string | null {
-  let raw: string;
+/** Read a seed's annotated source file, or return null if it is absent. */
+function readSeedFile(file: string): string | null {
   try {
-    raw = readFileSync(resolve(DUMMY_DIR, file), "utf8");
+    return readFileSync(resolve(DUMMY_DIR, file), "utf8");
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
-  return normalizeEntryBody(stripSectionHeaders(raw));
-}
-
-function stripSectionHeaders(raw: string): string {
-  return raw
-    .split("\n")
-    .map((line) => (/^\s*\[[^\]]*\]\s*$/.test(line) ? "" : line))
-    .join("\n");
 }
 
 const SEEDS = [
@@ -133,31 +122,26 @@ const SEEDS = [
     file: "DEMO_LongIsland.txt",
     title: "Long Island",
     kind: "song",
-    structure: ["verse", "prechorus", "chorus", "verse", "prechorus", "chorus", "bridge", "chorus"],
   },
   {
     file: "DEMO_RocketGirl.txt",
     title: "Rocket Girl",
     kind: "song",
-    structure: ["verse", "chorus", "verse", "chorus", "outro"],
   },
   {
     file: "DEMO_RoundHere.txt",
     title: "Round Here",
     kind: "song",
-    structure: ["verse", "chorus", "verse", "chorus", "bridge", "verse", "chorus", "outro"],
   },
   {
     file: "DEMO_TheDays.txt",
     title: "The Days",
     kind: "song",
-    structure: ["verse", "prechorus", "chorus", "verse", "prechorus", "chorus", "outro"],
   },
   {
     file: "DEMO_TheNightTheyDroveOldDixieDown.txt",
     title: "The Night They Drove Old Dixie Down",
     kind: "song",
-    structure: ["verse", "chorus", "verse", "chorus", "verse", "chorus"],
   },
   {
     file: "DEMO_TheWasteLand.txt",
@@ -165,7 +149,6 @@ const SEEDS = [
     kind: "poem",
     authors: ["T. S. Eliot"],
     year: 1922,
-    structure: ["verse"],
   },
 ];
 

@@ -20,7 +20,7 @@ import {
   initStructure,
   resyncStructure,
   splitSections,
-  type ReadLyricEntryDetail,
+  type ReadLyricEntryDetailRow,
 } from "@rhymelab/api-contract";
 import type { z } from "zod";
 import { db, type MockEntry } from "./db";
@@ -63,21 +63,20 @@ function entryOr404(id: string): MockEntry {
 
 /**
  * Project a stored row onto the detail shape: drop the list-view-only `excerpt`.
- * The row carries `structure`, `lineCount`, and `wordCount` already, so the rest
- * is a complete `ReadLyricEntryDetail`.
+ * The result MUST stay pre-transform. See {@link ReadLyricEntryDetailRow}.
  */
-function toDetail(entry: MockEntry): ReadLyricEntryDetail {
+function toDetail(entry: MockEntry): ReadLyricEntryDetailRow {
   const { excerpt: _excerpt, ...detail } = entry;
   return detail;
 }
 
 /**
  * Project a stored row onto the list-item shape: drop the detail-only
- * `structure`. `excerpt`/`lineCount`/`wordCount` stay; the contract's own
- * transform then dresses the credit-line fields on serialization.
+ * `structure` and `annotations`. `excerpt`/`lineCount`/`wordCount` stay; the
+ * contract's own transform then dresses the credit-line fields on serialization.
  */
 function toListItem(entry: MockEntry) {
-  const { structure: _structure, ...item } = entry;
+  const { structure: _structure, annotations: _annotations, ...item } = entry;
   return item;
 }
 
@@ -142,6 +141,7 @@ const router = {
         title: input.title,
         body: input.body,
         structure: initStructure(input.body),
+        annotations: [],
         authors: input.authors,
         year: input.year,
         artists: input.kind === "song" ? input.artists : [],
