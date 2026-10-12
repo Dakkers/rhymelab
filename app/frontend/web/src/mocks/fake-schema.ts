@@ -39,6 +39,8 @@ function minimize(schema: z.ZodType, value: unknown): unknown {
 
   const def = defOf(schema);
 
+  if (def.type === "pipe" && def.in) return minimize(def.in, value);
+
   if (def.type === "boolean" && accepts(schema, false)) return false;
 
   if (def.type === "object" && def.shape && typeof value === "object" && value !== null) {
@@ -76,4 +78,5 @@ interface Def {
   type?: string;
   shape?: Record<string, z.ZodType>;
   options?: z.ZodType[];
+  in?: z.ZodType;
 }
