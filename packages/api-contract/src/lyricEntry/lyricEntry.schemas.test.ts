@@ -69,14 +69,26 @@ describe("readLineAnnotationSchema", () => {
 });
 
 describe("readLyricEntryDetailSchema (regression: transform must run exactly once)", () => {
-  it("resolves a DB-shaped -1 row to unrhymed:true in a single pass", () => {
+  it("resolves a DB-shaped -1 row to an unrhymed line in a single pass", () => {
     const result = readLyricEntryDetailSchema.parse(detailRow([row(UNRHYMED_SENTINEL)]));
-    expect(result.annotations[0]).toEqual({
-      lineIndex: 0,
-      quote: "a line",
-      rhymeGroup: null,
-      unrhymed: true,
-      enjambed: false,
-    });
+    expect(result.sections).toEqual([
+      {
+        type: "verse",
+        lines: [
+          {
+            index: 0,
+            text: "a line",
+            rhyme: { group: null, letter: "X", unrhymed: true },
+            enjambed: false,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("omits structure and annotations from the output", () => {
+    const result = readLyricEntryDetailSchema.parse(detailRow([row(1)]));
+    expect(result).not.toHaveProperty("structure");
+    expect(result).not.toHaveProperty("annotations");
   });
 });

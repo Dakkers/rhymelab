@@ -1,6 +1,6 @@
 import z from "zod";
 import { LineAnnotationModelSchema, LyricEntryModelSchema } from "@rhymelab/database/schemas";
-import { normalizeEntryBody } from "./lyricEntry.util";
+import { buildEntrySections, normalizeEntryBody } from "./lyricEntry.util";
 
 const SONG_SPECIFIC_FIELDS = {
   album: true,
@@ -81,11 +81,16 @@ export const readLyricEntryDetailSchema = LyricEntryModelSchema.pick({
   createdAt: true,
   updatedAt: true,
   structure: true,
-}).extend({
-  lineCount: z.number().int().nonnegative(),
-  wordCount: z.number().int().nonnegative(),
-  annotations: z.array(readLineAnnotationSchema),
-});
+})
+  .extend({
+    lineCount: z.number().int().nonnegative(),
+    wordCount: z.number().int().nonnegative(),
+    annotations: z.array(readLineAnnotationSchema),
+  })
+  .transform(({ structure, annotations, ...entry }) => ({
+    ...entry,
+    sections: buildEntrySections(entry.body, structure, annotations),
+  }));
 
 const createLyricEntrySchemaBase = entryBaseSchema
   .pick({
@@ -159,6 +164,7 @@ function formatAuthorList(list: readonly string[]): string {
 export type LyricEntry = z.infer<typeof lyricEntrySchema>;
 export type LyricEntryListItem = z.infer<typeof lyricEntryListItemSchema>;
 export type ReadLyricEntryDetail = z.infer<typeof readLyricEntryDetailSchema>;
+export type { EntryLine, EntryLineRhyme, EntrySection } from "./lyricEntry.util";
 export type ReadLineAnnotation = z.infer<typeof readLineAnnotationSchema>;
 export type CreateLyricEntryInput = z.infer<typeof createLyricEntrySchema>;
 
