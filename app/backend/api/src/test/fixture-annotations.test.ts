@@ -2,6 +2,7 @@
  * Tests for `fakeAnnotations`, in `@rhymelab/fixtures`. They live here because
  * that package has no test runner.
  */
+import { faker } from "@faker-js/faker";
 import { describe, expect, it } from "vitest";
 import { readLineAnnotationSchema, UNRHYMED_SENTINEL } from "@rhymelab/api-contract";
 import { fakeAnnotations } from "@rhymelab/fixtures";
@@ -58,5 +59,14 @@ describe("fakeAnnotations", () => {
         annotation.rhymeGroup === UNRHYMED_SENTINEL ? null : annotation.rhymeGroup,
       );
     }
+  });
+
+  it("does not disturb the global faker random stream", () => {
+    faker.seed(123);
+    const expected = faker.number.int({ min: 0, max: 1_000_000 });
+
+    faker.seed(123);
+    fakeAnnotations(BODY, { seed: 7 });
+    expect(faker.number.int({ min: 0, max: 1_000_000 })).toBe(expected);
   });
 });

@@ -63,6 +63,9 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      '@faker-js/faker':
+        specifier: 10.5.0
+        version: 10.5.0
       '@types/node':
         specifier: 22.20.1
         version: 22.20.1

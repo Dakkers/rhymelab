@@ -3,7 +3,7 @@
  * Summary fields and `structure` are derived from each row's real `body`
  * with the same functions the API uses.
  */
-import { faker } from "@faker-js/faker";
+import { en, faker, Faker } from "@faker-js/faker";
 import {
   deriveEntrySummaryFields,
   initStructure,
@@ -59,7 +59,8 @@ export function fakeAnnotations(
   body: string,
   { seed = DEFAULT_SEED }: { seed?: number } = {},
 ): ReadLineAnnotationRow[] {
-  faker.seed(seed);
+  const rng = new Faker({ locale: [en] });
+  rng.seed(seed);
 
   const bodyLines = body.split("\n");
   const nonBlankLines = bodyLines
@@ -74,21 +75,21 @@ export function fakeAnnotations(
   let offset = 0;
 
   for (const stanzaLength of stanzaLineCounts) {
-    const scheme = faker.helpers.arrayElement(RHYME_SCHEMES);
+    const scheme = rng.helpers.arrayElement(RHYME_SCHEMES);
     const letterGroups = new Map<string, number>();
     const stanzaLines = nonBlankLines.slice(offset, offset + stanzaLength);
     offset += stanzaLength;
 
     for (const [i, { lineIndex, text }] of stanzaLines.entries()) {
-      const unrhymed = faker.number.int({ min: 1, max: 10 }) === 1;
+      const unrhymed = rng.number.int({ min: 1, max: 10 }) === 1;
       let rhymeGroup: number | null = null;
       if (!unrhymed) {
         const letter = scheme[i % scheme.length];
         if (!letterGroups.has(letter)) {
-          const reuseExisting = usedGroups.length > 0 && faker.number.int({ min: 1, max: 10 }) <= 2;
+          const reuseExisting = usedGroups.length > 0 && rng.number.int({ min: 1, max: 10 }) <= 2;
           letterGroups.set(
             letter,
-            reuseExisting ? faker.helpers.arrayElement(usedGroups) : nextGroup++,
+            reuseExisting ? rng.helpers.arrayElement(usedGroups) : nextGroup++,
           );
         }
         rhymeGroup = letterGroups.get(letter) ?? null;
@@ -97,7 +98,7 @@ export function fakeAnnotations(
         }
       }
 
-      const enjambed = lineIndex !== lastLineIndex && faker.number.int({ min: 1, max: 10 }) <= 2;
+      const enjambed = lineIndex !== lastLineIndex && rng.number.int({ min: 1, max: 10 }) <= 2;
       annotations.push({
         lineIndex,
         quote: text,
