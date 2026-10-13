@@ -43,7 +43,8 @@ export function fakeEntries(
 
 /**
  * A deterministic set of line annotations over `body`'s non-blank lines. Same
- * `body` and `seed`, same annotations. Output is the DB/input shape
+ * `body` and `seed`, same annotations. `body` MUST already be normalized
+ * (`normalizeEntryBody`); each `quote` is its line verbatim. Output is the DB/input shape
  * (`ReadLineAnnotationRow[]`, pre-sentinel-transform: `rhymeGroup` carries the
  * raw `-1` sentinel for an unrhymed line, no `unrhymed` field) — what every
  * consumer (mock API, dev seed script) wants, since each hands its rows to
