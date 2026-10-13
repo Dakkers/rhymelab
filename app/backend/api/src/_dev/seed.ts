@@ -36,56 +36,62 @@ async function main(db: PrismaClient) {
   let missing = 0;
   let invalid = 0;
 
-  await db.$transaction(async (tx) => {
-    for (const seed of SEEDS) {
-      if (existing.has(seed.title)) {
-        console.log(`• ${seed.title} — already present, skipping`);
-        skipped++;
-        continue;
-      }
+  await db.$transaction(
+    async (tx) => {
+      for (const seed of SEEDS) {
+        if (existing.has(seed.title)) {
+          console.log(`• ${seed.title} — already present, skipping`);
+          skipped++;
+          continue;
+        }
 
-      const body = readBody(seed.file);
-      if (body === null) {
-        console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
-        missing++;
-        continue;
-      }
+        const body = readBody(seed.file);
+        if (body === null) {
+          console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
+          missing++;
+          continue;
+        }
 
-      const sections = splitSections(body);
-      if (sections.length !== seed.structure.length) {
-        console.error(
-          `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
-            `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
-            `in seed.ts to match. Skipping.`,
+        const sections = splitSections(body);
+        if (sections.length !== seed.structure.length) {
+          console.error(
+            `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
+              `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
+              `in seed.ts to match. Skipping.`,
+          );
+          invalid++;
+          continue;
+        }
+
+        const createResult = await ctrls.LyricEntryController.create(
+          // @ts-expect-error Ignore for now
+          {
+            userId: TEMP_USER_ID,
+            kind: LyricEntryKindSchema.parse(seed.kind),
+            title: seed.title,
+            authors: seed.authors ?? [],
+            year: seed.year,
+            body,
+          },
+          tx,
         );
-        invalid++;
-        continue;
+
+        await ctrls.LyricEntryController.updateStructure(
+          createResult.id,
+          z.array(LyricEntrySectionTypeSchema).parse(seed.structure),
+          tx,
+        );
+
+        await tx.lineAnnotation.createMany({
+          data: fakeAnnotations(body, { seed: hashTitle(seed.title) }).map((annotation) => ({
+            entryId: createResult.id,
+            ...annotation,
+          })),
+        });
       }
-
-      // @ts-expect-error Ignore for now
-      const createResult = await ctrls.LyricEntryController.create({
-        userId: TEMP_USER_ID,
-        kind: LyricEntryKindSchema.parse(seed.kind),
-        title: seed.title,
-        authors: seed.authors ?? [],
-        year: seed.year,
-        body,
-      });
-
-      await ctrls.LyricEntryController.updateStructure(
-        createResult.id,
-        z.array(LyricEntrySectionTypeSchema).parse(seed.structure),
-        tx,
-      );
-
-      await tx.lineAnnotation.createMany({
-        data: fakeAnnotations(body, { seed: hashTitle(seed.title) }).map((annotation) => ({
-          entryId: createResult.id,
-          ...annotation,
-        })),
-      });
-    }
-  });
+    },
+    { timeout: 30_000 },
+  );
 
   console.log(
     `\nSeed complete: ${SEEDS.length - skipped - missing - invalid} created, ${skipped} skipped, ` +
