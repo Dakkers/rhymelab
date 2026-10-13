@@ -112,14 +112,14 @@ export function fakeAnnotations(
 }
 
 /**
- * A stable numeric seed derived from an entry's id, so each fixture entry's
- * annotations are reproducible and never collide across entries.
- * A plain rolling hash; reproducibility, not cryptographic strength.
+ * Returns a stable unsigned 32-bit seed for a string.
+ * The same string MUST always give the same seed.
+ * Not cryptographic.
  */
-function annotationSeedFromId(id: string): number {
+export function seedFromString(text: string): number {
   let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (Math.imul(hash, 31) + id.charCodeAt(i)) | 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (Math.imul(hash, 31) + text.charCodeAt(i)) | 0;
   }
   return hash >>> 0;
 }
@@ -151,7 +151,7 @@ function makeEntry(rank: number): FakeEntry {
     title: faker.music.songName(),
     body,
     structure: initStructure(body),
-    annotations: fakeAnnotations(body, { seed: annotationSeedFromId(id) }),
+    annotations: fakeAnnotations(body, { seed: seedFromString(id) }),
     authors,
     year: faker.number.int({ min: 1990, max: 2025 }),
     artists:

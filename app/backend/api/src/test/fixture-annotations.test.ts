@@ -5,7 +5,7 @@
 import { faker } from "@faker-js/faker";
 import { describe, expect, it } from "vitest";
 import { readLineAnnotationSchema, UNRHYMED_SENTINEL } from "@rhymelab/api-contract";
-import { fakeAnnotations } from "@rhymelab/fixtures";
+import { fakeAnnotations, seedFromString } from "@rhymelab/fixtures";
 
 const BODY = [
   "the morning light comes soft and slow",
@@ -68,5 +68,24 @@ describe("fakeAnnotations", () => {
     faker.seed(123);
     fakeAnnotations(BODY, { seed: 7 });
     expect(faker.number.int({ min: 0, max: 1_000_000 })).toBe(expected);
+  });
+});
+
+describe("seedFromString", () => {
+  it("is deterministic", () => {
+    expect(seedFromString("Lose Yourself")).toBe(seedFromString("Lose Yourself"));
+  });
+
+  it("differs for different strings", () => {
+    expect(seedFromString("Lose Yourself")).not.toBe(seedFromString("Juicy"));
+  });
+
+  it("returns a non-negative 32-bit integer", () => {
+    for (const text of ["", "a", "Lose Yourself", "x".repeat(500)]) {
+      const seed = seedFromString(text);
+      expect(Number.isInteger(seed)).toBe(true);
+      expect(seed).toBeGreaterThanOrEqual(0);
+      expect(seed).toBeLessThanOrEqual(0xffffffff);
+    }
   });
 });
