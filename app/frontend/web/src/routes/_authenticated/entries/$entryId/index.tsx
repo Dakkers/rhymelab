@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Button,
   Card,
@@ -12,11 +12,10 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { PenLine, Trash2 } from "lucide-react";
-import { normalizeEntryBody } from "@rhymelab/api-contract";
-import { LyricSections, toSheetSections } from "#/components/LyricSections";
+import { normalizeEntryBody, type EntryLineRhyme } from "@rhymelab/api-contract";
+import { LyricSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
-import { letterLines, type RhymeLabel } from "#/lib/rhymeScheme";
 import { orpc, type ReadLyricEntryDetailJson } from "#/lib/orpc";
 
 export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
@@ -33,12 +32,6 @@ function EntryPage() {
   const queryClient = useQueryClient();
   const { data: entry } = useSuspenseQuery(
     orpc.lyricEntries.getItem.queryOptions({ input: { id: entryId } }),
-  );
-
-  const sections = useMemo(() => toSheetSections(entry), [entry]);
-  const rhymeLetters = useMemo(
-    () => letterLines(sections, entry.annotations),
-    [sections, entry.annotations],
   );
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -84,9 +77,9 @@ function EntryPage() {
     >
       <Card>
         <LyricSections
-          sections={sections}
+          sections={entry.sections}
           renderLine={(line) => line.text}
-          renderGutter={(line) => <RhymeLetter label={rhymeLetters.get(line.globalIndex)} />}
+          renderGutter={(line) => <RhymeLetter rhyme={line.rhyme} />}
         />
       </Card>
 
@@ -183,12 +176,12 @@ function EditTextDrawer({
   );
 }
 
-function RhymeLetter({ label }: { label: RhymeLabel | undefined }) {
-  if (!label) return null;
-  if (label.unrhymed) return label.letter;
+function RhymeLetter({ rhyme }: { rhyme: EntryLineRhyme | null }) {
+  if (!rhyme) return null;
+  if (rhyme.unrhymed) return rhyme.letter;
   return (
     <Text as="span" saliency="mid" weight="semibold">
-      {label.letter}
+      {rhyme.letter}
     </Text>
   );
 }
