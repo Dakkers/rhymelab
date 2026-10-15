@@ -3,11 +3,14 @@
  * Summary fields and `structure` are derived from each row's real `body`
  * with the same functions the API uses.
  */
-import { faker } from "@faker-js/faker";
+import { en, faker, Faker } from "@faker-js/faker";
 import {
   deriveEntrySummaryFields,
   initStructure,
-  type ReadLyricEntryDetail,
+  splitSections,
+  UNRHYMED_SENTINEL,
+  type ReadLineAnnotationRow,
+  type ReadLyricEntryDetailRow,
 } from "@rhymelab/api-contract";
 
 const HOUR = 60 * 60 * 1000;
@@ -15,6 +18,14 @@ const DAY = 24 * HOUR;
 const EPOCH = Date.UTC(2026, 7, 12, 12, 0, 0);
 
 const DEFAULT_SEED = 20260812;
+
+/** Rhyme-scheme letter patterns cycled per stanza; `X` never labels a group. */
+const RHYME_SCHEMES: readonly (readonly string[])[] = [
+  ["A", "A", "B", "B"],
+  ["A", "B", "A", "B"],
+  ["A", "B", "B", "A"],
+  ["A", "A", "A", "A"],
+];
 
 /**
  * A deterministic set of entries, newest-edited first. Same `count` and
@@ -28,6 +39,90 @@ export function fakeEntries(
   return Array.from({ length: count }, (_, i) => makeEntry(i)).sort(
     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
   );
+}
+
+/**
+ * A deterministic set of line annotations over `body`'s non-blank lines. Same
+ * `body` and `seed`, same annotations. `body` MUST already be normalized
+ * (`normalizeEntryBody`); each `quote` is its line verbatim. Output is the DB/input shape
+ * (`ReadLineAnnotationRow[]`, pre-sentinel-transform: `rhymeGroup` carries the
+ * raw `-1` sentinel for an unrhymed line, no `unrhymed` field) — what every
+ * consumer (mock API, dev seed script) wants, since each hands its rows to
+ * oRPC's own output validation, which MUST be the only place the transform runs.
+ *
+ * Each stanza gets a rhyme scheme (AABB/ABAB/ABBA/AAAA) cycled across its
+ * lines; a scheme letter's first appearance in a stanza either starts a new
+ * song-wide rhyme group or, occasionally, reuses one from an earlier stanza.
+ * A line is occasionally left deliberately unrhymed instead. Enjambment is
+ * occasional and never marked on the body's last non-blank line.
+ */
+export function fakeAnnotations(
+  body: string,
+  { seed = DEFAULT_SEED }: { seed?: number } = {},
+): ReadLineAnnotationRow[] {
+  const rng = new Faker({ locale: [en] });
+  rng.seed(seed);
+
+  const bodyLines = body.split("\n");
+  const nonBlankLines = bodyLines
+    .map((text, lineIndex) => ({ lineIndex, text }))
+    .filter(({ text }) => text.trim() !== "");
+  const lastLineIndex = nonBlankLines.at(-1)?.lineIndex;
+  const stanzaLineCounts = splitSections(body).map((section) => section.split("\n").length);
+
+  const annotations: ReadLineAnnotationRow[] = [];
+  const usedGroups: number[] = [];
+  let nextGroup = 1;
+  let offset = 0;
+
+  for (const stanzaLength of stanzaLineCounts) {
+    const scheme = rng.helpers.arrayElement(RHYME_SCHEMES);
+    const letterGroups = new Map<string, number>();
+    const stanzaLines = nonBlankLines.slice(offset, offset + stanzaLength);
+    offset += stanzaLength;
+
+    for (const [i, { lineIndex, text }] of stanzaLines.entries()) {
+      const unrhymed = rng.number.int({ min: 1, max: 10 }) === 1;
+      let rhymeGroup: number | null = null;
+      if (!unrhymed) {
+        const letter = scheme[i % scheme.length];
+        if (!letterGroups.has(letter)) {
+          const reuseExisting = usedGroups.length > 0 && rng.number.int({ min: 1, max: 10 }) <= 2;
+          letterGroups.set(
+            letter,
+            reuseExisting ? rng.helpers.arrayElement(usedGroups) : nextGroup++,
+          );
+        }
+        rhymeGroup = letterGroups.get(letter) ?? null;
+        if (rhymeGroup !== null && !usedGroups.includes(rhymeGroup)) {
+          usedGroups.push(rhymeGroup);
+        }
+      }
+
+      const enjambed = lineIndex !== lastLineIndex && rng.number.int({ min: 1, max: 10 }) <= 2;
+      annotations.push({
+        lineIndex,
+        quote: text,
+        rhymeGroup: unrhymed ? UNRHYMED_SENTINEL : rhymeGroup,
+        enjambed,
+      });
+    }
+  }
+
+  return annotations;
+}
+
+/**
+ * Returns a stable unsigned 32-bit seed for a string.
+ * The same string MUST always give the same seed.
+ * Not cryptographic.
+ */
+export function seedFromString(text: string): number {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (Math.imul(hash, 31) + text.charCodeAt(i)) | 0;
+  }
+  return hash >>> 0;
 }
 
 function fakeLine(): string {
@@ -46,16 +141,18 @@ function fakeBody(): string {
 function makeEntry(rank: number): FakeEntry {
   const kind = faker.datatype.boolean() ? "song" : "poem";
   const body = fakeBody();
+  const id = faker.string.uuid();
   const authors = Array.from({ length: faker.number.int({ min: 1, max: 2 }) }, () =>
     faker.person.fullName(),
   );
 
   return {
-    id: faker.string.uuid(),
+    id,
     kind,
     title: faker.music.songName(),
     body,
     structure: initStructure(body),
+    annotations: fakeAnnotations(body, { seed: seedFromString(id) }),
     authors,
     year: faker.number.int({ min: 1990, max: 2025 }),
     artists:
@@ -70,4 +167,4 @@ function makeEntry(rank: number): FakeEntry {
 }
 
 /** A fixture row that satisfies both the list and detail read shapes. */
-export type FakeEntry = ReadLyricEntryDetail & { excerpt: string };
+export type FakeEntry = ReadLyricEntryDetailRow & { excerpt: string };
