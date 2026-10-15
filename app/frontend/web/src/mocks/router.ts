@@ -63,9 +63,7 @@ function entryOr404(id: string): MockEntry {
 
 /**
  * Project a stored row onto the detail shape: drop the list-view-only `excerpt`.
- * The row carries `structure`, `lineCount`, `wordCount`, and `annotations`
- * already, so the rest is a complete `ReadLyricEntryDetailRow`. The result
- * MUST stay in the pre-transform shape; the contract's output schema resolves it.
+ * The result MUST stay pre-transform. See {@link ReadLyricEntryDetailRow}.
  */
 function toDetail(entry: MockEntry): ReadLyricEntryDetailRow {
   const { excerpt: _excerpt, ...detail } = entry;

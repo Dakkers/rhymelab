@@ -1,9 +1,3 @@
-/**
- * Regression coverage for the annotation sentinel transform at the mock's real
- * oRPC boundary (`dispatchMock` → the contract's `readLyricEntryDetailSchema`
- * output validation). `getItem` must resolve the DB's `-1` sentinel to
- * `unrhymed: true` exactly once — not lose it to a double parse.
- */
 import { expect, test } from "vitest";
 import { UNRHYMED_SENTINEL } from "@rhymelab/api-contract";
 import { db } from "./db";

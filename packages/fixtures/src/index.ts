@@ -19,7 +19,6 @@ const EPOCH = Date.UTC(2026, 7, 12, 12, 0, 0);
 
 const DEFAULT_SEED = 20260812;
 
-/** Rhyme-scheme letter patterns cycled per stanza; `X` never labels a group. */
 const RHYME_SCHEMES: readonly (readonly string[])[] = [
   ["A", "A", "B", "B"],
   ["A", "B", "A", "B"],
@@ -42,19 +41,9 @@ export function fakeEntries(
 }
 
 /**
- * A deterministic set of line annotations over `body`'s non-blank lines. Same
- * `body` and `seed`, same annotations. `body` MUST already be normalized
- * (`normalizeEntryBody`); each `quote` is its line verbatim. Output is the DB/input shape
- * (`ReadLineAnnotationRow[]`, pre-sentinel-transform: `rhymeGroup` carries the
- * raw `-1` sentinel for an unrhymed line, no `unrhymed` field) — what every
- * consumer (mock API, dev seed script) wants, since each hands its rows to
- * oRPC's own output validation, which MUST be the only place the transform runs.
- *
- * Each stanza gets a rhyme scheme (AABB/ABAB/ABBA/AAAA) cycled across its
- * lines; a scheme letter's first appearance in a stanza either starts a new
- * song-wide rhyme group or, occasionally, reuses one from an earlier stanza.
- * A line is occasionally left deliberately unrhymed instead. Enjambment is
- * occasional and never marked on the body's last non-blank line.
+ * A deterministic set of line annotations for `body`. Same `body` and `seed`,
+ * same annotations. `body` MUST already be normalized. Rows are pre-transform.
+ * See {@link ReadLyricEntryDetailRow}.
  */
 export function fakeAnnotations(
   body: string,
@@ -168,3 +157,9 @@ function makeEntry(rank: number): FakeEntry {
 
 /** A fixture row that satisfies both the list and detail read shapes. */
 export type FakeEntry = ReadLyricEntryDetailRow & { excerpt: string };
+
+export {
+  AnnotatedBodyError,
+  parseAnnotatedBody,
+  type ParsedAnnotatedBody,
+} from "./parseAnnotatedBody";
