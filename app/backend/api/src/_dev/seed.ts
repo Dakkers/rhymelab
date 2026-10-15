@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { normalizeEntryBody, splitSections } from "@rhymelab/api-contract";
-import { fakeAnnotations } from "@rhymelab/fixtures";
+import { fakeAnnotations, seedFromString } from "@rhymelab/fixtures";
 import { loadEnv } from "../load-env";
 import { TEMP_USER_ID } from "../app/session";
 import {
@@ -36,56 +36,62 @@ async function main(db: PrismaClient) {
   let missing = 0;
   let invalid = 0;
 
-  await db.$transaction(async (tx) => {
-    for (const seed of SEEDS) {
-      if (existing.has(seed.title)) {
-        console.log(`• ${seed.title} — already present, skipping`);
-        skipped++;
-        continue;
-      }
+  await db.$transaction(
+    async (tx) => {
+      for (const seed of SEEDS) {
+        if (existing.has(seed.title)) {
+          console.log(`• ${seed.title} — already present, skipping`);
+          skipped++;
+          continue;
+        }
 
-      const body = readBody(seed.file);
-      if (body === null) {
-        console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
-        missing++;
-        continue;
-      }
+        const body = readBody(seed.file);
+        if (body === null) {
+          console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
+          missing++;
+          continue;
+        }
 
-      const sections = splitSections(body);
-      if (sections.length !== seed.structure.length) {
-        console.error(
-          `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
-            `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
-            `in seed.ts to match. Skipping.`,
+        const sections = splitSections(body);
+        if (sections.length !== seed.structure.length) {
+          console.error(
+            `✗ ${seed.title} — body of .dummy/${seed.file} has ${sections.length} sections but ` +
+              `${seed.structure.length} labels (${seed.structure.join(", ")}); fix the label list ` +
+              `in seed.ts to match. Skipping.`,
+          );
+          invalid++;
+          continue;
+        }
+
+        const createResult = await ctrls.LyricEntryController.create(
+          // @ts-expect-error Ignore for now
+          {
+            userId: TEMP_USER_ID,
+            kind: LyricEntryKindSchema.parse(seed.kind),
+            title: seed.title,
+            authors: seed.authors ?? [],
+            year: seed.year,
+            body,
+          },
+          tx,
         );
-        invalid++;
-        continue;
+
+        await ctrls.LyricEntryController.updateStructure(
+          createResult.id,
+          z.array(LyricEntrySectionTypeSchema).parse(seed.structure),
+          tx,
+        );
+
+        await tx.lineAnnotation.createMany({
+          data: fakeAnnotations(body, { seed: seedFromString(seed.title) }).map((annotation) => ({
+            entryId: createResult.id,
+            ...annotation,
+          })),
+        });
       }
-
-      // @ts-expect-error Ignore for now
-      const createResult = await ctrls.LyricEntryController.create({
-        userId: TEMP_USER_ID,
-        kind: LyricEntryKindSchema.parse(seed.kind),
-        title: seed.title,
-        authors: seed.authors ?? [],
-        year: seed.year,
-        body,
-      });
-
-      await ctrls.LyricEntryController.updateStructure(
-        createResult.id,
-        z.array(LyricEntrySectionTypeSchema).parse(seed.structure),
-        tx,
-      );
-
-      await tx.lineAnnotation.createMany({
-        data: fakeAnnotations(body, { seed: hashTitle(seed.title) }).map((annotation) => ({
-          entryId: createResult.id,
-          ...annotation,
-        })),
-      });
-    }
-  });
+    },
+    { timeout: 30_000 },
+  );
 
   console.log(
     `\nSeed complete: ${SEEDS.length - skipped - missing - invalid} created, ${skipped} skipped, ` +
@@ -127,15 +133,6 @@ function readBody(file: string): string | null {
     throw err;
   }
   return normalizeEntryBody(stripSectionHeaders(raw));
-}
-
-/** A stable numeric seed derived from a title, so each demo's annotations are reproducible. */
-function hashTitle(title: string): number {
-  let hash = 0;
-  for (let i = 0; i < title.length; i++) {
-    hash = (Math.imul(hash, 31) + title.charCodeAt(i)) | 0;
-  }
-  return hash >>> 0;
 }
 
 function stripSectionHeaders(raw: string): string {

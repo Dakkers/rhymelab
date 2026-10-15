@@ -3,7 +3,7 @@
  * Summary fields and `structure` are derived from each row's real `body`
  * with the same functions the API uses.
  */
-import { faker } from "@faker-js/faker";
+import { en, faker, Faker } from "@faker-js/faker";
 import {
   deriveEntrySummaryFields,
   initStructure,
@@ -43,7 +43,8 @@ export function fakeEntries(
 
 /**
  * A deterministic set of line annotations over `body`'s non-blank lines. Same
- * `body` and `seed`, same annotations. Output is the DB/input shape
+ * `body` and `seed`, same annotations. `body` MUST already be normalized
+ * (`normalizeEntryBody`); each `quote` is its line verbatim. Output is the DB/input shape
  * (`ReadLineAnnotationRow[]`, pre-sentinel-transform: `rhymeGroup` carries the
  * raw `-1` sentinel for an unrhymed line, no `unrhymed` field) — what every
  * consumer (mock API, dev seed script) wants, since each hands its rows to
@@ -59,7 +60,8 @@ export function fakeAnnotations(
   body: string,
   { seed = DEFAULT_SEED }: { seed?: number } = {},
 ): ReadLineAnnotationRow[] {
-  faker.seed(seed);
+  const rng = new Faker({ locale: [en] });
+  rng.seed(seed);
 
   const bodyLines = body.split("\n");
   const nonBlankLines = bodyLines
@@ -74,21 +76,21 @@ export function fakeAnnotations(
   let offset = 0;
 
   for (const stanzaLength of stanzaLineCounts) {
-    const scheme = faker.helpers.arrayElement(RHYME_SCHEMES);
+    const scheme = rng.helpers.arrayElement(RHYME_SCHEMES);
     const letterGroups = new Map<string, number>();
     const stanzaLines = nonBlankLines.slice(offset, offset + stanzaLength);
     offset += stanzaLength;
 
     for (const [i, { lineIndex, text }] of stanzaLines.entries()) {
-      const unrhymed = faker.number.int({ min: 1, max: 10 }) === 1;
+      const unrhymed = rng.number.int({ min: 1, max: 10 }) === 1;
       let rhymeGroup: number | null = null;
       if (!unrhymed) {
         const letter = scheme[i % scheme.length];
         if (!letterGroups.has(letter)) {
-          const reuseExisting = usedGroups.length > 0 && faker.number.int({ min: 1, max: 10 }) <= 2;
+          const reuseExisting = usedGroups.length > 0 && rng.number.int({ min: 1, max: 10 }) <= 2;
           letterGroups.set(
             letter,
-            reuseExisting ? faker.helpers.arrayElement(usedGroups) : nextGroup++,
+            reuseExisting ? rng.helpers.arrayElement(usedGroups) : nextGroup++,
           );
         }
         rhymeGroup = letterGroups.get(letter) ?? null;
@@ -97,7 +99,7 @@ export function fakeAnnotations(
         }
       }
 
-      const enjambed = lineIndex !== lastLineIndex && faker.number.int({ min: 1, max: 10 }) <= 2;
+      const enjambed = lineIndex !== lastLineIndex && rng.number.int({ min: 1, max: 10 }) <= 2;
       annotations.push({
         lineIndex,
         quote: text,
@@ -111,14 +113,14 @@ export function fakeAnnotations(
 }
 
 /**
- * A stable numeric seed derived from an entry's id, so each fixture entry's
- * annotations are reproducible and never collide across entries.
- * A plain rolling hash; reproducibility, not cryptographic strength.
+ * Returns a stable unsigned 32-bit seed for a string.
+ * The same string MUST always give the same seed.
+ * Not cryptographic.
  */
-function annotationSeedFromId(id: string): number {
+export function seedFromString(text: string): number {
   let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (Math.imul(hash, 31) + id.charCodeAt(i)) | 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (Math.imul(hash, 31) + text.charCodeAt(i)) | 0;
   }
   return hash >>> 0;
 }
@@ -150,7 +152,7 @@ function makeEntry(rank: number): FakeEntry {
     title: faker.music.songName(),
     body,
     structure: initStructure(body),
-    annotations: fakeAnnotations(body, { seed: annotationSeedFromId(id) }),
+    annotations: fakeAnnotations(body, { seed: seedFromString(id) }),
     authors,
     year: faker.number.int({ min: 1990, max: 2025 }),
     artists:
