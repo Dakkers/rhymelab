@@ -75,9 +75,6 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
-      - name: Apply migrations
-        run: pnpm --filter @rhymelab/database exec prisma migrate deploy
-
       - name: Integration tests
         run: pnpm test:integration
 
