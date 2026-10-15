@@ -29,13 +29,14 @@ test("getItem returns sections built from stored annotations, with the unrhymed 
       userId: TEMP_USER_ID,
       kind: "poem",
       title: "getItem",
-      body: "first line\nsecond line\n\nthird line",
+      body: "first line\nsecond line\n\nthird line\nfourth line",
       structure: ["verse", "verse"],
       annotations: {
         create: [
           { lineIndex: 3, quote: "third line", rhymeGroup: 1, enjambed: false },
           { lineIndex: 0, quote: "first line", rhymeGroup: 1, enjambed: true },
           { lineIndex: 1, quote: "second line", rhymeGroup: UNRHYMED_SENTINEL, enjambed: false },
+          { lineIndex: 4, quote: "fourth line", rhymeGroup: null, enjambed: false },
         ],
       },
     },
@@ -75,6 +76,7 @@ test("getItem returns sections built from stored annotations, with the unrhymed 
           rhyme: { group: 1, letter: "A", unrhymed: false },
           enjambed: false,
         },
+        { index: 4, text: "fourth line", rhyme: null, enjambed: false },
       ],
     },
   ]);

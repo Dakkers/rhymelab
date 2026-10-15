@@ -53,7 +53,6 @@ export const lyricEntryListItemSchema = LyricEntryModelSchema.pick({
 export const readLineAnnotationSchema = LineAnnotationModelSchema.pick({
   lineIndex: true,
   quote: true,
-  rhymeGroup: true,
   enjambed: true,
 })
   .extend({
