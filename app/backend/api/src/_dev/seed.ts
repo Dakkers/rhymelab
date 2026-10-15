@@ -30,52 +30,55 @@ async function main(db: PrismaClient) {
   let missing = 0;
   let invalid = 0;
 
-  await db.$transaction(async (tx) => {
-    for (const seed of SEEDS) {
-      if (existing.has(seed.title)) {
-        console.log(`• ${seed.title} — already present, skipping`);
-        skipped++;
-        continue;
+  await db.$transaction(
+    async (tx) => {
+      for (const seed of SEEDS) {
+        if (existing.has(seed.title)) {
+          console.log(`• ${seed.title} — already present, skipping`);
+          skipped++;
+          continue;
+        }
+
+        const raw = readSeedFile(seed.file);
+        if (raw === null) {
+          console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
+          missing++;
+          continue;
+        }
+
+        let parsed;
+        try {
+          parsed = parseAnnotatedBody(raw);
+        } catch (err) {
+          if (!(err instanceof AnnotatedBodyError)) throw err;
+          console.error(`✗ ${seed.title} — .dummy/${seed.file}: ${err.message}. Skipping.`);
+          invalid++;
+          continue;
+        }
+        const { body, structure, annotations } = parsed;
+
+        const input = createLyricEntrySchema.parse({
+          kind: seed.kind,
+          title: seed.title,
+          authors: seed.authors ?? [],
+          artists: [],
+          year: seed.year,
+          body,
+        });
+        const createResult = await ctrls.LyricEntryController.create(
+          { ...input, userId: TEMP_USER_ID },
+          tx,
+        );
+
+        await ctrls.LyricEntryController.updateStructure(createResult.id, structure, tx);
+
+        await tx.lineAnnotation.createMany({
+          data: annotations.map((annotation) => ({ entryId: createResult.id, ...annotation })),
+        });
       }
-
-      const raw = readSeedFile(seed.file);
-      if (raw === null) {
-        console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
-        missing++;
-        continue;
-      }
-
-      let parsed;
-      try {
-        parsed = parseAnnotatedBody(raw);
-      } catch (err) {
-        if (!(err instanceof AnnotatedBodyError)) throw err;
-        console.error(`✗ ${seed.title} — .dummy/${seed.file}: ${err.message}. Skipping.`);
-        invalid++;
-        continue;
-      }
-      const { body, structure, annotations } = parsed;
-
-      const input = createLyricEntrySchema.parse({
-        kind: seed.kind,
-        title: seed.title,
-        authors: seed.authors ?? [],
-        artists: [],
-        year: seed.year,
-        body,
-      });
-      const createResult = await ctrls.LyricEntryController.create(
-        { ...input, userId: TEMP_USER_ID },
-        tx,
-      );
-
-      await ctrls.LyricEntryController.updateStructure(createResult.id, structure, tx);
-
-      await tx.lineAnnotation.createMany({
-        data: annotations.map((annotation) => ({ entryId: createResult.id, ...annotation })),
-      });
-    }
-  });
+    },
+    { timeout: 30_000 },
+  );
 
   console.log(
     `\nSeed complete: ${SEEDS.length - skipped - missing - invalid} created, ${skipped} skipped, ` +
