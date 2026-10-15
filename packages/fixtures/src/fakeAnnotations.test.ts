@@ -1,11 +1,7 @@
-/**
- * Tests for `fakeAnnotations`, in `@rhymelab/fixtures`. They live here because
- * that package has no test runner.
- */
 import { faker } from "@faker-js/faker";
 import { describe, expect, it } from "vitest";
 import { readLineAnnotationSchema, UNRHYMED_SENTINEL } from "@rhymelab/api-contract";
-import { fakeAnnotations, seedFromString } from "@rhymelab/fixtures";
+import { fakeAnnotations, seedFromString } from "./index";
 
 const BODY = [
   "the morning light comes soft and slow",

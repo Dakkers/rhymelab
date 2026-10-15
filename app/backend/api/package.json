@@ -7,7 +7,7 @@
     "dev": "tsx watch src/main.ts",
     "dev:db:seed": "tsx ./src/_dev/seed.ts",
     "start": "tsx src/main.ts",
-    "test": "vitest run --config .config/vitest.config.ts --project unit",
+    "test": "vitest run --config .config/vitest.config.ts --project unit --passWithNoTests",
     "test:watch": "vitest --config .config/vitest.config.ts --project unit",
     "test:integration": "vitest run --config .config/vitest.config.ts --project integration --passWithNoTests",
     "typecheck": "tsc --noEmit"
@@ -26,7 +26,6 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@faker-js/faker": "10.5.0",
     "@types/node": "22.20.1",
     "dotenv": "17.4.2",
     "tsx": "4.23.1",
