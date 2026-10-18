@@ -34,3 +34,29 @@ future controllers):
 Corollary — the two suites must not mirror each other test-for-test. Re-executing
 a query the unit test already pins, just to watch Postgres run it, tests the ORM.
 Keep an integration test only when a real database is what makes it able to fail.
+
+## Sandbox
+
+`./rhymelab-sandbox up` boots this worktree's own stack: a dedicated Postgres
+database, the API, and the web app on free ports, seeded, with a planted session.
+No real credentials are involved. `doctor` verifies it, `flow` drives real API
+paths, and `down` stops it. Every command takes `--json` and exits non-zero on
+failure. Run `./rhymelab-sandbox help` for the commands and `help <command>` for
+options.
+
+Each subsystem has a usage-only doc. Keep this section to one paragraph per
+subsystem. Put details in the linked doc, and keep incident history out of both:
+that belongs in PRs.
+
+- **CLI and environment.** Lifecycle, exit codes, Postgres backends,
+  ports/state, and how env overrides work without writing files.
+  [docs/sandbox/cli.md](docs/sandbox/cli.md)
+- **Data and credentials.** Seed profiles, the public-domain corpus and its
+  markup, `state`/`sql`, and the planted session.
+  [docs/sandbox/data.md](docs/sandbox/data.md)
+- **Flows.** End-to-end scenarios with `--expect`, hop traces, `--last`
+  chaining, and the adversarial flows. Add one whenever you add a route.
+  [docs/sandbox/flows.md](docs/sandbox/flows.md)
+- **Troubleshooting.** Failure modes, the diagnostic bundle to report a new one,
+  and what's intentionally not implemented.
+  [docs/sandbox/troubleshooting.md](docs/sandbox/troubleshooting.md)
