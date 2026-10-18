@@ -23,7 +23,7 @@ afterAll(async () => {
   await app.close();
 });
 
-test("getItem returns stored annotations ordered by line, with unrhymed resolved", async () => {
+test("getItem returns sections built from stored annotations, with the unrhymed sentinel resolved", async () => {
   const entry = await prisma.lyricEntry.create({
     data: {
       userId: TEMP_USER_ID,
@@ -49,10 +49,35 @@ test("getItem returns stored annotations ordered by line, with unrhymed resolved
   });
 
   expect(response.statusCode).toBe(200);
-  expect(response.json().annotations).toEqual([
-    { lineIndex: 0, quote: "first line", rhymeGroup: 1, unrhymed: false, enjambed: true },
-    { lineIndex: 1, quote: "second line", rhymeGroup: null, unrhymed: true, enjambed: false },
-    { lineIndex: 3, quote: "third line", rhymeGroup: 1, unrhymed: false, enjambed: false },
-    { lineIndex: 4, quote: "fourth line", rhymeGroup: null, unrhymed: false, enjambed: false },
+  expect(response.json().sections).toEqual([
+    {
+      type: "verse",
+      lines: [
+        {
+          index: 0,
+          text: "first line",
+          rhyme: { group: 1, letter: "A", unrhymed: false },
+          enjambed: true,
+        },
+        {
+          index: 1,
+          text: "second line",
+          rhyme: { group: null, letter: "X", unrhymed: true },
+          enjambed: false,
+        },
+      ],
+    },
+    {
+      type: "verse",
+      lines: [
+        {
+          index: 3,
+          text: "third line",
+          rhyme: { group: 1, letter: "A", unrhymed: false },
+          enjambed: false,
+        },
+        { index: 4, text: "fourth line", rhyme: null, enjambed: false },
+      ],
+    },
   ]);
 });
