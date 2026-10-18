@@ -2,6 +2,7 @@ import {
   LyricEntrySectionTypeSchema,
   type LyricEntrySectionType,
 } from "@rhymelab/database/schemas";
+import type { ReadLineAnnotation } from "./lyricEntry.schemas";
 
 const DEFAULT_SECTION_TYPE: LyricEntrySectionType = "verse";
 
@@ -126,4 +127,80 @@ function coerceStructure(structure: readonly string[], length: number): LyricEnt
 
 function isSectionType(value: string | undefined): value is LyricEntrySectionType {
   return !!LyricEntrySectionTypeSchema.safeParse(value).success;
+}
+
+/** A line's place in its section's rhyme scheme. `group` is null for unrhymed lines. */
+export type EntryLineRhyme = { group: number | null; letter: string; unrhymed: boolean };
+
+export type EntryLine = {
+  index: number;
+  text: string;
+  rhyme: EntryLineRhyme | null;
+  enjambed: boolean;
+};
+
+export type EntrySection = { type: LyricEntrySectionType; lines: EntryLine[] };
+
+/** The annotation fields {@link buildEntrySections} reads. */
+export type SectionAnnotationInput = Pick<
+  ReadLineAnnotation,
+  "lineIndex" | "rhymeGroup" | "unrhymed" | "enjambed"
+>;
+
+/**
+ * Build render-ready sections from a `body`, its `structure` and its annotations.
+ *
+ * Line `index` is song-wide and counts blank separator lines. Rhyme letters
+ * restart at "A" in every section, in order of first appearance. Unrhymed lines
+ * are "X". Annotations that do not land on a body line are dropped. Sections
+ * missing a `structure` label read as the default.
+ */
+export function buildEntrySections(
+  body: string,
+  structure: readonly string[],
+  annotations: readonly SectionAnnotationInput[],
+): EntrySection[] {
+  const byLine = new Map(annotations.map((annotation) => [annotation.lineIndex, annotation]));
+  const sections = splitSections(body);
+  const types = coerceStructure(structure, sections.length);
+  let cursor = 0;
+
+  return sections.map((text, sectionIndex) => {
+    const letters = new Map<number, string>();
+    const lines = text.split("\n").map((lineText, offset): EntryLine => {
+      const index = cursor + offset;
+      const annotation = byLine.get(index);
+      if (!annotation) return { index, text: lineText, rhyme: null, enjambed: false };
+      return {
+        index,
+        text: lineText,
+        rhyme: toRhyme(annotation, letters),
+        enjambed: annotation.enjambed,
+      };
+    });
+    cursor += lines.length + 1;
+    return { type: types[sectionIndex], lines };
+  });
+}
+
+function toRhyme(
+  annotation: SectionAnnotationInput,
+  letters: Map<number, string>,
+): EntryLineRhyme | null {
+  if (annotation.unrhymed) return { group: null, letter: "X", unrhymed: true };
+  if (annotation.rhymeGroup === null) return null;
+  let letter = letters.get(annotation.rhymeGroup);
+  if (letter === undefined) {
+    letter = toLetters(letters.size);
+    letters.set(annotation.rhymeGroup, letter);
+  }
+  return { group: annotation.rhymeGroup, letter, unrhymed: false };
+}
+
+function toLetters(ordinal: number): string {
+  let label = "";
+  for (let n = ordinal + 1; n > 0; n = Math.floor((n - 1) / 26)) {
+    label = String.fromCharCode(65 + ((n - 1) % 26)) + label;
+  }
+  return label;
 }
