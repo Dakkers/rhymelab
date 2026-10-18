@@ -18,6 +18,7 @@
     "start:web": "pnpm --filter @rhymelab/web start",
     "start:api": "pnpm --filter @rhymelab/api start",
     "sandbox": "./rhymelab-sandbox",
+    "sandbox:e2e": "pnpm --filter @rhymelab/sandbox e2e",
     "cf-typegen": "pnpm --filter @rhymelab/web cf-typegen",
     "db:generate": "pnpm --filter @rhymelab/database build",
     "db:migrate": "pnpm --filter @rhymelab/database migrate",
