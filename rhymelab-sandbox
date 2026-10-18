@@ -175,14 +175,14 @@ ensure_db() {
 
 run_migrations() {
   echo "Applying migrations to \"${DB}\"…"
-  DATABASE_URL="$DB_URL" pnpm --filter @rhymelab/api exec prisma migrate deploy
+  DATABASE_URL="$DB_URL" pnpm --filter @rhymelab/database exec prisma migrate deploy
   # Always regenerate, never just when `src/_generated/prisma` is missing (see
   # ensure_deps): a migration that adds a column leaves an *existing* client
   # stale, and every query touching that column then dies with a
   # PrismaClientValidationError at runtime. Generation is idempotent and takes
   # milliseconds, so paying it on every migrate is cheaper than the drift.
   echo "Regenerating Prisma client…"
-  pnpm --filter @rhymelab/api db:generate
+  pnpm --filter @rhymelab/database build
 }
 
 # Install deps if this is a fresh checkout. The Prisma client isn't generated
