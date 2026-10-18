@@ -82,6 +82,21 @@ test("getItem returns sections built from stored annotations, with the unrhymed 
   ]);
 });
 
+test("delete soft-deletes the entry, after which it reads as not found", async () => {
+  const entry = await prisma.lyricEntry.create({
+    data: { userId: TEMP_USER_ID, kind: "poem", title: "delete", body: "a line" },
+  });
+  const cookies = { [COOKIE_NAME]: app.signCookie(COOKIE_VALUE) };
+
+  const deleted = await app.inject({ method: "DELETE", url: `/api/entries/${entry.id}`, cookies });
+  const after = await app.inject({ method: "GET", url: `/api/entries/${entry.id}`, cookies });
+
+  expect(deleted.statusCode).toBe(204);
+  expect(after.statusCode).toBe(404);
+  const row = await prisma.lyricEntry.findUniqueOrThrow({ where: { id: entry.id } });
+  expect(row.deletedAt).toBeInstanceOf(Date);
+});
+
 test("another user's entry is not found for read, write, and delete", async () => {
   const other = await prisma.user.create({
     data: { email: "other@example.test", displayName: "other", passwordHash: "-" },
