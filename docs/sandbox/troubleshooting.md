@@ -3,19 +3,19 @@
 Start with `./rhymelab-sandbox doctor`. Each failed check prints the command
 that fixes it.
 
-| Symptom                                | Cause and fix                                                                                                 |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `node … can't run TypeScript natively` | Node is older than 22.18. Run `nvm install` (reads `.nvmrc`).                                                 |
-| `No Postgres backend`                  | Docker isn't running and no native Postgres was found. Start Docker/OrbStack, or install Postgres.            |
-| `Native Postgres can't run as root`    | `initdb` refuses root. Run as a regular user, or use Docker.                                                  |
-| `The api server exited during startup` | The error includes the log tail. Usually a type or import error in the API.                                   |
-| `Servers weren't healthy within 180s`  | Usually the web server stuck compiling. Check `./rhymelab-sandbox logs web`.                                  |
-| `doctor`: `cors` fails                 | The API was started with a different web origin. Run `down`, then `up`.                                       |
-| `doctor`: `api`/`web` "stale state"    | A server died (for example, a crash or `kill -9`). `up` clears the state and restarts both.                   |
-| `doctor`: `dependencies` stale         | `pnpm-lock.yaml` changed since the last install. `up` or `migrate` reinstalls.                                |
-| `refusing to … without confirmation`   | `reset`/`drop` with no terminal attached. Pass `--yes`.                                                       |
-| `down` exits 2 mentioning `drop`       | `down` used to drop the database. It now only stops servers. Use `drop --yes`.                                |
-| Port 5433 taken by something else      | Both backends need it. Stop the other Postgres, or force the backend that owns it with `RHYMELAB_SANDBOX_PG`. |
+| Symptom                                 | Cause and fix                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `node … can't run TypeScript natively`  | Node is older than 22.18. Run `nvm install` (reads `.nvmrc`).                                                 |
+| `No Postgres backend`                   | Docker isn't running and no native Postgres was found. Start Docker/OrbStack, or install Postgres.            |
+| `Native Postgres can't run as root`     | `initdb` refuses root. Run as a regular user, or use Docker.                                                  |
+| `The api server crashed during startup` | The error includes the log tail. Usually a type or import error in the API.                                   |
+| `Servers weren't healthy within 180s`   | Usually the web server stuck compiling. Check `./rhymelab-sandbox logs web`.                                  |
+| `doctor`: `cors` fails                  | The API was started with a different web origin. Run `down`, then `up`.                                       |
+| `doctor`: `api`/`web` "stale state"     | A server died (for example, a crash or `kill -9`). `up` clears the state and restarts both.                   |
+| `doctor`: `dependencies` stale          | `pnpm-lock.yaml` changed since the last install. `up` or `migrate` reinstalls.                                |
+| `refusing to … without confirmation`    | `reset`/`drop` with no terminal attached. Pass `--yes`.                                                       |
+| `down` exits 2 mentioning `drop`        | `down` used to drop the database. It now only stops servers. Use `drop --yes`.                                |
+| Port 5433 taken by something else       | Both backends need it. Stop the other Postgres, or force the backend that owns it with `RHYMELAB_SANDBOX_PG`. |
 
 ## Reporting a new failure
 

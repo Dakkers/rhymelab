@@ -196,10 +196,11 @@ export async function startServers(
   let apiOk = false;
   let webOk = false;
   while (!(apiOk && webOk)) {
-    if (!alive(state.apiPid) || !alive(state.webPid)) {
+    if (!alive(state.apiPid) || !alive(state.webPid) || (!foreground && apiCrashed(id))) {
+      const dead = alive(state.webPid) ? "api" : "web";
+      const hint = tailHint(id, dead);
       await stopServers(id);
-      const dead = alive(state.apiPid) ? "web" : "api";
-      throw new SandboxError(`The ${dead} server exited during startup.${tailHint(id, dead)}`);
+      throw new SandboxError(`The ${dead} server crashed during startup.${hint}`);
     }
     if (Date.now() > deadline) {
       await stopServers(id);
@@ -265,6 +266,11 @@ export function tailLog(id: Identity, service: "api" | "web", lines = 40): strin
   const file = logFile(id, service);
   if (!existsSync(file)) return "";
   return readFileSync(file, "utf8").split("\n").slice(-lines).join("\n");
+}
+
+/** Whether the API process threw at startup. `tsx watch` outlives the crash, so the log is the signal. */
+function apiCrashed(id: Identity): boolean {
+  return /^Node\.js v\d+\.\d+\.\d+$/m.test(tailLog(id, "api", 200));
 }
 
 function tailHint(id: Identity, service: "api" | "web"): string {
