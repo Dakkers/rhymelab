@@ -7,8 +7,10 @@ import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { curlExamples, plantCredentials, readCredentials } from "./creds.mts";
 import { runDoctor } from "./doctor.mts";
-import { apiUrl, sandboxEnv, webUrl, type Ports } from "./env.mts";
+import { apiUrl, sandboxEnv, sandboxPassword, webUrl, type Ports } from "./env.mts";
 import { DEFAULT_DB, identityFor, type Identity } from "./identity.mts";
+import { FLOW_OPTIONS, FLOWS } from "./flows.mts";
+import { ApiClient } from "./http.mts";
 import { dbExists, dropDb, ensureDb, queryRows, selectBackend } from "./postgres.mts";
 import { freePort, log, portBusy, SandboxError } from "./proc.mts";
 import {
@@ -27,7 +29,7 @@ import {
   truncateAll,
   type SeedProfile,
 } from "./stack.mts";
-import { readWorld, writeLastEntryId } from "./state.mts";
+import { readLastEntryId, readWorld, writeLastEntryId } from "./state.mts";
 
 interface OptionSpec {
   type: "string" | "boolean";
@@ -398,6 +400,114 @@ export const COMMANDS: Command[] = [
           `file     : ${id.credentialsFile}`,
           "",
           ...curl,
+        ],
+      };
+    },
+  },
+  {
+    name: "flow",
+    group: "Flows",
+    summary: "Run an end-to-end scenario through the real API; `flow list` shows them",
+    args: "<name>|list",
+    options: {
+      expect: { type: "string", description: "Exit 1 unless the flow reports this outcome" },
+      explain: { type: "boolean", description: "Describe the flow's hops without running it" },
+      ...FLOW_OPTIONS,
+    },
+    async run({ id, values, positionals }) {
+      const [name] = positionals;
+      if (!name || name === "list") {
+        return {
+          ok: true,
+          data: { flows: FLOWS.map(({ run: _run, ...flow }) => flow) },
+          text: FLOWS.map(
+            (f) => `  ${f.name.padEnd(15)} ${f.summary}  [${f.outcomes.join(" | ")}]`,
+          ),
+        };
+      }
+      const flow = FLOWS.find((f) => f.name === name);
+      if (!flow) {
+        throw new SandboxError(`unknown flow "${name}"`, {
+          exitCode: 2,
+          fix: "Run `./rhymelab-sandbox flow list`.",
+        });
+      }
+      const expect = typeof values.expect === "string" ? values.expect : undefined;
+      if (expect !== undefined && !flow.outcomes.includes(expect)) {
+        throw new SandboxError(
+          `flow ${name} never reports "${expect}"; it reports ${flow.outcomes.join(", ")}`,
+          { exitCode: 2 },
+        );
+      }
+      if (values.explain) {
+        return {
+          ok: true,
+          data: { flow: name, outcomes: flow.outcomes, uses: flow.uses, explain: flow.explain },
+          text: [
+            `flow ${name}: ${flow.summary}`,
+            ...flow.explain.map((step, i) => `  ${i + 1}. ${step}`),
+            `outcomes: ${flow.outcomes.join(" | ")}`,
+            flow.uses.length
+              ? `options: ${flow.uses.map((u) => `--${u}`).join(" ")}`
+              : "options: none",
+          ],
+        };
+      }
+      const state = readRunState(id);
+      if (!serversAlive(state)) {
+        throw new SandboxError("The sandbox isn't running.", { fix: "./rhymelab-sandbox up" });
+      }
+      const client = new ApiClient(apiUrl(state.ports));
+      const started = performance.now();
+      let outcome: string;
+      let data: Record<string, unknown> = {};
+      let error: string | undefined;
+      try {
+        ({ outcome, data } = await flow.run(
+          {
+            id,
+            pg: selectBackend(),
+            apiBase: apiUrl(state.ports),
+            password: sandboxPassword(id),
+            values,
+            lastEntryId: readLastEntryId(id),
+          },
+          client,
+        ));
+      } catch (err) {
+        if (err instanceof SandboxError && err.exitCode === 2) throw err;
+        outcome = "error";
+        error = (err as Error).message;
+      }
+      const totalMs = Math.round(performance.now() - started);
+      const matched = error === undefined && (expect === undefined || outcome === expect);
+      const verdict =
+        error !== undefined
+          ? ` — ${error}`
+          : expect === undefined
+            ? ""
+            : matched
+              ? " (as expected)"
+              : ` (expected ${expect})`;
+      return {
+        ok: matched,
+        data: {
+          flow: name,
+          outcome,
+          expected: expect ?? null,
+          matched,
+          error,
+          totalMs,
+          hops: client.trace,
+          ...data,
+        },
+        text: [
+          `flow ${name}: ${outcome}${verdict}`,
+          ...client.trace.map(
+            (hop) =>
+              `  ${hop.method.padEnd(6)} ${hop.path.padEnd(46)} → ${hop.status}  ${hop.ms}ms`,
+          ),
+          `  total ${totalMs}ms`,
         ],
       };
     },
