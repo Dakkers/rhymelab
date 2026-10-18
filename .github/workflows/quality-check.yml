@@ -23,6 +23,9 @@ jobs:
       - name: Lint check
         run: pnpm lint:check
 
+      - name: Committed env files are credential-free
+        run: ./rhymelab-sandbox verify-env
+
       # worker-configuration.d.ts is gitignored but tsconfig references it.
       - name: Generate Cloudflare types
         run: pnpm cf-typegen
@@ -151,3 +154,29 @@ jobs:
           path: |
             app/frontend/web/playwright-report
             api.log
+
+  # Boots the whole sandbox from a bare checkout — no `pnpm install` beforehand,
+  # so `up` has to provision everything itself — then drives every flow.
+  sandbox-e2e:
+    runs-on: ubuntu-latest
+    env:
+      TMPDIR: ${{ runner.temp }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Sandbox e2e
+        run: node tools/sandbox/e2e.mts
+
+      - name: Upload sandbox logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-logs
+          path: ${{ runner.temp }}/rhymelab-sandbox
