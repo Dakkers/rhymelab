@@ -163,3 +163,5 @@ export {
   parseAnnotatedBody,
   type ParsedAnnotatedBody,
 } from "./parseAnnotatedBody";
+
+export { CORPUS, type CorpusEntry } from "./corpus";
