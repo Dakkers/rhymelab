@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Button,
   Card,
@@ -16,6 +16,7 @@ import { normalizeEntryBody } from "@rhymelab/api-contract";
 import { LyricSections, toSheetSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
+import { letterLines, type RhymeLabel } from "#/lib/rhymeScheme";
 import { orpc, type ReadLyricEntryDetailJson } from "#/lib/orpc";
 
 export const Route = createFileRoute("/_authenticated/entries/$entryId/")({
@@ -32,6 +33,12 @@ function EntryPage() {
   const queryClient = useQueryClient();
   const { data: entry } = useSuspenseQuery(
     orpc.lyricEntries.getItem.queryOptions({ input: { id: entryId } }),
+  );
+
+  const sections = useMemo(() => toSheetSections(entry), [entry]);
+  const rhymeLetters = useMemo(
+    () => letterLines(sections, entry.annotations),
+    [sections, entry.annotations],
   );
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -76,7 +83,11 @@ function EntryPage() {
       }
     >
       <Card>
-        <LyricSections sections={toSheetSections(entry)} renderLine={(line) => line.text} />
+        <LyricSections
+          sections={sections}
+          renderLine={(line) => line.text}
+          renderGutter={(line) => <RhymeLetter label={rhymeLetters.get(line.globalIndex)} />}
+        />
       </Card>
 
       <EditTextDrawer entry={entry} open={editingText} onOpenChange={setEditingText} />
@@ -169,6 +180,16 @@ function EditTextDrawer({
         required
       />
     </Drawer>
+  );
+}
+
+function RhymeLetter({ label }: { label: RhymeLabel | undefined }) {
+  if (!label) return null;
+  if (label.unrhymed) return label.letter;
+  return (
+    <Text as="span" saliency="mid" weight="semibold">
+      {label.letter}
+    </Text>
   );
 }
 
