@@ -9,6 +9,7 @@ import { curlExamples, plantCredentials, readCredentials } from "./creds.mts";
 import { runDoctor } from "./doctor.mts";
 import { apiUrl, sandboxEnv, sandboxPassword, webUrl, type Ports } from "./env.mts";
 import { DEFAULT_DB, identityFor, type Identity } from "./identity.mts";
+import { verifyEnv } from "./envcheck.mts";
 import { FLOW_OPTIONS, FLOWS } from "./flows.mts";
 import { ApiClient } from "./http.mts";
 import { dbExists, dropDb, ensureDb, queryRows, selectBackend } from "./postgres.mts";
@@ -509,6 +510,22 @@ export const COMMANDS: Command[] = [
           ),
           `  total ${totalMs}ms`,
         ],
+      };
+    },
+  },
+  {
+    name: "verify-env",
+    group: "Meta",
+    summary: "Fail if a committed .env file holds a real-looking secret or misses a read var",
+    async run({ id }) {
+      const findings = verifyEnv(id.root);
+      return {
+        ok: findings.length === 0,
+        data: { findings },
+        text:
+          findings.length === 0
+            ? ["Committed env files are credential-free and cover every variable the code reads."]
+            : findings.map((f) => `✗ ${f.file}: ${f.key} — ${f.problem}`),
       };
     },
   },
