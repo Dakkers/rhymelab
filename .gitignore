@@ -57,3 +57,6 @@ playwright-report/
 # Out-of-band DB backups (e.g. the pre-migration annotations dump). Never commit
 # real data; keep the local copy until the migration it guards is retired.
 .backups/
+
+# Sandbox session planted by `./rhymelab-sandbox up` / `creds`
+.sandbox-credentials.json
