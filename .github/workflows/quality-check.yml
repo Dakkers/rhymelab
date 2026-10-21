@@ -169,8 +169,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # The primary checkout owns the shared default database, which the
+      # sandbox refuses to reset, so run from a worktree like a developer would.
+      - name: Create a worktree
+        run: git worktree add --detach ../sandbox-ci
+
       # `runner` context only exists at step level, not in job-level env.
       - name: Sandbox e2e
+        working-directory: ../sandbox-ci
         env:
           TMPDIR: ${{ runner.temp }}
         run: node tools/sandbox/e2e.mts
