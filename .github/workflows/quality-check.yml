@@ -33,6 +33,17 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+  # The runner ships shellcheck, so actionlint also lints every `run:` script.
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint workflows
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
   # Excludes web (needs Playwright) and api integration tests (need Postgres).
   unit-tests:
     runs-on: ubuntu-latest
