@@ -159,8 +159,6 @@ jobs:
   # so `up` has to provision everything itself — then drives every flow.
   sandbox-e2e:
     runs-on: ubuntu-latest
-    env:
-      TMPDIR: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -171,7 +169,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # `runner` context only exists at step level, not in job-level env.
       - name: Sandbox e2e
+        env:
+          TMPDIR: ${{ runner.temp }}
         run: node tools/sandbox/e2e.mts
 
       - name: Upload sandbox logs
