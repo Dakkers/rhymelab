@@ -103,9 +103,22 @@ const PSQL_FLAGS = ["-XAtq", "-v", "ON_ERROR_STOP=1", "-U", PG.user];
 const dockerBackend: PgBackend = {
   kind: "docker",
 
+  /**
+   * Probes over TCP: on a fresh volume the image's init runs a socket-only
+   * server and then restarts it, so a socket probe can pass too early.
+   */
   running() {
-    return capture("docker", ["exec", PG.container, "pg_isready", "-U", PG.user, "-d", "postgres"])
-      .ok;
+    return capture("docker", [
+      "exec",
+      PG.container,
+      "pg_isready",
+      "-h",
+      "127.0.0.1",
+      "-U",
+      PG.user,
+      "-d",
+      "postgres",
+    ]).ok;
   },
 
   async ensure() {
