@@ -1,167 +1,137 @@
 # RhymeLab
 
-A private workbench for **annotating songs and poems** — rhyme scheme, rhyme
-types, sound devices, themes, literary devices, and free-form notes, laid
-directly over the words. Built for a single user (alpha), hosted on **Cloudflare
-Workers** with a **D1 (SQLite)** database.
-
-Alpha target: <https://rhymelab.dakota-stlaurent.com>
+A private workbench for **annotating the rhyme scheme of songs and poems**, line
+by line. It's built for a single user and is in alpha.
 
 ## The idea
 
-Lyrics are stored as **plain text** — that text is the source of truth. Everything
-layered on top anchors to **character offsets** into it:
+Lyrics are stored as **plain text**, and that text is the source of truth.
 
-- **Sections** are auto-detected from blank lines (a verse, chorus, stanza…). Their
-  _type_ and _label_ are editable and persist across lyric edits.
-- **Annotations** are `[start, end)` ranges — usually one word, sometimes a phrase.
-  Each carries a **mode** (rhyme-scheme / rhyme-type / sound / theme / device /
-  note), so a single word can hold several at once. Each annotation snapshots the
-  exact text it covers (`quote`) so it can be re-found after the lyrics are edited.
+- **Sections** are blank-line-separated blocks. Each entry carries a `structure`
+  array that labels them (verse, chorus, bridge, stanza, …). Editing the text
+  keeps the labels in sync.
+- **Line annotations** sit on top of individual lines. A line can belong to a
+  song-wide **rhyme group**, be marked deliberately **unrhymed** (`X`), and be
+  marked **enjambed**. Each annotation keeps a snapshot of its line's text.
+- The entry page shows each section with **rhyme letters scoped to that
+  section** (A, B, C…), derived from the song-wide groups.
 
-The workbench (`/entries/:id`) is a reading view with a **mode bar**; the hero mode,
-**Rhyme scheme**, assigns colour-coded groups (A–F, X) with per-section counts,
-shared word colours, and line-end scheme badges.
+## Quick start
 
-## Tech stack
+Requires Node from [`.nvmrc`](.nvmrc) (`nvm install`), plus Docker/OrbStack or a
+local Postgres install. Nothing else, and no credentials:
 
-| Concern           | Choice                                                   |
-| ----------------- | -------------------------------------------------------- |
-| Framework / SSR   | TanStack Start + TanStack Router (file-based)            |
-| Runtime / hosting | Cloudflare Workers (`@cloudflare/vite-plugin`, Wrangler) |
-| Database          | Cloudflare D1 (SQLite) via **Drizzle ORM** + drizzle-kit |
-| Data fetching     | TanStack Query, hydrated through the SSR stream          |
-| Design system     | `@saintly-software/baritone` (+ `@base-ui/react`)        |
-| Validation        | `zod`                                                    |
-| Auth              | single shared-password cookie session                    |
-| Lint / format     | `oxlint` / `oxfmt`                                       |
+```bash
+./rhymelab-sandbox up       # install, start Postgres, migrate, seed, run API + web
+./rhymelab-sandbox doctor   # all green → exit 0
+./rhymelab-sandbox creds    # the URLs, the password, a session cookie, curl examples
+./rhymelab-sandbox down     # stop the servers (data is kept)
+```
 
-> **Postgres later.** The schema deliberately avoids SQLite-only tricks (integer
-> millisecond timestamps, no exotic column types) so a future move to Postgres is a
-> schema rewrite, not a data-model rethink.
+Every worktree gets its own database and ports, so checkouts never step on each
+other. The seed is a hand-annotated public-domain corpus (Shakespeare, Blake,
+Frost, two hymns). The demo password is the committed default, `password`.
 
-## Getting started
+Read more in [docs/sandbox/](docs/sandbox/): the [CLI](docs/sandbox/cli.md),
+[data and credentials](docs/sandbox/data.md), [flows](docs/sandbox/flows.md)
+(scripted end-to-end checks through the real API), and
+[troubleshooting](docs/sandbox/troubleshooting.md).
 
-Requires the Node version in [`.nvmrc`](.nvmrc) (`nvm use`) and pnpm.
+### Without the sandbox
+
+To run against the shared dev database (`rhymelab` on `localhost:5433`):
 
 ```bash
 pnpm install
-pnpm db:migrate:local   # create + migrate the local dev database (once)
-pnpm dev                # http://localhost:3000
+docker compose up -d          # Postgres on :5433
+export DATABASE_URL=postgresql://rhymelab:rhymelab@localhost:5433/rhymelab
+pnpm db:migrate               # prisma migrate dev
+pnpm dev:seed                 # --profile baseline | default | demo
+pnpm dev:api                  # http://localhost:4000/api
+pnpm dev:web                  # http://localhost:3000
 ```
 
-The demo password is `password` (set `APP_PASSWORD` to change it — see
-[Secrets](#secrets)).
-
-> **Local D1 lives in `.wrangler/state`.** `pnpm dev` (the Vite Cloudflare plugin)
-> and `pnpm db:migrate:local` are both pointed there via `--persist-to .wrangler/state`,
-> so migrations you apply locally are the ones the dev server sees. After changing
-> `src/db/schema.ts`, run `pnpm db:generate` then `pnpm db:migrate:local`.
+The Prisma CLI reads `DATABASE_URL` only from the environment. The API and the
+seed script load it from `app/backend/api/.config/.env` themselves.
 
 ## Layout
 
 ```
-src/
-├── routes/
-│   ├── index.tsx                       # "/" landing (redirects signed-in users)
-│   ├── auth/{login,logout}/            # cookie-session auth
-│   └── _authenticated/                 # the auth gate (pathless layout)
-│       ├── library/                    # "/library" — the entry list
-│       └── entries/
-│           ├── new/                    # "/entries/new" — create + paste lyrics
-│           └── $entryId/
-│               ├── index.tsx           # "/entries/:id" — the analysis workbench
-│               └── edit/               # "/entries/:id/edit" — metadata + lyrics
-├── components/
-│   ├── TopBar/                         # the black app bar
-│   ├── EntryForm/                      # shared metadata fields + tag input
-│   └── Workbench/                      # the analysis UI (mode bar, section cards,
-│                                       #   word tokens, line-end badges, inspector)
-├── server/                            # server functions (auth, entries) — server-only
-│   ├── session.ts / auth.ts / authed.ts
-│   └── entries.ts                     # all entry/section/annotation reads + writes
-├── db/                                # Drizzle schema + client (`cloudflare:workers` env)
-├── lib/                               # pure helpers: lyrics tokenisation, section
-│                                      #   detection, re-anchoring, constants, queries
-└── styles/                            # reset + Baritone CSS + app.css (the workbench look)
-
-drizzle/                               # generated SQL migrations (committed)
-.config/wrangler.jsonc                 # Cloudflare Workers config (D1 binding, routes)
-drizzle.config.ts                      # drizzle-kit generation config
+app/
+├── frontend/web/        # @rhymelab/web — TanStack Start + Router, SSR on Cloudflare Workers
+└── backend/api/         # @rhymelab/api — Fastify serving the oRPC contract as REST under /api
+packages/
+├── database/            # @rhymelab/database — Prisma schema, migrations, generated client, ORMs
+├── api-contract/        # @rhymelab/api-contract — oRPC contract, Zod schemas, section building
+├── fixtures/            # @rhymelab/fixtures — fake entries, the annotated-markup parser, the corpus
+├── core/                # @rhymelab/core — framework-free lyrics and annotation helpers
+└── utils/               # @rhymelab/utils — shared error types
+tools/
+└── sandbox/             # @rhymelab/sandbox — the ./rhymelab-sandbox CLI (Node runs it natively)
+docs/                    # style guide and sandbox docs
 ```
+
+The web app makes no database calls of its own. All data and auth go through the
+API over HTTP, at `VITE_API_URL`.
+
+## Tech stack
+
+| Concern       | Choice                                                   |
+| ------------- | -------------------------------------------------------- |
+| Web framework | TanStack Start + TanStack Router (file-based), React     |
+| Web hosting   | Cloudflare Workers (`@cloudflare/vite-plugin`, Wrangler) |
+| API           | Fastify + oRPC (OpenAPI/REST), contract shared with web  |
+| Database      | Postgres via Prisma (`@prisma/adapter-pg`)               |
+| Validation    | Zod                                                      |
+| Design system | `@saintly-software/baritone` (+ `@base-ui/react`)        |
+| Auth          | One shared password, issuing a signed cookie session     |
+| Tests         | Vitest (unit, integration, browser mode), Playwright E2E |
+| Lint / format | `oxlint` / `oxfmt`                                       |
 
 ## Scripts
 
-| Script                   | What it does                                         |
-| ------------------------ | ---------------------------------------------------- |
-| `pnpm dev`               | Dev server at http://localhost:3000                  |
-| `pnpm build`             | Production build                                     |
-| `pnpm preview`           | Build, then preview the built Worker locally         |
-| `pnpm deploy`            | Build + `wrangler deploy`                            |
-| `pnpm db:generate`       | Generate a migration from `src/db/schema.ts`         |
-| `pnpm db:migrate:local`  | Apply migrations to the local dev D1                 |
-| `pnpm db:migrate:remote` | Apply migrations to the production D1                |
-| `pnpm db:backup`         | Export the production D1 to `backups/`               |
-| `pnpm cf-typegen`        | Regenerate `worker-configuration.d.ts` from bindings |
-| `pnpm typecheck`         | `tsc --noEmit`                                       |
-| `pnpm lint` / `:check`   | `oxlint` (with / without `--fix`)                    |
-| `pnpm fmt` / `:check`    | `oxfmt` (write / check)                              |
+| Script                  | What it does                                                  |
+| ----------------------- | ------------------------------------------------------------- |
+| `pnpm sandbox`          | The sandbox CLI (same as `./rhymelab-sandbox`)                |
+| `pnpm sandbox:e2e`      | The sandbox's own end-to-end suite                            |
+| `pnpm dev:web`          | Web dev server on :3000                                       |
+| `pnpm dev:api`          | API dev server on :4000 (`tsx watch`)                         |
+| `pnpm dev:seed`         | Seed the database named by `DATABASE_URL`                     |
+| `pnpm db:generate`      | Regenerate the Prisma client                                  |
+| `pnpm db:migrate`       | `prisma migrate dev`                                          |
+| `pnpm db:studio`        | Prisma Studio                                                 |
+| `pnpm build:web`        | Production build of the web app                               |
+| `pnpm cf-typegen`       | Regenerate `worker-configuration.d.ts` (needed for typecheck) |
+| `pnpm typecheck`        | `tsc` across every package                                    |
+| `pnpm test:unit`        | Unit tests (no database)                                      |
+| `pnpm test:integration` | API integration tests in a throwaway Postgres database        |
+| `pnpm test:smoke`       | Web smoke tests (Vitest browser mode)                         |
+| `pnpm lint` / `:check`  | `oxlint` (with / without `--fix`)                             |
+| `pnpm fmt` / `:check`   | `oxfmt` (write / check)                                       |
 
-## Deploy (Cloudflare Workers + D1)
+How the two test suites split their work is covered in
+[`CLAUDE.md`](CLAUDE.md#testing). File conventions are in the
+[style guide](docs/style-guide.md).
 
-You need a Cloudflare account and `wrangler login`. One-time setup:
+## Configuration
 
-1. **Create the D1 database** and copy the printed `database_id` into the
-   `d1_databases[0].database_id` field of [`.config/wrangler.jsonc`](.config/wrangler.jsonc):
+Both apps keep committed, non-secret defaults in `.config/.env*`. Real secrets
+go in the gitignored `.env.<mode>.local`, or in the host's secret store when
+deployed. Each package's `.config/.env.example` explains its load order. CI
+fails if a committed env file contains anything that looks like a real secret
+(`./rhymelab-sandbox verify-env`).
 
-   ```bash
-   wrangler d1 create rhymelab-db --config .config/wrangler.jsonc
-   ```
+| Variable          | Read by | Purpose                                             |
+| ----------------- | ------- | --------------------------------------------------- |
+| `DATABASE_URL`    | API     | Postgres connection                                 |
+| `PORT`            | API     | Listen port                                         |
+| `FRONTEND_ORIGIN` | API     | Exact web origin allowed by CORS (with credentials) |
+| `SESSION_SECRET`  | API     | Signs the session cookie (≥ 32 chars in production) |
+| `APP_PASSWORD`    | API     | The shared password that unlocks the app            |
+| `VITE_API_URL`    | Web     | Base URL of the API (build-time, public)            |
 
-2. **Apply migrations** to the remote database:
+## Alpha limits
 
-   ```bash
-   pnpm db:migrate:remote
-   ```
-
-3. **Set secrets** (see below):
-
-   ```bash
-   wrangler secret put SESSION_SECRET --config .config/wrangler.jsonc
-   wrangler secret put APP_PASSWORD --config .config/wrangler.jsonc
-   ```
-
-4. **Deploy:**
-
-   ```bash
-   pnpm deploy
-   ```
-
-### Custom domain
-
-[`.config/wrangler.jsonc`](.config/wrangler.jsonc) routes the Worker to
-`rhymelab.dakota-stlaurent.com` via a `custom_domain` route. That requires the zone
-`dakota-stlaurent.com` to be on the same Cloudflare account — `wrangler deploy` then
-provisions the hostname and its certificate. To deploy to the default
-`*.workers.dev` subdomain instead, remove the `routes` block.
-
-### Secrets
-
-Read from the environment (surfaced on `process.env` under `nodejs_compat`):
-
-- `SESSION_SECRET` — signs the session cookie (use ≥ 32 random chars).
-- `APP_PASSWORD` — the password that unlocks the site (defaults to `password`).
-
-Locally, create `.config/.dev.vars` with those two keys (the app also runs
-without it, using insecure dev defaults). It's gitignored.
-
-## Notes & known alpha limits
-
-- **Single user.** One shared password; no accounts. Every server function still
-  re-checks auth (`authedFn` / `authedPostFn` middleware).
-- **Editing lyrics re-anchors annotations** by searching for each annotation's saved
-  `quote` nearest its old position. Annotations whose text no longer exists are kept
-  but marked _detached_ (hidden from the reading view); the editor reports how many.
-- **Phrase selection:** click a word to select it; **Shift-click** another word in the
-  same section to select the span between them.
-- Rhyme-group letters (A–F, X) and their counts are scoped **per section**.
+- **Single user.** Every session maps to one fixed user, and every request is
+  re-checked by the API's auth middleware.
+- **One shared password.** There are no accounts.

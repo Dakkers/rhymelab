@@ -1,4 +1,4 @@
-import type { PrismaClient, Prisma } from "../_generated/prisma/client";
+import { Prisma, type PrismaClient } from "../_generated/prisma/client";
 
 type ModelName = Prisma.ModelName;
 type Delegate<M extends ModelName> = PrismaClient[Uncapitalize<M>];
@@ -52,7 +52,7 @@ export abstract class BaseOrm<M extends ModelName> {
   ): Promise<boolean> {
     const db = tx ?? this.db;
     const affected = await db.$executeRaw`
-      UPDATE "${tableName}"
+      UPDATE ${Prisma.raw(`"${tableName}"`)}
       SET "deleted_at" = (NOW() AT TIME ZONE 'UTC')
       WHERE "id" = ${id}::uuid AND "deleted_at" IS NULL
     `;

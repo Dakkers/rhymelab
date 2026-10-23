@@ -1,141 +1,95 @@
 ---
 name: rhymelab-sandbox
 description: >-
-  Operate this worktree's isolated sandbox stack from a free-form request — the
-  repo-root `./rhymelab-sandbox` script gives each worktree its own dedicated Postgres
-  database (`rhymelab_<slug>`) plus API + web on free ports. Use when the user
-  wants to start/boot/spin up the sandbox or full stack with an isolated DB,
-  check its status/ports/database name, migrate/reset/wipe or drop the worktree's
-  database, run `./rhymelab-sandbox`, or query/seed/inspect data in the isolated database.
-  Parse whatever they ask into the right sandbox action.
+  Operate this worktree's credential-free sandbox from a free-form request. The
+  repo-root `./rhymelab-sandbox` CLI gives each worktree its own Postgres database
+  (`rhymelab_<slug>`), seeded data, a planted session, and API + web on free
+  ports. Use when the user wants to start/boot/stop the sandbox or full stack,
+  check its health/ports/database, migrate/seed/reset/drop the worktree's data,
+  log in or get a session cookie, drive an end-to-end flow (create/edit/delete an
+  entry, auth checks), inspect or query data, or debug a sandbox that won't boot.
+  Map whatever they ask to the right commands.
 ---
 
 # Run the worktree's sandbox
 
-`./rhymelab-sandbox` (a script at the repo root) spins up a **full stack scoped to the
-current worktree**: a dedicated Postgres database inside the one shared
-container, plus the API and web servers on free, per-worktree ports. It exists so
-worktrees stop sharing the single `rhymelab` dev database and stepping on each
-other's data. (Contrast `boot-frontend-worktree`, which boots web + API but
-_shares_ the DB. Prefer this skill whenever data isolation matters.)
+`./rhymelab-sandbox` boots a full stack scoped to the current worktree, with no
+real credentials. Every command takes `--json` (one object on stdout) and exits
+non-zero on failure, so read the JSON and the exit code. Don't scrape the text.
 
-Your job: the user hands you an **arbitrary, free-form request** ("spin it up",
-"wipe my data", "how many entries are in here?", "what's my db called?", "nuke
-it"). Read the sandbox's current state, then translate that request into the
-right action(s) below. Don't make the user learn subcommands — you map intent.
+The user gives you a free-form request ("spin it up", "wipe my data", "does
+delete work?", "what's my db called?"). Orient, map the request to commands, and
+report the answer.
 
-## 0. Prerequisites (check once, fix or report)
+Details live in [docs/sandbox/](../../../docs/sandbox/): `cli.md`, `data.md`,
+`flows.md`, `troubleshooting.md`. Read the one you need. For options, run
+`./rhymelab-sandbox help <command>`, which is generated from the same registry
+that dispatches commands.
 
-- **From the worktree root.** `cd` to `git rev-parse --show-toplevel` first; the
-  script and every path below are relative to it.
-- **The script must exist.** If `./rhymelab-sandbox` isn't at the repo root, it hasn't
-  been committed to this checkout — say so and stop (it can't be run from thin
-  air). Everything else assumes it's present and executable.
-- **Docker/OrbStack must be running.** The script fails loudly if not; if you hit
-  that, tell the user to start their engine rather than retrying.
+## 1. Orient
 
-## 1. Always orient first
-
-Before acting, run:
+Run these from the worktree root (`git rev-parse --show-toplevel`):
 
 ```bash
-./rhymelab-sandbox status
+./rhymelab-sandbox status --json
+./rhymelab-sandbox doctor --json   # exit 0 = healthy; each failed check carries a `fix`
 ```
 
-This is "the context of the worktree's sandbox" — it prints the slug, the
-isolated **database name**, the **web/API ports**, whether Postgres is up, and
-whether the DB exists and the ports are listening. Parse it, then interpret the
-request against it. Capture the database name and ports from here; downstream
-commands need them and they're derived per-worktree, never hardcoded.
+`status` gives the slug, database, backend, the ports actually bound, and
+whether the servers run. Take names and ports from here. Never hardcode them.
 
-## 2. Map the request to an action
+## 2. Map the request
 
-`./rhymelab-sandbox` accepts these subcommands — this is your vocabulary:
+| Request                               | Command                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------ |
+| start / boot / spin up                | `up` (detaches and returns once healthy). See §3 to show it in the Browser pane.     |
+| stop                                  | `down`. Servers stop; data is kept.                                                  |
+| is it working? / why is it broken?    | `doctor --json`, then `logs api` / `logs web`                                        |
+| apply migrations                      | `migrate`                                                                            |
+| add demo data / my DEMO files         | `seed --profile demo` (`default` = the public-domain corpus)                         |
+| wipe my data                          | `reset --yes` (truncate + reseed), or `reset --hard --yes` (drop + migrate + reseed) |
+| delete the database                   | `drop --yes`                                                                         |
+| how many entries / show rows          | `state --json`, or `sql "<select>" --json`                                           |
+| log me in / give me a token / curl it | `creds --json`: cookie, password, curl examples                                      |
+| does X work end to end?               | `flow list`, then `flow <name> --expect <outcome>`. See `flows.md`.                  |
 
-| Subcommand                   | Does                                                       |
-| ---------------------------- | ---------------------------------------------------------- |
-| `./rhymelab-sandbox status`  | slug, database, ports, up/down state                       |
-| `./rhymelab-sandbox migrate` | ensure the DB exists + apply migrations (no servers)       |
-| `./rhymelab-sandbox reset`   | drop + recreate + migrate — **wipes** this worktree's data |
-| `./rhymelab-sandbox down`    | **drop** this worktree's database                          |
-| `./rhymelab-sandbox up`      | provision + migrate, then run API + web (**blocks**)       |
-| `./rhymelab-sandbox psql`    | interactive psql shell (for humans, not you — see §4)      |
+Destructive commands: proceed with `--yes` when the request is unambiguous ("wipe
+it", "drop the db"). When it's vague ("clean this up"), ask first. The CLI
+refuses to `reset` or `drop` the primary checkout's shared `rhymelab` database.
 
-Run `status`, `migrate`, `reset`, `down` directly with the Bash tool — they're
-fast and non-blocking. `reset`/`down` take `-y` to skip their prompt.
+Never run `psql` with the Bash tool: it's interactive and will hang. Use `sql`.
 
-**"Start / boot / spin up / run the app (or full stack)"** is the one case you do
-**not** run with Bash — see §3.
+## 3. Showing the app in the Browser pane
 
-## 3. Starting the servers (never `./rhymelab-sandbox up` in Bash)
+`up` in Bash is fine for flows, curl, and `doctor`. To preview the UI, run the
+stack through a launch config so the pane owns the process:
 
-`./rhymelab-sandbox up` runs both dev servers in the **foreground** and blocks until
-Ctrl-C. Running it with the Bash tool would hang the turn, and dev servers must
-go through the Browser pane regardless. So boot it there:
-
-1. Read the preferred `WEB_PORT` (and `API_PORT`) from `./rhymelab-sandbox status`. That's
-   the port `up` will bind **unless** something already holds it — status flags an
-   occupied base as `busy (other process)`, in which case `up` scans to the next
-   free port and the real one shows in the banner (step 4), not here.
-2. On a **fresh worktree**, run `./rhymelab-sandbox migrate` first (it runs `pnpm install`
-   if `node_modules` is missing, then provisions the DB) so the pane's port-wait
-   doesn't time out on a cold install.
-3. Add a config to `.claude/launch.json` (substitute the real port and the
-   worktree's absolute path), then `preview_start` it by name:
-
+1. Run `./rhymelab-sandbox migrate`, so a cold install doesn't time out the
+   pane's port wait. Then take the web port from `status --json`.
+2. Add this to `.claude/launch.json` and `preview_start` it by name:
    ```json
    {
      "name": "sandbox",
-     "runtimeExecutable": "<absolute path to the worktree>/rhymelab-sandbox",
-     "runtimeArgs": ["up"],
-     "port": <WEB_PORT>
+     "runtimeExecutable": "<worktree>/rhymelab-sandbox",
+     "runtimeArgs": ["up", "--fg"],
+     "port": <web port>
    }
    ```
+3. Check `preview_logs` for the `up` JSON with the real ports. If the port moved
+   because the preferred one was busy, update `port` and restart. Log in with the
+   password from `creds`.
+4. `preview_stop` stops both servers. Then restore `.claude/launch.json` with
+   `git checkout -- .claude/launch.json`, because the port is worktree-specific.
 
-4. Verify you're looking at _this_ sandbox, not another worktree's server:
-   - `preview_logs` — the banner prints the **actual** ports; expect `API
-listening on http://localhost:<API_PORT>` and the Prisma line `Datasource
-"db": … database "rhymelab_<slug>"`, plus Vite's `Local:
-http://localhost:<WEB_PORT>`. If `up` shifted off an occupied base, these are
-     the true ports — re-point the launch config's `port` and restart preview if
-     the pane was still waiting on the step-1 guess. (Once running, `./rhymelab-sandbox
-status` also reports the real bound ports.)
-   - `read_network_requests` — the app's `/api/*` calls hit `:<API_PORT>` and
-     return 2xx (a CORS failure means the ports/origin don't line up).
-   - `read_page` + a `screenshot` as proof.
-5. **To stop:** `preview_stop`. That SIGTERMs the script, whose trap kills both
-   servers (verify the ports are free). The database persists.
+## 4. When something breaks that the docs don't cover
 
-`.claude/launch.json` is tracked, so this dirties the worktree. The port is
-worktree-specific, so `git checkout -- .claude/launch.json` to restore it once
-you're done unless the user wants to keep the config.
+Follow the report loop in `docs/sandbox/troubleshooting.md`. Collect the
+credential-free bundle (`doctor`, `status`, and `logs` as JSON, plus OS and disk
+info). Ask the user before sending it to the maintainer. Then keep unblocking
+them: `reset --hard --yes` and a fresh `up` clear most carried-over state.
 
-## 4. Reading or seeding data in the isolated DB
+## 5. Report back
 
-For "how many entries?", "show me the rows", "insert a test entry", etc., run
-SQL **non-interactively** against the isolated database — do not use
-`./rhymelab-sandbox psql` (it opens an interactive shell that will hang the Bash tool).
-Use the container by name with the database from §1:
-
-```bash
-docker exec -i rhymelab-postgres psql -U rhymelab -d <DB_NAME> -c "SELECT count(*) FROM entries;"
-```
-
-`<DB_NAME>` is the `database` value from `./rhymelab-sandbox status` (e.g.
-`rhymelab_annotation_types_b62dee`). This is the _only_ place you name the DB by
-hand — everything else derives it. Never point these at the shared `rhymelab`
-database unless the user explicitly asks about shared/dev data.
-
-## 5. Destructive requests
-
-`reset` and `down` destroy this worktree's data. If the request is unambiguous
-("wipe it", "reset my sandbox", "drop the db"), proceed with `-y`. If it's vague
-("clean this up"), confirm which you mean first. The script itself refuses to
-`reset`/`down` the shared default `rhymelab` database, so a slip in the primary
-checkout is caught — but that's a backstop, not a reason to skip judgment.
-
-## 6. Report back
-
-Close with the concrete result the request was about: the resolved database name
-and ports, row counts, the running URLs, or "dropped `rhymelab_<slug>`" — the
-answer, not a narration of which subcommand you ran.
+Lead with the result the request was about: URLs and ports, the database name,
+row counts, the flow outcome with its failing hop, or "dropped `rhymelab_<slug>`".
+Don't narrate which commands you ran.

@@ -7,6 +7,7 @@ packages:
   - packages/utils
   - packages/api-contract
   - packages/fixtures
+  - tools/sandbox
 
 # ─── Supply-chain hardening ──────────────────────────────────────────────────
 # Carried over from the original single-package setup. These make `pnpm install`

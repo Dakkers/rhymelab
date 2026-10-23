@@ -5,7 +5,8 @@
   "workspaces": [
     "app/frontend/*",
     "app/backend/*",
-    "packages/*"
+    "packages/*",
+    "tools/*"
   ],
   "type": "module",
   "scripts": {
@@ -17,11 +18,12 @@
     "start:web": "pnpm --filter @rhymelab/web start",
     "start:api": "pnpm --filter @rhymelab/api start",
     "sandbox": "./rhymelab-sandbox",
+    "sandbox:e2e": "pnpm --filter @rhymelab/sandbox e2e",
     "cf-typegen": "pnpm --filter @rhymelab/web cf-typegen",
     "db:generate": "pnpm --filter @rhymelab/database build",
     "db:migrate": "pnpm --filter @rhymelab/database migrate",
     "db:studio": "pnpm --filter @rhymelab/database studio",
-    "test:unit": "pnpm --filter @rhymelab/core --filter @rhymelab/fixtures --filter @rhymelab/api-contract --filter @rhymelab/api test",
+    "test:unit": "pnpm --filter @rhymelab/core --filter @rhymelab/fixtures --filter @rhymelab/api-contract --filter @rhymelab/api --filter @rhymelab/sandbox test",
     "test:integration": "pnpm --filter @rhymelab/api test:integration",
     "test:smoke": "pnpm --filter @rhymelab/web test:smoke",
     "typecheck": "pnpm -r typecheck",

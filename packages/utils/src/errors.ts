@@ -1,4 +1,5 @@
-abstract class BaseError extends Error {
+/** An error that carries the HTTP status it MUST surface as. */
+export abstract class BaseError extends Error {
   statusCode: number = -1;
 
   constructor(msg: string) {

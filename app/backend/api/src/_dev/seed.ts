@@ -5,8 +5,28 @@ import { AnnotatedBodyError, parseAnnotatedBody } from "@rhymelab/fixtures";
 import { loadEnv } from "../load-env";
 import { TEMP_USER_ID } from "../app/session";
 import { initializeOrms, type PrismaClient } from "@rhymelab/database";
+import {
+  isLocalDatabaseUrl,
+  profileFromArgv,
+  SEED_PROFILES,
+  type SeedProfile,
+  type SeedSource,
+} from "./seedProfiles";
 
 loadEnv();
+
+let profile: SeedProfile;
+try {
+  profile = profileFromArgv(process.argv.slice(2));
+} catch (err) {
+  console.error((err as Error).message);
+  process.exit(2);
+}
+if (!isLocalDatabaseUrl(process.env.DATABASE_URL ?? "")) {
+  console.error("Refusing to seed: DATABASE_URL MUST point at a Postgres on localhost.");
+  process.exit(1);
+}
+const SEEDS: readonly SeedSource[] = SEED_PROFILES[profile];
 
 const { initializeDb } = await import("../app/initializeDb");
 const db = initializeDb();
@@ -15,6 +35,7 @@ const orms = initializeOrms({ prisma: db, readonlyPrisma: db });
 const ctrls = instantiateControllers({ db, ...orms });
 
 async function main(db: PrismaClient) {
+  console.log(`Seeding profile "${profile}"…`);
   await createTempUser(db);
 
   const existing = new Set(
@@ -39,9 +60,9 @@ async function main(db: PrismaClient) {
           continue;
         }
 
-        const raw = readSeedFile(seed.file);
+        const raw = "annotated" in seed ? seed.annotated : readSeedFile(seed.file);
         if (raw === null) {
-          console.warn(`• ${seed.title} — no .dummy/${seed.file}, skipping`);
+          console.warn(`• ${seed.title} — no source file in .dummy/, skipping`);
           missing++;
           continue;
         }
@@ -51,7 +72,7 @@ async function main(db: PrismaClient) {
           parsed = parseAnnotatedBody(raw);
         } catch (err) {
           if (!(err instanceof AnnotatedBodyError)) throw err;
-          console.error(`✗ ${seed.title} — .dummy/${seed.file}: ${err.message}. Skipping.`);
+          console.error(`✗ ${seed.title}: ${err.message}. Skipping.`);
           invalid++;
           continue;
         }
@@ -85,8 +106,10 @@ async function main(db: PrismaClient) {
       `${missing} missing, ${invalid} invalid.`,
   );
 
-  if (missing === SEEDS.length) {
-    console.log(`No demo files found in ${DUMMY_DIR}. Drop the DEMO_*.txt files there and re-run.`);
+  if (missing > 0) {
+    console.log(
+      `Missing demo files belong in ${DUMMY_DIR}. Drop the DEMO_*.txt files there and re-run.`,
+    );
   }
 
   await db.$disconnect();
@@ -101,9 +124,9 @@ async function createTempUser(db: PrismaClient) {
   ) {
     await db.user.create({
       data: {
-        displayName: "Dak",
+        displayName: "Sandbox",
         id: TEMP_USER_ID,
-        email: "d.h.stlaurent@gmail.com",
+        email: "sandbox@rhymelab.test",
         passwordHash: "1234",
       },
     });
@@ -119,41 +142,6 @@ function readSeedFile(file: string): string | null {
     throw err;
   }
 }
-
-const SEEDS = [
-  {
-    file: "DEMO_LongIsland.txt",
-    title: "Long Island",
-    kind: "song",
-  },
-  {
-    file: "DEMO_RocketGirl.txt",
-    title: "Rocket Girl",
-    kind: "song",
-  },
-  {
-    file: "DEMO_RoundHere.txt",
-    title: "Round Here",
-    kind: "song",
-  },
-  {
-    file: "DEMO_TheDays.txt",
-    title: "The Days",
-    kind: "song",
-  },
-  {
-    file: "DEMO_TheNightTheyDroveOldDixieDown.txt",
-    title: "The Night They Drove Old Dixie Down",
-    kind: "song",
-  },
-  {
-    file: "DEMO_TheWasteLand.txt",
-    title: "The Waste Land",
-    kind: "poem",
-    authors: ["T. S. Eliot"],
-    year: 1922,
-  },
-];
 
 const DUMMY_DIR = resolve(import.meta.dirname, "../../../../../.dummy");
 
