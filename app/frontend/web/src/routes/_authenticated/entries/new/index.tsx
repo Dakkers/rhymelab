@@ -100,9 +100,13 @@ function NewEntryPage() {
 
   const createEntry = useMutation(
     orpc.lyricEntries.create.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: async (entry) => {
+        queryClient.setQueryData(
+          orpc.lyricEntries.getItem.queryKey({ input: { id: entry.id } }),
+          entry,
+        );
         await queryClient.invalidateQueries({ queryKey: orpc.lyricEntries.list.key() });
-        await navigate({ to: "/library" });
+        await navigate({ to: "/entries/$entryId", params: { entryId: entry.id } });
       },
     }),
   );
