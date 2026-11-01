@@ -21,9 +21,16 @@ function AnnotatePage() {
 
   return (
     <Page title={entry.title}>
-      <Card>
-        <LyricSections sections={entry.sections} renderLine={(line) => line.text} />
-      </Card>
+      <div style={{ position: "relative" }}>
+        <aside className="rl-side-rail" aria-label="Annotation tools">
+          <div className="rl-side-rail-inner">
+            <Card />
+          </div>
+        </aside>
+        <Card>
+          <LyricSections sections={entry.sections} renderLine={(line) => line.text} />
+        </Card>
+      </div>
     </Page>
   );
 }

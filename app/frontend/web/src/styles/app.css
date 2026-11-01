@@ -291,3 +291,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+.rl-side-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(100% + 24px);
+  width: 220px;
+}
+
+.rl-side-rail-inner {
+  position: sticky;
+  top: calc(var(--rl-navbar-h) + 24px);
+}
+
+@media (max-width: 1379px) {
+  .rl-side-rail {
+    display: none;
+  }
+}
