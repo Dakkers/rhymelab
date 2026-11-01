@@ -177,7 +177,7 @@ function EditTextDrawer({
 }
 
 function RhymeLetter({ rhyme }: { rhyme: EntryLineRhyme | null }) {
-  if (!rhyme) return null;
+  if (!rhyme) return <span aria-hidden>·</span>;
   if (rhyme.unrhymed) return rhyme.letter;
   return (
     <Text as="span" saliency="mid" weight="semibold">
