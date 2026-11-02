@@ -11,7 +11,7 @@ import {
   Text,
   TextInput,
 } from "@saintly-software/baritone";
-import { PenLine, Trash2 } from "lucide-react";
+import { CornerDownLeft, PenLine, Trash2 } from "lucide-react";
 import { normalizeEntryBody, type EntryLineRhyme } from "@rhymelab/api-contract";
 import { LyricSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
@@ -78,7 +78,12 @@ function EntryPage() {
       <Card>
         <LyricSections
           sections={entry.sections}
-          renderLine={(line) => line.text}
+          renderLine={(line) => (
+            <>
+              {line.text}
+              {line.enjambed && <EnjambmentMark />}
+            </>
+          )}
           renderGutter={(line) => <RhymeLetter rhyme={line.rhyme} />}
         />
       </Card>
@@ -101,6 +106,18 @@ function EntryPage() {
         <Text>This entry will no longer appear in your library.</Text>
       </ConfirmationModal>
     </Page>
+  );
+}
+
+function EnjambmentMark() {
+  return (
+    <Text as="span" saliency="low" title="Enjambed: continues on the next line">
+      <CornerDownLeft
+        size={14}
+        aria-label="Enjambed"
+        style={{ display: "inline-block", verticalAlign: "middle", marginLeft: "0.5em" }}
+      />
+    </Text>
   );
 }
 
