@@ -4,8 +4,10 @@ import { useState, type ReactNode } from "react";
 import {
   Button,
   Card,
+  CheckboxGroup,
   ConfirmationModal,
   Drawer,
+  Flex,
   InlineList,
   Menu,
   Text,
@@ -54,6 +56,7 @@ function EntryPage() {
     <Page
       title={entry.title}
       subtitle={byline(entry)}
+      sidebar={<EntryDetails />}
       actions={
         <Menu
           trigger={<Menu.Trigger saliency="low">Actions</Menu.Trigger>}
@@ -173,6 +176,36 @@ function EditTextDrawer({
         required
       />
     </Drawer>
+  );
+}
+
+const ENTRY_OVERLAYS = ["rhymeStructure", "enjambment"] as const;
+type EntryOverlay = (typeof ENTRY_OVERLAYS)[number];
+
+function EntryDetails() {
+  const [overlays, setOverlays] = useState<EntryOverlay[]>([...ENTRY_OVERLAYS]);
+  const allShown = overlays.length === ENTRY_OVERLAYS.length;
+
+  return (
+    <Card>
+      <Flex direction="column" gap="3" align="start">
+        <CheckboxGroup label="Show" value={overlays} onChange={setOverlays}>
+          {({ CheckboxGroupItem }) => (
+            <>
+              <CheckboxGroupItem value="rhymeStructure">Rhyme structure</CheckboxGroupItem>
+              <CheckboxGroupItem value="enjambment">Enjambment</CheckboxGroupItem>
+            </>
+          )}
+        </CheckboxGroup>
+        <Button
+          size="sm"
+          saliency="low"
+          onClick={() => setOverlays(allShown ? [] : [...ENTRY_OVERLAYS])}
+        >
+          {allShown ? "Hide all" : "Show all"}
+        </Button>
+      </Flex>
+    </Card>
   );
 }
 
