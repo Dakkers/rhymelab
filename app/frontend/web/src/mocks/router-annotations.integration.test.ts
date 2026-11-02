@@ -24,7 +24,7 @@ test("getItem resolves a DB-shaped -1 row to an unrhymed line", async () => {
     index: 0,
     text: firstLine,
     rhyme: { group: null, letter: "X", unrhymed: true },
-    enjambed: false,
+    enjambedInto: null,
   });
 });
 
@@ -54,14 +54,14 @@ test("getItem letters a real group id and leaves a null group unrhymed:false", a
       index: 0,
       text: first,
       rhyme: { group: null, letter: "X", unrhymed: true },
-      enjambed: false,
+      enjambedInto: null,
     },
     {
       index: 1,
       text: second,
       rhyme: { group: 3, letter: "A", unrhymed: false },
-      enjambed: true,
+      enjambedInto: 2,
     },
-    { index: 2, text: third, rhyme: null, enjambed: false },
+    { index: 2, text: third, rhyme: null, enjambedInto: null },
   ]);
 });

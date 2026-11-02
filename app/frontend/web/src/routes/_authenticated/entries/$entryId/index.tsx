@@ -12,7 +12,7 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { CornerDownLeft, PenLine, Trash2 } from "lucide-react";
-import { normalizeEntryBody, type EntryLineRhyme, type EntrySection } from "@rhymelab/api-contract";
+import { normalizeEntryBody, type EntryLineRhyme } from "@rhymelab/api-contract";
 import { LyricSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
@@ -38,9 +38,7 @@ function EntryPage() {
 
   const [editingText, setEditingText] = useState(false);
 
-  const [hoveredEnjambment, setHoveredEnjambment] = useState<number | null>(null);
-  const highlightedLines =
-    hoveredEnjambment === null ? undefined : lineAndNext(entry.sections, hoveredEnjambment);
+  const [highlightedLines, setHighlightedLines] = useState<ReadonlySet<number>>();
 
   const deleteEntry = useMutation(
     orpc.lyricEntries.delete.mutationOptions({
@@ -83,12 +81,14 @@ function EntryPage() {
         <LyricSections
           sections={entry.sections}
           highlightedLines={highlightedLines}
-          renderLine={(line) => (
+          renderLine={({ index, text, enjambedInto }) => (
             <>
-              {line.text}
-              {line.enjambed && (
+              {text}
+              {enjambedInto !== null && (
                 <EnjambmentMark
-                  onHoverChange={(hovered) => setHoveredEnjambment(hovered ? line.index : null)}
+                  onHoverChange={(hovered) =>
+                    setHighlightedLines(hovered ? new Set([index, enjambedInto]) : undefined)
+                  }
                 />
               )}
             </>
@@ -116,12 +116,6 @@ function EntryPage() {
       </ConfirmationModal>
     </Page>
   );
-}
-
-function lineAndNext(sections: readonly EntrySection[], index: number): ReadonlySet<number> {
-  const indexes = sections.flatMap((section) => section.lines.map((line) => line.index));
-  const position = indexes.indexOf(index);
-  return new Set(position === -1 ? [] : indexes.slice(position, position + 2));
 }
 
 function EnjambmentMark({ onHoverChange }: { onHoverChange: (hovered: boolean) => void }) {

@@ -79,7 +79,7 @@ describe("readLyricEntryDetailSchema (regression: transform must run exactly onc
             index: 0,
             text: "a line",
             rhyme: { group: null, letter: "X", unrhymed: true },
-            enjambed: false,
+            enjambedInto: null,
           },
         ],
       },
