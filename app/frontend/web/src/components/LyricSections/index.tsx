@@ -16,7 +16,16 @@ const SECTION_TYPE_LABEL: Record<LyricEntrySectionType, string> = {
   interlude: "Interlude",
 };
 
-export function LyricSections({ sections, renderLine, renderGutter }: LyricSectionsProps) {
+const HIGHLIGHT_STYLE = {
+  backgroundColor: "color-mix(in srgb, currentColor 10%, transparent)",
+} as const;
+
+export function LyricSections({
+  sections,
+  renderLine,
+  renderGutter,
+  highlightedLines,
+}: LyricSectionsProps) {
   return (
     <Flex direction="column" gap="6">
       {sections.map((section, index) => (
@@ -25,6 +34,7 @@ export function LyricSections({ sections, renderLine, renderGutter }: LyricSecti
           {...section}
           renderLine={renderLine}
           renderGutter={renderGutter}
+          highlightedLines={highlightedLines}
         />
       ))}
     </Flex>
@@ -36,21 +46,25 @@ function LyricSection({
   lines,
   renderLine,
   renderGutter,
-}: EntrySection & Pick<LyricSectionsProps, "renderLine" | "renderGutter">) {
+  highlightedLines,
+}: EntrySection & Pick<LyricSectionsProps, "renderLine" | "renderGutter" | "highlightedLines">) {
   return (
     <Flex direction="column" gap="1">
       <Eyebrow>{SECTION_TYPE_LABEL[type]}</Eyebrow>
       <Grid columns="2ch minmax(0, 1fr)" align="baseline">
-        {lines.map((line) => (
-          <Fragment key={line.index}>
-            <Text font="mono" size="sm" saliency="low" textAlign="end">
-              {renderGutter?.(line)}
-            </Text>
-            <Text whiteSpace="pre-wrap" lineHeight="lyric" pl="3">
-              {renderLine(line)}
-            </Text>
-          </Fragment>
-        ))}
+        {lines.map((line) => {
+          const style = highlightedLines?.has(line.index) ? HIGHLIGHT_STYLE : undefined;
+          return (
+            <Fragment key={line.index}>
+              <Text font="mono" size="sm" saliency="low" textAlign="end">
+                {renderGutter?.(line)}
+              </Text>
+              <Text whiteSpace="pre-wrap" lineHeight="lyric" pl="3">
+                <span style={style}>{renderLine(line)}</span>
+              </Text>
+            </Fragment>
+          );
+        })}
       </Grid>
     </Flex>
   );
@@ -61,4 +75,6 @@ export interface LyricSectionsProps {
   renderLine: (line: EntryLine) => ReactNode;
   /** Content beside each line, in a fixed-width column. Omitted, the column stays empty. */
   renderGutter?: (line: EntryLine) => ReactNode;
+  /** Song-wide `index` values of lines to tint. Only the background changes, so layout holds still. */
+  highlightedLines?: ReadonlySet<number>;
 }

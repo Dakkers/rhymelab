@@ -12,7 +12,7 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { CornerDownLeft, PenLine, Trash2 } from "lucide-react";
-import { normalizeEntryBody, type EntryLineRhyme } from "@rhymelab/api-contract";
+import { normalizeEntryBody, type EntryLineRhyme, type EntrySection } from "@rhymelab/api-contract";
 import { LyricSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
@@ -37,6 +37,10 @@ function EntryPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const [editingText, setEditingText] = useState(false);
+
+  const [hoveredEnjambment, setHoveredEnjambment] = useState<number | null>(null);
+  const highlightedLines =
+    hoveredEnjambment === null ? undefined : lineAndNext(entry.sections, hoveredEnjambment);
 
   const deleteEntry = useMutation(
     orpc.lyricEntries.delete.mutationOptions({
@@ -78,10 +82,15 @@ function EntryPage() {
       <Card>
         <LyricSections
           sections={entry.sections}
+          highlightedLines={highlightedLines}
           renderLine={(line) => (
             <>
               {line.text}
-              {line.enjambed && <EnjambmentMark />}
+              {line.enjambed && (
+                <EnjambmentMark
+                  onHoverChange={(hovered) => setHoveredEnjambment(hovered ? line.index : null)}
+                />
+              )}
             </>
           )}
           renderGutter={(line) => <RhymeLetter rhyme={line.rhyme} />}
@@ -109,9 +118,21 @@ function EntryPage() {
   );
 }
 
-function EnjambmentMark() {
+function lineAndNext(sections: readonly EntrySection[], index: number): ReadonlySet<number> {
+  const indexes = sections.flatMap((section) => section.lines.map((line) => line.index));
+  const position = indexes.indexOf(index);
+  return new Set(position === -1 ? [] : indexes.slice(position, position + 2));
+}
+
+function EnjambmentMark({ onHoverChange }: { onHoverChange: (hovered: boolean) => void }) {
   return (
-    <Text as="span" saliency="low" title="Enjambed: continues on the next line">
+    <Text
+      as="span"
+      saliency="low"
+      title="Enjambed: continues on the next line"
+      onMouseEnter={() => onHoverChange(true)}
+      onMouseLeave={() => onHoverChange(false)}
+    >
       <CornerDownLeft
         size={14}
         aria-label="Enjambed"
