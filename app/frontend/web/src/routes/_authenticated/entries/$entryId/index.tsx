@@ -6,6 +6,7 @@ import {
   Card,
   ConfirmationModal,
   Drawer,
+  Icon,
   InlineList,
   Menu,
   Text,
@@ -127,11 +128,9 @@ function EnjambmentMark({ onHoverChange }: { onHoverChange: (hovered: boolean) =
       onMouseEnter={() => onHoverChange(true)}
       onMouseLeave={() => onHoverChange(false)}
     >
-      <CornerDownLeft
-        size={14}
-        aria-label="Enjambed"
-        style={{ display: "inline-block", verticalAlign: "middle", marginLeft: "0.5em" }}
-      />
+      <Icon size="sm" label="Enjambed" style={{ marginLeft: "0.5em", verticalAlign: "middle" }}>
+        <CornerDownLeft />
+      </Icon>
     </Text>
   );
 }
