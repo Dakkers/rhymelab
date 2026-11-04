@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import {
+  Box,
   Button,
   Card,
   ConfirmationModal,
@@ -121,17 +122,19 @@ function EntryPage() {
 
 function EnjambmentMark({ onHoverChange }: { onHoverChange: (hovered: boolean) => void }) {
   return (
-    <Text
-      as="span"
-      saliency="low"
-      title="Enjambed: continues on the next line"
-      onMouseEnter={() => onHoverChange(true)}
-      onMouseLeave={() => onHoverChange(false)}
-    >
-      <Icon size="sm" label="Enjambed" style={{ marginLeft: "0.5em", verticalAlign: "middle" }}>
-        <CornerDownLeft />
-      </Icon>
-    </Text>
+    <Box as="span" ml="2">
+      <Text
+        as="span"
+        saliency="low"
+        title="Enjambed: continues on the next line"
+        onMouseEnter={() => onHoverChange(true)}
+        onMouseLeave={() => onHoverChange(false)}
+      >
+        <Icon size="sm" label="Enjambed" style={{ verticalAlign: "middle" }}>
+          <CornerDownLeft />
+        </Icon>
+      </Text>
+    </Box>
   );
 }
 
