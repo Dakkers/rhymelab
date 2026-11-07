@@ -106,8 +106,8 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/core
       '@saintly-software/baritone':
-        specifier: 1.0.0-alpha.6
-        version: 1.0.0-alpha.6(@base-ui/react@1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-form@1.33.5(@tanstack/react-start@1.168.30(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.4(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-table@9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@vanilla-extract/css@1.21.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 1.0.0-alpha.10
+        version: 1.0.0-alpha.10(@base-ui/react@1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-form@1.33.5(@tanstack/react-start@1.168.30(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.4(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-table@9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@vanilla-extract/css@1.21.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-form':
         specifier: 1.33.5
         version: 1.33.5(@tanstack/react-start@1.168.30(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.4(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -1678,8 +1678,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@saintly-software/baritone@1.0.0-alpha.6':
-    resolution: {integrity: sha512-l8j0DuT9YT4eq43qfwXNGcek1VW+RxRfmnz5WT1Dy/Ux4EvgjSPM78gJRrAxBxDuasmuUQ6lGNowhhHfTSVerg==}
+  '@saintly-software/baritone@1.0.0-alpha.10':
+    resolution: {integrity: sha512-mQop7uwYZEj2/nhEmyaZR5vKq3ScaMCmZgzyVmDrXBp6xVjCPOsan872d1F750XN+aBNBHCyMJOe+Es2lPLvzg==}
     peerDependencies:
       '@base-ui/react': ^1.6.0
       '@tanstack/react-form': ^1.33.5
@@ -5280,7 +5280,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@saintly-software/baritone@1.0.0-alpha.6(@base-ui/react@1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-form@1.33.5(@tanstack/react-start@1.168.30(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.4(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-table@9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@vanilla-extract/css@1.21.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@saintly-software/baritone@1.0.0-alpha.10(@base-ui/react@1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-form@1.33.5(@tanstack/react-start@1.168.30(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.4(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/react-table@9.0.0-beta.53(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@vanilla-extract/css@1.21.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@base-ui/react': 1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react: 19.2.7
