@@ -7,14 +7,14 @@ const fromRoot = (p: string) => fileURLToPath(new URL(`../${p}`, import.meta.url
 
 const isCI = !!process.env.CI;
 
-const browser = {
+const browser = () => ({
   enabled: true,
   provider: playwright(),
   instances: [{ browser: "chromium" as const }],
   viewport: { width: 1366, height: 768 },
   headless: isCI,
   screenshotFailures: false,
-};
+});
 
 export default defineConfig({
   define: {
@@ -43,7 +43,7 @@ export default defineConfig({
           include: ["src/**/*.integration.test.{ts,tsx}"],
           exclude: ["src/test/smoke/**", "**/node_modules/**"],
           setupFiles: ["./src/test/setup.ts"],
-          browser,
+          browser: browser(),
         },
       },
       {
@@ -51,7 +51,7 @@ export default defineConfig({
         test: {
           name: "smoke",
           include: ["src/test/smoke/**/*.test.{ts,tsx}"],
-          browser,
+          browser: browser(),
         },
       },
     ],
