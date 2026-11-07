@@ -136,7 +136,8 @@ export type EntryLine = {
   index: number;
   text: string;
   rhyme: EntryLineRhyme | null;
-  enjambed: boolean;
+  /** The `index` of the line this one runs into, or null when it does not (or is the last line). */
+  enjambedInto: number | null;
 };
 
 export type EntrySection = { type: LyricEntrySectionType; lines: EntryLine[] };
@@ -150,7 +151,8 @@ export type SectionAnnotationInput = Pick<
 /**
  * Build render-ready sections from a `body`, its `structure` and its annotations.
  *
- * Line `index` is song-wide and counts blank separator lines. Rhyme letters
+ * Line `index` is song-wide and counts blank separator lines. `enjambedInto`
+ * names the next line by `index`, across a section break if need be. Rhyme letters
  * restart at "A" in every section, in order of first appearance. Unrhymed lines
  * are "X". Annotations that do not land on a body line are dropped. Sections
  * missing a `structure` label read as the default.
@@ -165,22 +167,28 @@ export function buildEntrySections(
   const types = coerceStructure(structure, sections.length);
   let cursor = 0;
 
-  return sections.map((text, sectionIndex) => {
+  const built = sections.map((text, sectionIndex) => {
     const letters = new Map<number, string>();
     const lines = text.split("\n").map((lineText, offset): EntryLine => {
       const index = cursor + offset;
       const annotation = byLine.get(index);
-      if (!annotation) return { index, text: lineText, rhyme: null, enjambed: false };
+      if (!annotation) return { index, text: lineText, rhyme: null, enjambedInto: null };
       return {
         index,
         text: lineText,
         rhyme: toRhyme(annotation, letters),
-        enjambed: annotation.enjambed,
+        enjambedInto: null,
       };
     });
     cursor += lines.length + 1;
     return { type: types[sectionIndex], lines };
   });
+
+  const flat = built.flatMap((section) => section.lines);
+  flat.forEach((line, position) => {
+    if (byLine.get(line.index)?.enjambed) line.enjambedInto = flat[position + 1]?.index ?? null;
+  });
+  return built;
 }
 
 function toRhyme(
