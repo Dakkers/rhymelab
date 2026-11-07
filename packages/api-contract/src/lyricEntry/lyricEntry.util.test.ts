@@ -149,9 +149,19 @@ describe("buildEntrySections", () => {
     expect(section.lines.map((line) => line.rhyme)).toEqual([null, null]);
   });
 
-  it("passes enjambed through and defaults it to false", () => {
+  it("points an enjambed line at the next line and defaults to null", () => {
     const [section] = buildEntrySections("a\nb", [], [ann(0, 1, { enjambed: true })]);
-    expect(section.lines.map((line) => line.enjambed)).toEqual([true, false]);
+    expect(section.lines.map((line) => line.enjambedInto)).toEqual([1, null]);
+  });
+
+  it("points an enjambed line at the first line of the next section", () => {
+    const sections = buildEntrySections("a\nb\n\nc", [], [ann(1, 1, { enjambed: true })]);
+    expect(sections[0].lines[1].enjambedInto).toBe(3);
+  });
+
+  it("leaves an enjambed last line pointing nowhere", () => {
+    const [section] = buildEntrySections("a\nb", [], [ann(1, 1, { enjambed: true })]);
+    expect(section.lines[1].enjambedInto).toBeNull();
   });
 
   it("indexes lines song-wide, skipping blank separators", () => {

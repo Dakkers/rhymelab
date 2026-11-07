@@ -8,12 +8,13 @@ import {
   ConfirmationModal,
   Drawer,
   Flex,
+  Icon,
   InlineList,
   Menu,
   Text,
   TextInput,
 } from "@saintly-software/baritone";
-import { PenLine, Trash2 } from "lucide-react";
+import { CornerDownLeft, PenLine, Trash2 } from "lucide-react";
 import { normalizeEntryBody, type EntryLineRhyme } from "@rhymelab/api-contract";
 import { LyricSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
@@ -39,6 +40,8 @@ function EntryPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const [editingText, setEditingText] = useState(false);
+
+  const [highlightedLines, setHighlightedLines] = useState<ReadonlySet<number>>();
 
   const deleteEntry = useMutation(
     orpc.lyricEntries.delete.mutationOptions({
@@ -81,7 +84,19 @@ function EntryPage() {
       <Card>
         <LyricSections
           sections={entry.sections}
-          renderLine={(line) => line.text}
+          highlightedLines={highlightedLines}
+          renderLine={({ index, text, enjambedInto }) => (
+            <>
+              {text}
+              {enjambedInto !== null && (
+                <EnjambmentMark
+                  onHoverChange={(hovered) =>
+                    setHighlightedLines(hovered ? new Set([index, enjambedInto]) : undefined)
+                  }
+                />
+              )}
+            </>
+          )}
           renderGutter={(line) => <RhymeLetter rhyme={line.rhyme} />}
         />
       </Card>
@@ -104,6 +119,23 @@ function EntryPage() {
         <Text>This entry will no longer appear in your library.</Text>
       </ConfirmationModal>
     </Page>
+  );
+}
+
+function EnjambmentMark({ onHoverChange }: { onHoverChange: (hovered: boolean) => void }) {
+  return (
+    <Text
+      as="span"
+      saliency="low"
+      ml="2"
+      title="Enjambed: continues on the next line"
+      onMouseEnter={() => onHoverChange(true)}
+      onMouseLeave={() => onHoverChange(false)}
+    >
+      <Icon size="sm" label="Enjambed" style={{ verticalAlign: "middle" }}>
+        <CornerDownLeft />
+      </Icon>
+    </Text>
   );
 }
 
