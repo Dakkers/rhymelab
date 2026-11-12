@@ -51,15 +51,17 @@ function LyricSection({
   return (
     <Flex direction="column" gap="1">
       <Eyebrow>{SECTION_TYPE_LABEL[type]}</Eyebrow>
-      <Grid columns="2ch minmax(0, 1fr)" align="baseline">
+      <Grid columns={renderGutter ? "2ch minmax(0, 1fr)" : "minmax(0, 1fr)"} align="baseline">
         {lines.map((line) => {
           const style = highlightedLines?.has(line.index) ? HIGHLIGHT_STYLE : undefined;
           return (
             <Fragment key={line.index}>
-              <Text font="mono" size="sm" saliency="low" textAlign="end">
-                {renderGutter?.(line)}
-              </Text>
-              <Text whiteSpace="pre-wrap" lineHeight="lyric" pl="3">
+              {renderGutter && (
+                <Text font="mono" size="sm" saliency="low" textAlign="end">
+                  {renderGutter(line)}
+                </Text>
+              )}
+              <Text whiteSpace="pre-wrap" lineHeight="lyric" pl={renderGutter ? "3" : undefined}>
                 <span style={style}>{renderLine(line)}</span>
               </Text>
             </Fragment>
@@ -73,7 +75,7 @@ function LyricSection({
 export interface LyricSectionsProps {
   sections: readonly EntrySection[];
   renderLine: (line: EntryLine) => ReactNode;
-  /** Content beside each line, in a fixed-width column. Omitted, the column stays empty. */
+  /** Content beside each line, in a fixed-width column. Omitted, the column is not rendered. */
   renderGutter?: (line: EntryLine) => ReactNode;
   /** Song-wide `index` values of lines to tint. Only the background changes, so layout holds still. */
   highlightedLines?: ReadonlySet<number>;

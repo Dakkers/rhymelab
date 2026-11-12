@@ -4,8 +4,10 @@ import { useState, type ReactNode } from "react";
 import {
   Button,
   Card,
+  CheckboxGroup,
   ConfirmationModal,
   Drawer,
+  Flex,
   Icon,
   InlineList,
   Menu,
@@ -41,6 +43,10 @@ function EntryPage() {
 
   const [highlightedLines, setHighlightedLines] = useState<ReadonlySet<number>>();
 
+  const [overlays, setOverlays] = useState<EntryOverlay[]>([...ENTRY_OVERLAYS]);
+  const showRhymeStructure = overlays.includes("rhymeStructure");
+  const showEnjambment = overlays.includes("enjambment");
+
   const deleteEntry = useMutation(
     orpc.lyricEntries.delete.mutationOptions({
       onSuccess: async () => {
@@ -57,6 +63,7 @@ function EntryPage() {
     <Page
       title={entry.title}
       subtitle={byline(entry)}
+      sidebar={<EntryDetails overlays={overlays} onOverlaysChange={setOverlays} />}
       actions={
         <Menu
           trigger={<Menu.Trigger saliency="low">Actions</Menu.Trigger>}
@@ -85,7 +92,7 @@ function EntryPage() {
           renderLine={({ index, text, enjambedInto }) => (
             <>
               {text}
-              {enjambedInto !== null && (
+              {showEnjambment && enjambedInto !== null && (
                 <EnjambmentMark
                   onHoverChange={(hovered) =>
                     setHighlightedLines(hovered ? new Set([index, enjambedInto]) : undefined)
@@ -94,7 +101,9 @@ function EntryPage() {
               )}
             </>
           )}
-          renderGutter={(line) => <RhymeLetter rhyme={line.rhyme} />}
+          renderGutter={
+            showRhymeStructure ? (line) => <RhymeLetter rhyme={line.rhyme} /> : undefined
+          }
         />
       </Card>
 
@@ -205,6 +214,41 @@ function EditTextDrawer({
         required
       />
     </Drawer>
+  );
+}
+
+const ENTRY_OVERLAYS = ["rhymeStructure", "enjambment"] as const;
+type EntryOverlay = (typeof ENTRY_OVERLAYS)[number];
+
+function EntryDetails({
+  overlays,
+  onOverlaysChange: setOverlays,
+}: {
+  overlays: EntryOverlay[];
+  onOverlaysChange: (overlays: EntryOverlay[]) => void;
+}) {
+  const allShown = overlays.length === ENTRY_OVERLAYS.length;
+
+  return (
+    <Card>
+      <Flex direction="column" gap="3" align="start">
+        <CheckboxGroup label="Show" value={overlays} onChange={setOverlays}>
+          {({ CheckboxGroupItem }) => (
+            <>
+              <CheckboxGroupItem value="rhymeStructure">Rhyme structure</CheckboxGroupItem>
+              <CheckboxGroupItem value="enjambment">Enjambment</CheckboxGroupItem>
+            </>
+          )}
+        </CheckboxGroup>
+        <Button
+          size="sm"
+          saliency="low"
+          onClick={() => setOverlays(allShown ? [] : [...ENTRY_OVERLAYS])}
+        >
+          {allShown ? "Hide all" : "Show all"}
+        </Button>
+      </Flex>
+    </Card>
   );
 }
 
