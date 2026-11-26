@@ -149,6 +149,31 @@ describe("buildEntrySections", () => {
     expect(section.lines.map((line) => line.rhyme)).toEqual([null, null]);
   });
 
+  it("lists every line sharing a rhyme group on each of them, itself included", () => {
+    const [section] = buildEntrySections("a\nb\nc\nd", [], [ann(0, 1), ann(1, 2), ann(2, 1)]);
+    expect(section.lines.map((line) => line.rhymeLines)).toEqual([[0, 2], [1], [0, 2], []]);
+  });
+
+  it("keeps rhymeLines within the section", () => {
+    const sections = buildEntrySections("a\nb\n\nc", [], [ann(0, 1), ann(1, 1), ann(3, 1)]);
+    expect(sections.map((section) => section.lines.map((line) => line.rhymeLines))).toEqual([
+      [
+        [0, 1],
+        [0, 1],
+      ],
+      [[3]],
+    ]);
+  });
+
+  it("leaves rhymeLines empty for unrhymed lines and null rhymeGroups", () => {
+    const [section] = buildEntrySections(
+      "a\nb\nc",
+      [],
+      [ann(0, null, { unrhymed: true }), ann(1, null, { unrhymed: true }), ann(2, null)],
+    );
+    expect(section.lines.map((line) => line.rhymeLines)).toEqual([[], [], []]);
+  });
+
   it("points an enjambed line at the next line and defaults to null", () => {
     const [section] = buildEntrySections("a\nb", [], [ann(0, 1, { enjambed: true })]);
     expect(section.lines.map((line) => line.enjambedInto)).toEqual([1, null]);

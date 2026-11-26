@@ -102,7 +102,16 @@ function EntryPage() {
             </>
           )}
           renderGutter={
-            showRhymeStructure ? (line) => <RhymeLetter rhyme={line.rhyme} /> : undefined
+            showRhymeStructure
+              ? (line) => (
+                  <RhymeLetter
+                    rhyme={line.rhyme}
+                    onHoverChange={(hovered) =>
+                      setHighlightedLines(hovered ? new Set(line.rhymeLines) : undefined)
+                    }
+                  />
+                )
+              : undefined
           }
         />
       </Card>
@@ -252,11 +261,23 @@ function EntryDetails({
   );
 }
 
-function RhymeLetter({ rhyme }: { rhyme: EntryLineRhyme | null }) {
+function RhymeLetter({
+  rhyme,
+  onHoverChange,
+}: {
+  rhyme: EntryLineRhyme | null;
+  onHoverChange: (hovered: boolean) => void;
+}) {
   if (!rhyme) return <span aria-hidden>·</span>;
   if (rhyme.unrhymed) return rhyme.letter;
   return (
-    <Text as="span" saliency="mid" weight="semibold">
+    <Text
+      as="span"
+      saliency="mid"
+      weight="semibold"
+      onMouseEnter={() => onHoverChange(true)}
+      onMouseLeave={() => onHoverChange(false)}
+    >
       {rhyme.letter}
     </Text>
   );

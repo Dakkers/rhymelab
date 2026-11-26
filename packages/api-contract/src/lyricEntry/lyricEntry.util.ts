@@ -138,6 +138,11 @@ export type EntryLine = {
   rhyme: EntryLineRhyme | null;
   /** The `index` of the line this one runs into, or null when it does not (or is the last line). */
   enjambedInto: number | null;
+  /**
+   * The `index` of each line in this section that shares this line's rhyme group, in order.
+   * Includes this line. Empty when the line is unrhymed or has no rhyme.
+   */
+  rhymeLines: number[];
 };
 
 export type EntrySection = { type: LyricEntrySectionType; lines: EntryLine[] };
@@ -154,7 +159,8 @@ export type SectionAnnotationInput = Pick<
  * Line `index` is song-wide and counts blank separator lines. `enjambedInto`
  * names the next line by `index`, across a section break if need be. Rhyme letters
  * restart at "A" in every section, in order of first appearance. Unrhymed lines
- * are "X". Annotations that do not land on a body line are dropped. Sections
+ * are "X". `rhymeLines`
+ * never crosses a section break. Annotations that do not land on a body line are dropped. Sections
  * missing a `structure` label read as the default.
  */
 export function buildEntrySections(
@@ -172,14 +178,15 @@ export function buildEntrySections(
     const lines = text.split("\n").map((lineText, offset): EntryLine => {
       const index = cursor + offset;
       const annotation = byLine.get(index);
-      if (!annotation) return { index, text: lineText, rhyme: null, enjambedInto: null };
       return {
         index,
         text: lineText,
-        rhyme: toRhyme(annotation, letters),
+        rhyme: annotation ? toRhyme(annotation, letters) : null,
         enjambedInto: null,
+        rhymeLines: [],
       };
     });
+    assignRhymeLines(lines);
     cursor += lines.length + 1;
     return { type: types[sectionIndex], lines };
   });
@@ -189,6 +196,18 @@ export function buildEntrySections(
     if (byLine.get(line.index)?.enjambed) line.enjambedInto = flat[position + 1]?.index ?? null;
   });
   return built;
+}
+
+function assignRhymeLines(lines: EntryLine[]): void {
+  const byGroup = new Map<number, number[]>();
+  for (const line of lines) {
+    const group = line.rhyme?.group ?? null;
+    if (group === null) continue;
+    const indices = byGroup.get(group) ?? [];
+    indices.push(line.index);
+    byGroup.set(group, indices);
+    line.rhymeLines = indices;
+  }
 }
 
 function toRhyme(
