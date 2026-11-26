@@ -15,12 +15,7 @@ import {
   TextInput,
 } from "@saintly-software/baritone";
 import { CornerDownLeft, PenLine, Trash2 } from "lucide-react";
-import {
-  normalizeEntryBody,
-  type EntryLine,
-  type EntryLineRhyme,
-  type EntrySection,
-} from "@rhymelab/api-contract";
+import { normalizeEntryBody, type EntryLineRhyme } from "@rhymelab/api-contract";
 import { LyricSections } from "#/components/LyricSections";
 import { Page } from "#/components/Page";
 import { names } from "#/lib/format";
@@ -112,9 +107,7 @@ function EntryPage() {
                   <RhymeLetter
                     rhyme={line.rhyme}
                     onHoverChange={(hovered) =>
-                      setHighlightedLines(
-                        hovered ? sectionLinesRhyming(entry.sections, line) : undefined,
-                      )
+                      setHighlightedLines(hovered ? new Set(line.rhymeLines) : undefined)
                     }
                   />
                 )
@@ -265,23 +258,6 @@ function EntryDetails({
         </Button>
       </Flex>
     </Card>
-  );
-}
-
-function sectionLinesRhyming(
-  sections: readonly EntrySection[],
-  line: EntryLine,
-): ReadonlySet<number> | undefined {
-  if (!line.rhyme || line.rhyme.unrhymed) return undefined;
-  const section = sections.find((candidate) =>
-    candidate.lines.some((other) => other.index === line.index),
-  );
-  if (!section) return undefined;
-  const { letter } = line.rhyme;
-  return new Set(
-    section.lines
-      .filter((other) => !other.rhyme?.unrhymed && other.rhyme?.letter === letter)
-      .map((other) => other.index),
   );
 }
 
